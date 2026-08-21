@@ -9,8 +9,8 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.models.common import WorkPackage, WorkPackageStatus
 from pyjamaz.models.state import ServiceAccount
-from pyjamaz.rpc.interface import RPCMethods
-from pyjamaz.rpc.rpc import generate_req_id, RPCCallException, jsonapi_request
+from pyjamaz.transport.rpc.interface import RPCMethods
+from pyjamaz.transport.rpc.rpc import generate_req_id, jsonapi_parse, RPCCallException, jsonapi_request
 from pyjamaz.utils import base64_encode, base64_decode
 
 

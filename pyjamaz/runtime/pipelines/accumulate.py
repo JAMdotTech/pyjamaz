@@ -117,7 +117,7 @@ class AccumulatePipeline:
                     )
 
                     # Process tickets
-                    self.app.block_extrinsic.process_epoch_change()
+                    await self.app.block_extrinsic.process_epoch_change()
                     DEBUG and logging.debug(
                         f"Current tickets {[i.hex() for i in self.app.block_extrinsic.own_tickets_current]}"
                         )
@@ -161,7 +161,7 @@ class AccumulatePipeline:
                         # Rollback state from DB
                         self.app.working_state = self.app.retrieve_jam_state()
                         # TODO Make transactional
-                        self.app.block_extrinsic.clear_tickets()
+                        await self.app.block_extrinsic.clear_tickets()
 
                 else:
                     logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')

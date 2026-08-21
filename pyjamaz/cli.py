@@ -1,5 +1,6 @@
 import bisect
 import logging
+import re
 import traceback
 from asyncio import CancelledError
 from datetime import datetime, timezone
@@ -27,15 +28,14 @@ from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
-from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
+from pyjamaz.transport.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.runtime.node_runtime import NodeRuntime
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.fuzzer import FuzzerMessage, InitializeMessage, FuzzerTarget, FuzzerSession, AncestryItem
-from pyjamaz.transport.cert import generate_cert, write_cert
-from pyjamaz.transport.protocol_fs import FSProtocol
-from pyjamaz.transport.protocol_jamnp_s import JAMNPS
+from pyjamaz.transport.cert import generate_cert, read_cert_public_key, write_cert
+from pyjamaz.transport.jamnp_s.network import JAMNPS
 
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import format_hash, quic_peer_id
@@ -122,21 +122,6 @@ def import_block_fuzzer(traces_dir):
         logging.info(f'🗳️ Tickets in accumulator: {len(self.working_state.safrole.ticket_accumulator)}')
 
     return cli_import_block
-
-
-def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
-    async def produced_block_jamnp(block: Block):
-        await np_protocol.broadcast_block(block)
-
-    return produced_block_jamnp
-
-
-def wrap_produced_block_fs(app: PyjamazApp, traces_dir, fs_protocol: FSProtocol):
-    async def produced_block_fs(block: Block):
-        await app.import_block(block)
-        await fs_protocol.broadcast_block(block)
-
-    return produced_block_fs
 
 
 async def initialize_app(
@@ -237,6 +222,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     # Note: Add packages that need a different logging level here
     log_package_overrides = {
         "pyjamaz.transport": log_level,
+        #"pyjamaz.transport.jamnp_s": logging.DEBUG,
         "quic": logging.WARNING,
         "numba": logging.WARNING,
         "numba.core": logging.WARNING
@@ -254,9 +240,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
 
     db_path = custom_db_path or default_db_path
 
-    network_bootstrap = ts is None
-    if network_bootstrap:
-        ts = 0
+    ts = ts or 0
 
     #TODO: currently it is not possible to provide a hard unix timestamp (only deltas)
     current_time = time.time()
@@ -279,7 +263,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     for header in app.retrieve_ancestor_headers(app.state_storage.finalized_block_hash):
         app.state_storage.add_ancestor(header)
 
-    app.network_bootstrap = network_bootstrap
     common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     if replay_blocks:
@@ -296,6 +279,14 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
+    #TODO: for now we assume we are either in the validator pool or are a listening node
+    validator_index = app.get_validator_index()
+    if validator_index is None:
+        logging.warning(
+            "⚠️ Local key not in validator pool; acting as non participating node"
+        )
+    else:
+        logging.info(f"🧩 Validator pool index: #{validator_index}")
     logging.info(f'🗓️ Common Era: {app.config.common_era} ({common_era_time})')
     logging.info(f'🌲 State trie root: {format_hash(app.working_state.state_root)}')
     logging.info(f'📦 Finalized block: {format_hash(app.state_storage.finalized_block_hash)}')
@@ -313,6 +304,10 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     try:
         async with anyio.create_task_group() as tg:
 
+            # Create and start runtime
+            app.runtime = NodeRuntime(app)
+            app.runtime.start(tg)
+
             # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
             # Create a subscriber to process incoming messages (fx from a protocol)
             tg.start_soon(app.pubsub.process_messages)
@@ -320,47 +315,53 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             # Start WebSocket server
             tg.start_soon(start_rpc_server, rpc_server)
 
-            if False and block_dir:
-                # TODO remove
-                logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                fs_protocol = FSProtocol(block_dir, app)
-                app.protocol = fs_protocol
-                app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
-                app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
-                app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
-                tg.start_soon(fs_protocol.listen)
-            else:
-                certificate_file = os.path.join(db_path, "cert.pem")
-                pk_file = os.path.join(db_path, "cert.key")
-                nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
-                app.protocol = nps_protocol
-                app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
-                app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
-                app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
-                tg.start_soon(nps_protocol.listen)
+            certificate_file = os.path.join(db_path, "cert.pem")
+            pk_file = os.path.join(db_path, "cert.key")
+            await ensure_certificate_matches_seed(db_path, seed)
+            nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
+            app.protocol = nps_protocol
+            tg.start_soon(nps_protocol.listen)
+            tg.start_soon(nps_protocol.check_connections)
 
-                for validator in app.working_state.safrole.validators:
-                    # The validators' IP-layer endpoints are given as IPv6/port combinations,
-                    # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
-                    # the latter 2 being a little endian representation of the port.
+            if bootnode:
+                # logging.debug(f'Connecting to node {validator_address}:{validator_port}')
+                # tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
-                    validator_port = validator.get_metadata_port()
-                    validator_address = validator.get_metadata_ipaddress()
+                # ecjn4brac2kgu25kiykefww6p6ai7noueo6p5af5tnwjgra4eisya@172.16.238.11:40001
+                conn = re.match(
+                    r"^(?P<key>[A-Za-z0-9]+)"
+                    r"@"
+                    r"(?P<addr>(?:\d{1,3}\.){3}\d{1,3})"
+                    r":"
+                    r"(?P<port>\d{1,5})$",
+                    bootnode,
+                )
 
-                    if validator.ed25519 == app.config.keys.ed25519.public_key:
-                        DEBUG and logging.debug(
-                            f'Skipping own node ({validator_address}:{validator_port})'
-                        )
-                        continue
-
-                    DEBUG and logging.debug(f'Connecting to node {validator_address}:{validator_port}')
-                    tg.start_soon(nps_protocol.connect, validator_address, validator_port)
+                logging.debug(f'Connecting to bootnode {conn["key"]} at {conn["addr"]}:{conn["port"]}')
+                try:
+                    await nps_protocol.connect(conn["addr"], int(conn["port"]), None)
+                except Exception as exc:
+                    traceback.print_exc()
+            # else:
+            #     # for validator in app.state.safrole.validators:
+            #     #     # The validators' IP-layer endpoints are given as IPv6/port combinations,
+            #     #     # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
+            #     #     # the latter 2 being a little endian representation of the port.
+            #     #
+            #     #     validator_port = validator.get_metadata_port()
+            #     #     validator_address = validator.get_metadata_ipaddress()
+            #     #
+            #     #     if validator.ed25519 == app.config.keys.ed25519.public_key:
+            #     #         logging.debug(
+            #     #             f'Skipping own node ({validator_address}:{validator_port})'
+            #     #         )
+            #     #         continue
+            #     #
+            #     #     logging.debug(f'Connecting to node {validator_address}:{validator_port}')
+            #     #     tg.start_soon(nps_protocol.connect, validator_address, validator_port)
+            #     #tg.start_soon(nps_protocol.connect, "127.0.0.1", 40001)
 
             await anyio.sleep(ts - time.time())
-
-            # Create and start runtime
-            app.runtime = NodeRuntime(app)
-            app.runtime.start(tg)
 
     except (KeyboardInterrupt, CancelledError):
         logging.info("Stopping node...")
@@ -414,11 +415,31 @@ async def init_certificate(db_path, seed):
     pk_pem, cert_pem = generate_cert(
         keys,
         ips="127.0.0.1",    #TODO: hardcoded for now
-        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka",
     )
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")
     write_cert(pk_pem, pk_file, cert_pem, pem_file)
+
+
+async def ensure_certificate_matches_seed(db_path, seed):
+    cert_file = os.path.join(db_path, "cert.pem")
+    pk_file = os.path.join(db_path, "cert.key")
+    expected_public_key = Keys.from_seed(bytes.fromhex(seed[2:])).ed25519.public_key
+
+    if not os.path.exists(cert_file) or not os.path.exists(pk_file):
+        logging.info("🔐 JAMNP-S certificate missing; generating a new certificate")
+        await init_certificate(db_path, seed)
+        return
+
+    actual_public_key = read_cert_public_key(cert_file)
+    if actual_public_key == expected_public_key:
+        return
+
+    logging.warning(
+        "🔐 JAMNP-S certificate key does not match the provided seed; regenerating certificate "
+        f"(cert={format_hash(actual_public_key)}, expected={format_hash(expected_public_key)})"
+    )
+    await init_certificate(db_path, seed)
 
 
 @main.command()

@@ -144,6 +144,15 @@ class PyjamazApp:
             logging.info(f"Syncing in progress, current timeslot={self.working_state.timeslot.number}")
 
 
+    async def import_queue_add_blocks(self, blocks: List[Block], process: bool=False, on_success: MESSAGE_TYPES=None, on_failure: MESSAGE_TYPES=None):
+        async with self.import_lock:
+            for block in blocks:
+                self.import_queue.append(block)
+
+        if process:
+            await self.process_import_queue(on_success=on_success, on_failure=on_failure)
+
+
     async def import_block_from_json(self, data):
         DEBUG and logging.debug(f"📦 Importing block from json")
         block = Block.from_json(data)
@@ -152,35 +161,47 @@ class PyjamazApp:
 
     async def requested_blocks_from_json(self, data):
         block_list = [Block.from_json(block_data) for block_data in data]
-        for block in block_list:
-            self.import_queue.append(Block.from_codec_type(block))
-            logging.info(f"📦 Queue block requested #{block.header.timeslot}")
+        async with self.import_lock:
+            for block in block_list:
+                self.import_queue.append(Block.from_codec_type(block))
+                logging.info(f"📦 Queue block requested #{block.header.timeslot}")
         await self.process_import_queue()
 
 
     async def requested_blocks_from_bytes(self, data):
-        block_list = Vec(Block.to_codec_def()).new()
-        block_list.decode(JamBytes(data))
-        for block_bytes in block_list:
-            block = Block.from_codec_type(block_bytes)
-            self.import_queue.append(block)
+        async with self.import_lock:
+            block_list = Vec(Block.to_codec_def()).new()
+            block_list.decode(JamBytes(data))
+            for block_bytes in block_list:
+                block = Block.from_codec_type(block_bytes)
+                self.import_queue.append(block)
 
         await self.process_import_queue()
 
 
-    async def process_import_queue(self):
+    async def process_import_queue(self, on_success:MESSAGE_TYPES=None, on_failure:MESSAGE_TYPES=None):
         async with self.import_lock:
             sorted_blocks = sorted(self.import_queue, key=lambda x: x.header.timeslot)
             self.import_queue = []
 
-        for block in sorted_blocks:
-            # TODO: protocol should only import blocks from this point on -> fix the block_request
-            if self.working_state.timeslot.number >= block.header.timeslot:
-                DEBUG and logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
-                continue
+        try:
+            for block in sorted_blocks:
+                # TODO: protocol should only import blocks from this point on -> fix the block_request
+                if self.working_state.timeslot.number >= block.header.timeslot:
+                    DEBUG and logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
+                    continue
 
-            await self.import_block(block)
-            DEBUG and logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
+                await self.import_block(block)
+                DEBUG and logging.debug(
+                    f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
+
+            if on_success:
+                await self.pubsub.publish(PubSubSignal(topic=on_success, data=None))
+
+        except Exception as e:
+            if on_failure:
+                await self.pubsub.publish(PubSubSignal(topic=on_failure, data=None))
+            logging.error(f"Error processing import queue: {e}")
 
 
     async def initialize(self, header: Optional[Header] = None, produce=False):
@@ -211,8 +232,6 @@ class PyjamazApp:
             self.working_state = self.retrieve_jam_state()
             DEBUG and logging.debug(f"Updated working state to state_root={format_hash(self.working_state.state_root)}")
 
-        else:
-            DEBUG and logging.debug("StateStorage: State already matches requested state root, no updating required")
 
     def retrieve_ancestor_headers(self, block_hash: bytes) -> List[Header]:
         """
@@ -715,6 +734,9 @@ class PyjamazApp:
         self.block_db.put(
             b'block_number:' + header.hash, header.timeslot.to_bytes(length=4, byteorder='little')
         )
+        self.block_db.put(
+            b'block_child:' + header.parent, header.hash
+        )
 
     def retrieve_block(self, timeslot: int) -> Optional[Block]:
         block_data = self.block_db.get(b'block:' + timeslot.to_bytes(length=4, byteorder='little'))
@@ -742,6 +764,9 @@ class PyjamazApp:
 
     def retrieve_block_hash(self, timeslot: int) -> Optional[bytes]:
         return self.block_db.get(b'block_hash:' + timeslot.to_bytes(length=4, byteorder='little'))
+
+    def retrieve_block_child_hash(self, block_hash: bytes) -> Optional[bytes]:
+        return self.block_db.get(b'block_child:' + block_hash)
 
     def should_produce_block(self, timeslot: int, safrole_state: SafroleState) -> bool:
         slot_phase_index = timeslot % EPOCH_TIMESLOTS
@@ -926,24 +951,24 @@ class PyjamazApp:
                 ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
                 ring_context = RingContext(self.config.ring_data, ring_public_keys)
 
-                self.block_extrinsic.add_own_ticket(
-                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                await self.block_extrinsic.add_own_ticket(
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index(), pubsub=self.pubsub
                 )
 
-                self.block_extrinsic.add_own_ticket(
-                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                await self.block_extrinsic.add_own_ticket(
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index(), pubsub=self.pubsub
                 )
 
-                self.block_extrinsic.add_own_ticket(
-                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                await self.block_extrinsic.add_own_ticket(
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index(), pubsub=self.pubsub
                 )
 
         extrinsic = Extrinsic(
-            tickets=self.block_extrinsic.collect_tickets(),
+            tickets=await self.block_extrinsic.collect_tickets(),
             disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
             preimages=self.block_extrinsic.collect_preimages(self.working_state.services),
             assurances=self.block_extrinsic.collect_assurances(),
-            guarantees=self.block_extrinsic.collect_guarantees(),
+            guarantees=await self.block_extrinsic.collect_guarantees(),
         )
 
         header = Header(
