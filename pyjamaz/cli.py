@@ -213,8 +213,11 @@ async def main():
     pass
 
 #TODO: verplaats naar telemetry map...
-def get_telemetry_endpoint(endpoint: str) -> Tuple[str, int]:
+def get_telemetry_endpoint(endpoint: Optional[str]) -> Optional[Tuple[str, int]]:
     """Parse a telemetry endpoint into host and port."""
+    if endpoint is None:
+        return None
+
     parsed_host: Optional[str] = None
     parsed_port: Optional[int] = None
 
@@ -310,9 +313,9 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
 
-    telemetry_target: Tuple[str, int] = get_telemetry_endpoint(telemetry_endpoint)
+    telemetry_target = get_telemetry_endpoint(telemetry_endpoint)
     if telemetry_target:
-        logging.info(f'📡 Telemetry endpoints: f"{telemetry_target[0]}:{telemetry_target[1]}"')
+        logging.info(f'📡 Telemetry endpoint: {telemetry_target[0]}:{telemetry_target[1]}')
 
     DEBUG and logging.debug("Retrieving ancestor headers from DB..")
 

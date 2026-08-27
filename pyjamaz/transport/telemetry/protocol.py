@@ -18,6 +18,8 @@ from pyjamaz.transport.types import ProtocolType
 from .connection import TelemetryConnection, TelemetryConnectionError
 from .message_types import (
     TelemetryAccumulateCost,
+    TelemetryBlockAuthoredEvent,
+    TelemetryBlockAuthoringEvent,
     TelemetryBlockExecutedEvent,
     TelemetryBlockImportingEvent,
     TelemetryBlockOutline,
@@ -72,7 +74,8 @@ class TelemetryClient(ProtocolType):
 
         self._send_lock = asyncio.Lock()
         self._next_event_id = 0
-        self._import_event_ids: Dict[bytes, int] = {}
+        self._authoring_event_ids: Dict[int, int] = {}
+        self._block_event_ids: Dict[bytes, int] = {}
 
         self._status_task: Optional[asyncio.Task] = None
         self._running = False
@@ -115,6 +118,8 @@ class TelemetryClient(ProtocolType):
 
 
     def _register_pubsub(self) -> None:
+        self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_AUTHORING, self._handle_block_authoring)
+        self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_AUTHORED, self._handle_block_authored)
         self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_IMPORTING, self._handle_block_importing)
         self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_VERIFIED, self._handle_block_verified)
         self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_VERIFICATION_FAILED, self._handle_block_verification_failed)
@@ -132,7 +137,8 @@ class TelemetryClient(ProtocolType):
         self._connection = TelemetryConnection(self._host, self._port)
         await self._connection.connect()
         self._next_event_id = 0
-        self._import_event_ids.clear()
+        self._authoring_event_ids.clear()
+        self._block_event_ids.clear()
         self._connection_lost.clear()
 
 
@@ -227,6 +233,45 @@ class TelemetryClient(ProtocolType):
         )
 
 
+    async def _handle_block_authoring(self, payload) -> None:
+        if not isinstance(payload, dict):
+            return
+        slot = payload.get("slot")
+        parent_hash = payload.get("parent_hash")
+        if not isinstance(slot, int) or not isinstance(parent_hash, bytes) or len(parent_hash) != 32:
+            logger.debug("Telemetry block authoring received unexpected payload: %r", payload)
+            return
+
+        event = TelemetryBlockAuthoringEvent(
+            timestamp=self._timestamp(),
+            slot=slot,
+            parent_hash=parent_hash,
+        )
+        event_id = await self._send_event(event)
+        if event_id is not None:
+            self._authoring_event_ids[slot] = event_id
+
+
+    async def _handle_block_authored(self, payload) -> None:
+        block = self._resolve_block(payload)
+        if block is None:
+            return
+
+        authoring_event_id = self._authoring_event_ids.pop(block.header.timeslot, None)
+        if authoring_event_id is None:
+            logger.debug("Telemetry skip block authored: no authoring event id")
+            return
+
+        event = TelemetryBlockAuthoredEvent(
+            timestamp=self._timestamp(),
+            authoring_event_id=authoring_event_id,
+            outline=self._build_block_outline(block),
+        )
+        event_id = await self._send_event(event)
+        if event_id is not None:
+            self._block_event_ids[block.header.hash] = authoring_event_id
+
+
     async def _handle_block_importing(self, payload) -> None:
         block = self._resolve_block(payload)
         if block is None:
@@ -241,7 +286,7 @@ class TelemetryClient(ProtocolType):
         )
         event_id = await self._send_event(event)
         if event_id is not None:
-            self._import_event_ids[block_hash] = event_id
+            self._block_event_ids[block_hash] = event_id
 
 
     async def _handle_block_verified(self, payload) -> None:
@@ -249,7 +294,7 @@ class TelemetryClient(ProtocolType):
         if block is None:
             return
         block_hash = block.header.hash
-        import_event_id = self._import_event_ids.get(block_hash)
+        import_event_id = self._block_event_ids.get(block_hash)
         if import_event_id is None:
             logger.debug("Telemetry skip block verified: no import event id")
             return
@@ -268,7 +313,7 @@ class TelemetryClient(ProtocolType):
         if isinstance(payload, dict):
             reason = str(payload.get("reason", ""))
         block_hash = block.header.hash
-        import_event_id = self._import_event_ids.pop(block_hash, None)
+        import_event_id = self._block_event_ids.pop(block_hash, None)
         if import_event_id is None:
             logger.debug("Telemetry skip verification failed: no import event id")
             return
@@ -286,27 +331,23 @@ class TelemetryClient(ProtocolType):
         block = self._resolve_block(payload)
         if block is None:
             return
-        source = payload.get("source")
         stats = payload.get("accumulation_statistics", {})
 
         block_hash = block.header.hash
-        import_event_id = self._import_event_ids.get(block_hash)
+        correlated_event_id = self._block_event_ids.get(block_hash)
 
-        if import_event_id is None:
-            if source == "author":
-                # Correlate with authoring event once available – skip for now.
-                return
+        if correlated_event_id is None:
             logger.debug("Telemetry skip block executed: no correlated event id")
             return
 
         service_costs = self._culculate_service_costs(stats)
         event = TelemetryBlockExecutedEvent(
             timestamp=self._timestamp(),
-            correlated_event_id=import_event_id,
+            correlated_event_id=correlated_event_id,
             service_costs=service_costs,
         )
         await self._send_event(event)
-        self._import_event_ids.pop(block_hash, None)
+        self._block_event_ids.pop(block_hash, None)
 
 
     def _culculate_service_costs(self, stats: Dict[int, Dict[str, int]]) -> List[TelemetryServiceCost]:
@@ -464,9 +505,9 @@ class TelemetryClient(ProtocolType):
             max_service_code_size=gp_const.MAXIMUM_SIZE_SERVICE_CODE,
             basic_piece_len=gp_const.SIZE_ERASURE_CODED_PIECES,
             max_imports=gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE,
-            segment_piece_count=gp_const.SIZE_ERASURE_CODED_PIECES,
-            max_report_elective_data=0,
-            transfer_memo_size=gp_const.TRANSFER_MEMO_SIZE,
+            segment_piece_count=gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE,
+            max_report_elective_data=gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT,
+            transfer_memo_size=gp_const.SIZE_TRANSFER_MEMO,
             max_exports=gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE,
             epoch_tail_start=gp_const.TICKET_SUBMISSION_END_SLOT,
         )

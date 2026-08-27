@@ -517,6 +517,11 @@ class PyjamazApp:
             # Update block hash
             self.state_storage.update_temporary_block_hash(block.header.hash)
 
+            if self.pubsub:
+                await self.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.BLOCK_AUTHORED, data={"block": block})
+                )
+
 
         # Assurances After Assurances STF Block Data | GP-0.7.2-eq:4.13
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
@@ -961,6 +966,14 @@ class PyjamazApp:
             self, timeslot: int, parent_header_hash: bytes,
             safrole_state: SafroleState, entropy_state: EntropyState,
     ) -> Block:
+
+        if self.pubsub:
+            await self.pubsub.publish(
+                PubSubSignal(
+                    topic=MESSAGE_TYPES.BLOCK_AUTHORING,
+                    data={"slot": timeslot, "parent_hash": parent_header_hash},
+                )
+            )
 
         if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = entropy_state.entropy[2]

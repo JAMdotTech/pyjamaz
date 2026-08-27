@@ -66,7 +66,7 @@ class TelemetryJamParameters(Serializable):
 
 @dataclass
 class TelemetryNodeInfo(Serializable):
-    protocol_version: int = field(default=0, init=False, metadata={"codec": U8})
+    protocol_version: int = field(default=1, kw_only=True, metadata={"codec": U8})
     parameters: TelemetryJamParameters = field(metadata={"codec": TelemetryJamParameters.to_codec_def()})
     genesis_hash: bytes = field(metadata={"codec": Array(U8, 32)})
     peer_id: bytes = field(metadata={"codec": Array(U8, 32)})
@@ -89,7 +89,7 @@ class TelemetryNodeInfo(Serializable):
 @dataclass
 class TelemetryStatusEvent(Serializable):
     timestamp: int = field(metadata={"codec": U64})
-    event_type: int = field(default=10, init=False, metadata={"codec": U8})
+    event_type: int = field(default=10, kw_only=True, metadata={"codec": U8})
     total_peers: int = field(metadata={"codec": U32})
     validator_peers: int = field(metadata={"codec": U32})
     block_announcement_peers: int = field(metadata={"codec": U32})
@@ -115,15 +115,31 @@ class TelemetryBlockOutline(Serializable):
 @dataclass
 class TelemetryBlockImportingEvent(Serializable):
     timestamp: int = field(metadata={"codec": U64})
-    event_type: int = field(default=43, init=False, metadata={"codec": U8})
+    event_type: int = field(default=43, kw_only=True, metadata={"codec": U8})
     slot: int = field(metadata={"codec": U32})
+    outline: TelemetryBlockOutline = field(metadata={"codec": TelemetryBlockOutline.to_codec_def()})
+
+
+@dataclass
+class TelemetryBlockAuthoringEvent(Serializable):
+    timestamp: int = field(metadata={"codec": U64})
+    event_type: int = field(default=40, kw_only=True, metadata={"codec": U8})
+    slot: int = field(metadata={"codec": U32})
+    parent_hash: bytes = field(metadata={"codec": Array(U8, 32)})
+
+
+@dataclass
+class TelemetryBlockAuthoredEvent(Serializable):
+    timestamp: int = field(metadata={"codec": U64})
+    event_type: int = field(default=42, kw_only=True, metadata={"codec": U8})
+    authoring_event_id: int = field(metadata={"codec": U64})
     outline: TelemetryBlockOutline = field(metadata={"codec": TelemetryBlockOutline.to_codec_def()})
 
 
 @dataclass
 class TelemetryBlockVerificationFailedEvent(Serializable):
     timestamp: int = field(metadata={"codec": U64})
-    event_type: int = field(default=44, init=False, metadata={"codec": U8})
+    event_type: int = field(default=44, kw_only=True, metadata={"codec": U8})
     importing_event_id: int = field(metadata={"codec": U64})
     reason: str = field(metadata={"codec": String})
 
@@ -134,7 +150,7 @@ class TelemetryBlockVerificationFailedEvent(Serializable):
 @dataclass
 class TelemetryBlockVerifiedEvent(Serializable):
     timestamp: int = field(metadata={"codec": U64})
-    event_type: int = field(default=45, init=False, metadata={"codec": U8})
+    event_type: int = field(default=45, kw_only=True, metadata={"codec": U8})
     importing_event_id: int = field(metadata={"codec": U64})
 
 
@@ -169,7 +185,7 @@ class TelemetryServiceCost(Serializable):
 @dataclass
 class TelemetryBlockExecutedEvent(Serializable):
     timestamp: int = field(metadata={"codec": U64})
-    event_type: int = field(default=47, init=False, metadata={"codec": U8})
+    event_type: int = field(default=47, kw_only=True, metadata={"codec": U8})
     correlated_event_id: int = field(metadata={"codec": U64})
     service_costs: List[TelemetryServiceCost] = field(
         metadata={"codec": Vec(TelemetryServiceCost.to_codec_def())}
