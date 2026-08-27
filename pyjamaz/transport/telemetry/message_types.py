@@ -9,7 +9,7 @@ from jamcodec.types import Array, String, U16, U32, U64, U8, Vec
 from pyjamaz.graypaper_constants import CORE_COUNT
 
 
-def _ensure_length(value: str, max_length: int) -> str:
+def check_length(value: str, max_length: int) -> str:
     encoded = value.encode("utf-8")
     if len(encoded) > max_length:
         raise ValueError(f"Value '{value}' exceeds maximum length {max_length}")
@@ -78,10 +78,10 @@ class TelemetryNodeInfo(Serializable):
     note: str = field(metadata={"codec": String})
 
     def __post_init__(self) -> None:
-        _ensure_length(self.implementation_name, 32)
-        _ensure_length(self.implementation_version, 32)
-        _ensure_length(self.graypaper_version, 16)
-        _ensure_length(self.note, 512)
+        check_length(self.implementation_name, 32)
+        check_length(self.implementation_version, 32)
+        check_length(self.graypaper_version, 16)
+        check_length(self.note, 512)
         if len(self.peer_id) != 32:
             raise ValueError("Peer ID must be 32 bytes")
 
@@ -128,7 +128,7 @@ class TelemetryBlockVerificationFailedEvent(Serializable):
     reason: str = field(metadata={"codec": String})
 
     def __post_init__(self) -> None:
-        _ensure_length(self.reason, 128)
+        check_length(self.reason, 128)
 
 
 @dataclass

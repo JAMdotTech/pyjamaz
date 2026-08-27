@@ -36,7 +36,7 @@ logger = logging.getLogger("pyjamaz.transport.telemetry")
 
 
 class TelemetryClient(ProtocolType):
-    """Asynchronous telemetry client."""
+    """Telemetry client"""
 
     MAX_SERVICE_COST_ENTRIES = 500
 
@@ -80,10 +80,11 @@ class TelemetryClient(ProtocolType):
 
         self._pubsub_registered = False
         if self.app.pubsub:
-            self._register_pubsub_handlers()
+            self._register_pubsub()
+
 
     async def listen(self) -> None:
-        self._ensure_pubsub_handlers()
+        self.register_pubsub_handlers()
         if self._status_task is None:
             self._status_task = asyncio.create_task(self._status_loop())
 
@@ -112,16 +113,19 @@ class TelemetryClient(ProtocolType):
                     await self._status_task
                 self._status_task = None
 
-    def _register_pubsub_handlers(self) -> None:
+
+    def _register_pubsub(self) -> None:
         self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_IMPORTING, self._handle_block_importing)
         self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_VERIFIED, self._handle_block_verified)
         self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_VERIFICATION_FAILED, self._handle_block_verification_failed)
         self.app.pubsub.subscribe(MESSAGE_TYPES.BLOCK_EXECUTED, self._handle_block_executed)
         self._pubsub_registered = True
 
-    def _ensure_pubsub_handlers(self) -> None:
+
+    def register_pubsub_handlers(self) -> None:
         if not self._pubsub_registered and self.app.pubsub:
-            self._register_pubsub_handlers()
+            self._register_pubsub()
+
 
     async def _connect(self) -> None:
         await self._cleanup_connection()
@@ -131,13 +135,15 @@ class TelemetryClient(ProtocolType):
         self._import_event_ids.clear()
         self._connection_lost.clear()
 
+
     async def _cleanup_connection(self) -> None:
         if self._connection:
             await self._connection.close()
         self._connection = None
 
+
     async def _send_node_info(self) -> None:
-        params = self._build_parameters()
+        params = self.create_parameters()
         genesis_hash = self.app.retrieve_block_hash(0) or bytes(32)
         peer_id = getattr(getattr(self.app.config, "keys", None), "ed25519", None)
         peer_id_bytes = peer_id.public_key if peer_id else bytes(32)
@@ -145,7 +151,7 @@ class TelemetryClient(ProtocolType):
             parameters=params,
             genesis_hash=genesis_hash,
             peer_id=peer_id_bytes,
-            peer_address=self._build_peer_address(),
+            peer_address=self.create_peer_address(),
             node_flags=self._node_flags,
             implementation_name=self._implementation_name,
             implementation_version=self._implementation_version,
@@ -154,6 +160,7 @@ class TelemetryClient(ProtocolType):
         )
         await self._send_raw(node_info)
 
+
     async def _status_loop(self) -> None:
         try:
             while True:
@@ -161,6 +168,7 @@ class TelemetryClient(ProtocolType):
                 await self._send_status_event()
         except asyncio.CancelledError:
             pass
+
 
     async def _send_status_event(self) -> None:
         if not self._connection or not self._connection.is_connected():
@@ -175,7 +183,7 @@ class TelemetryClient(ProtocolType):
             availability_shards_size,
             preimages_ready,
             preimages_ready_size,
-        ) = self._collect_status_metrics()
+        ) = self.collect_stats()
 
         event = TelemetryStatusEvent(
             timestamp=self._timestamp(),
@@ -190,7 +198,8 @@ class TelemetryClient(ProtocolType):
         )
         await self._send_event(event)
 
-    def _collect_status_metrics(self):
+
+    def collect_stats(self):
         protocol = getattr(self.app, "protocol", None)
         connections = getattr(protocol, "connections", {}) if protocol else {}
         total_peers = len(connections)
@@ -217,6 +226,7 @@ class TelemetryClient(ProtocolType):
             preimages_ready_size,
         )
 
+
     async def _handle_block_importing(self, payload) -> None:
         block = self._resolve_block(payload)
         if block is None:
@@ -233,6 +243,7 @@ class TelemetryClient(ProtocolType):
         if event_id is not None:
             self._import_event_ids[block_hash] = event_id
 
+
     async def _handle_block_verified(self, payload) -> None:
         block = self._resolve_block(payload)
         if block is None:
@@ -247,6 +258,7 @@ class TelemetryClient(ProtocolType):
             importing_event_id=import_event_id,
         )
         await self._send_event(event)
+
 
     async def _handle_block_verification_failed(self, payload) -> None:
         block = self._resolve_block(payload)
@@ -267,6 +279,7 @@ class TelemetryClient(ProtocolType):
         )
         await self._send_event(event)
 
+
     async def _handle_block_executed(self, payload) -> None:
         if not isinstance(payload, dict):
             return
@@ -286,7 +299,7 @@ class TelemetryClient(ProtocolType):
             logger.debug("Telemetry skip block executed: no correlated event id")
             return
 
-        service_costs = self._build_service_costs(stats)
+        service_costs = self._culculate_service_costs(stats)
         event = TelemetryBlockExecutedEvent(
             timestamp=self._timestamp(),
             correlated_event_id=import_event_id,
@@ -295,7 +308,8 @@ class TelemetryClient(ProtocolType):
         await self._send_event(event)
         self._import_event_ids.pop(block_hash, None)
 
-    def _build_service_costs(self, stats: Dict[int, Dict[str, int]]) -> List[TelemetryServiceCost]:
+
+    def _culculate_service_costs(self, stats: Dict[int, Dict[str, int]]) -> List[TelemetryServiceCost]:
         costs: List[TelemetryServiceCost] = []
         for service_id, values in stats.items():
             items = int(values.get("nr_work_reports_accumulated", 0))
@@ -328,6 +342,7 @@ class TelemetryClient(ProtocolType):
         keep.append(aggregate)
         return keep
 
+
     @staticmethod
     def _aggregate_service_costs(costs: Iterable[TelemetryServiceCost]) -> TelemetryServiceCost:
         accumulate_calls = 0
@@ -358,6 +373,7 @@ class TelemetryClient(ProtocolType):
         )
         return TelemetryServiceCost(service_id=0xFFFFFFFF, accumulate_cost=aggregate_cost)
 
+
     def _resolve_block(self, payload) -> Optional[Block]:
         if isinstance(payload, dict):
             block = payload.get("block")
@@ -367,6 +383,7 @@ class TelemetryClient(ProtocolType):
             return block
         logger.debug("Telemetry handler received unexpected payload: %r", payload)
         return None
+
 
     def _build_block_outline(self, block: Block) -> TelemetryBlockOutline:
         block_bytes = block.to_jam_bytes().to_bytes()
@@ -383,6 +400,7 @@ class TelemetryClient(ProtocolType):
             assurances=len(block.extrinsic.assurances),
             dispute_verdicts=len(block.extrinsic.disputes.verdicts),
         )
+
 
     async def _send_event(self, event) -> Optional[int]:
         if not self._connection or not self._connection.is_connected():
@@ -403,6 +421,7 @@ class TelemetryClient(ProtocolType):
                 self._next_event_id += 1
                 return event_id
 
+
     async def _send_raw(self, message) -> None:
         if not self._connection or not self._connection.is_connected():
             return
@@ -414,7 +433,8 @@ class TelemetryClient(ProtocolType):
             logger.warning("Telemetry send failed: %s", exc)
             self._connection_lost.set()
 
-    def _build_parameters(self) -> TelemetryJamParameters:
+
+    def create_parameters(self) -> TelemetryJamParameters:
         v1 = TelemetryJamParametersV1(
             deposit_per_item=gp_const.MINIMUM_BALANCE_ITEM,
             deposit_per_byte=gp_const.MINIMUM_BALANCE_OCTET,
@@ -452,7 +472,8 @@ class TelemetryClient(ProtocolType):
         )
         return TelemetryJamParameters(V1=v1)
 
-    def _build_peer_address(self) -> TelemetryPeerAddress:
+
+    def create_peer_address(self) -> TelemetryPeerAddress:
         if not self._local_address:
             return TelemetryPeerAddress(ip=bytes(16), port=self._local_port or 0)
         try:
@@ -466,6 +487,7 @@ class TelemetryClient(ProtocolType):
         else:
             ipv6 = ip
         return TelemetryPeerAddress(ip=ipv6.packed, port=self._local_port or 0)
+
 
     def _timestamp(self) -> int:
         common_era = getattr(self.app.config, "common_era", 0)
