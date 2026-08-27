@@ -1,3 +1,4 @@
+import asyncio
 import bisect
 import logging
 import traceback
@@ -8,6 +9,7 @@ import os
 import shutil
 from pathlib import Path, PosixPath
 from typing import List, Tuple, Optional
+from urllib.parse import urlparse
 
 import anyio
 import ipaddress
@@ -210,6 +212,39 @@ async def initialize_app(
 async def main():
     pass
 
+#TODO: verplaats naar telemetry map...
+def get_telemetry_endpoint(endpoint: str) -> Tuple[str, int]:
+    """Parse a telemetry endpoint into host and port."""
+    parsed_host: Optional[str] = None
+    parsed_port: Optional[int] = None
+
+    if '://' in endpoint:
+        parsed = urlparse(endpoint)
+        parsed_host = parsed.hostname
+        parsed_port = parsed.port
+    else:
+        if endpoint.startswith('['):
+            # IPv6 literal in short form [fd00::1]:9000
+            if ']' not in endpoint:
+                raise BadParameter(f"Invalid telemetry endpoint: {endpoint}")
+            host_part, _, port_part = endpoint.partition(']:')
+            parsed_host = host_part.strip('[]')
+            parsed_port = int(port_part)
+        else:
+            if ':' not in endpoint:
+                raise BadParameter(f"Invalid telemetry endpoint: {endpoint}")
+            host_part, port_part = endpoint.rsplit(':', 1)
+            parsed_host = host_part
+            parsed_port = int(port_part)
+
+    if not parsed_host or parsed_port is None:
+        raise BadParameter(f"Invalid telemetry endpoint: {endpoint}")
+
+    if not (0 < parsed_port < 65536):
+        raise BadParameter(f"Telemetry port out of range: {parsed_port}")
+
+    return parsed_host, parsed_port
+
 
 @main.command(name='run', help='Run a Pyjamaz JAM node')
 @click.option('--seed', type=str,
@@ -229,7 +264,8 @@ async def main():
 @click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
 @click.option('--d3l-path', 'd3l_path', type=click.Path())
 @click.option('--replay-blocks', 'replay_blocks', type=click.Path())
-async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, d3l_path, replay_blocks):
+@click.option('--telemetry', 'telemetry_endpoint', help="Telemetry endpoint (host:port or protocol://host:port)")
+async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, d3l_path, replay_blocks, telemetry_endpoint):
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
@@ -274,6 +310,10 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
 
+    telemetry_target: Tuple[str, int] = get_telemetry_endpoint(telemetry_endpoint))
+    if telemetry_target:
+        logging.info(f'📡 Telemetry endpoints: {f"{telemetry_target[0]}:{telemetry_target[1]}}')
+
     DEBUG and logging.debug("Retrieving ancestor headers from DB..")
 
     for header in app.retrieve_ancestor_headers(app.state_storage.finalized_block_hash):
@@ -316,6 +356,36 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
             # Create a subscriber to process incoming messages (fx from a protocol)
             tg.start_soon(app.pubsub.process_messages)
+
+            telemetry_clients = []
+            if telemetry_target:
+                from importlib import import_module
+
+                telemetry_module = import_module('pyjamaz.transport.telemetry')
+                TelemetryClient = getattr(telemetry_module, 'TelemetryClient')
+
+                async def _run_telemetry(client, telemetry_host, telemetry_port):
+                    try:
+                        await client.listen()
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:  # Defensive: keep node alive when telemetry fails
+                        logging.error(
+                            "Telemetry client stopped unexpectedly for %s:%s -> %s",
+                            telemetry_host,
+                            telemetry_port,
+                            exc,
+                        )
+
+                client = TelemetryClient(
+                    app,
+                    telemetry_target[0],
+                    telemetry_target[1],
+                    local_address=host,
+                    local_port=port,
+                )
+                telemetry_clients.append(client)
+                tg.start_soon(_run_telemetry, client, telemetry_target[0], telemetry_target[1])
 
             # Start WebSocket server
             tg.start_soon(start_rpc_server, rpc_server)
