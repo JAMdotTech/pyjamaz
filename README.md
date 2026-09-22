@@ -34,7 +34,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t jamdottech/pyjamaz -t 
 
 ## Fellowship M1 nominations
 * Fellowship Rank III nomination: [Arjan Zijderveld](https://github.com/arjanz)
-* Fellowship Rank II nomination: [Matthijs Blaas](https://github.com/matthijsb)
+* Fellowship Rank II nomination: [Emiel Sebastiaan](https://github.com/emielsebastiaan)
 
 ## License
 https://github.com/JAMdotTech/pyjamaz/blob/main/LICENSE
