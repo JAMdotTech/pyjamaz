@@ -31,7 +31,7 @@ from pyjamaz.pvm.constants import (
 )
 from pyjamaz.pvm.types import PVMProgram
 from .memory import PVMMemory
-#from pyjamaz.pvm.gas_model import GasModel
+from pyjamaz.pvm.gas_model import GasModel
 from pyjamaz.pvm.basic_block import detect_basic_blocks, get_block_start
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
@@ -171,7 +171,6 @@ class PVMInterpreter:
         # Note: In the exceptional case we only have 1 instruction (trap or fallthrough), we add it manually and be done
         if len(inst_bitmask) == 1:
             self.inst_arg_len.append(0)
-            self.mv_inst_arg_len = memoryview(self.inst_arg_len)
             return
 
         # Parse instruction bitmask and create a opcode offset and instruction length lookup
@@ -250,15 +249,15 @@ class PVMInterpreter:
         self.mv_inst_arg_len = memoryview(self.inst_arg_len)
 
         # Initialize gas model
-        # self.gas_model = GasModel(
-        #     code=self.code,
-        #     inst_pos=self.inst_pos,
-        #     inst_arg_len=self.inst_arg_len,
-        #     opcode_scheme=OpcodeScheme,
-        #     opcode_enum=Opcode,
-        #     mem_model="L2HIT",
-        #     jump_table=self.jump_table,
-        # )
+        self.gas_model = GasModel(
+            code=self.code,
+            inst_pos=self.inst_pos,
+            inst_arg_len=self.inst_arg_len,
+            opcode_scheme=OpcodeScheme,
+            opcode_enum=Opcode,
+            mem_model="L2HIT",
+            jump_table=self.jump_table,
+        )
         self._calculate_basic_block_gas()
 
 
@@ -267,8 +266,8 @@ class PVMInterpreter:
         GP-0.7.2-section:A.3 - Calculate gas costs for all basic blocks.
         Uses the shared detect_basic_blocks function from basic_block module.
         """
-        # if not self.gas_model:
-        #     return
+        if not self.gas_model:
+            return
 
         # Detect all basic block starts using the shared function
         basic_block_starts = detect_basic_blocks(
@@ -284,25 +283,9 @@ class PVMInterpreter:
 
         # Calculate the gas per block
         self.basic_block_gas = {}
-        block_starts = self.basic_block_starts_sorted
-        code_size = int(self.code_size)
+        for start in self.basic_block_starts_sorted:
+            self.basic_block_gas[start] = self.gas_model.compute_block_gas_cost(start)
 
-        for idx, start in enumerate(block_starts):
-            block_end = block_starts[idx + 1] if idx + 1 < len(block_starts) else code_size
-
-            instruction_count = 0
-            pc = start
-            while pc < block_end:
-                inst_index = self.inst_pos.get(pc)
-                if inst_index is None:
-                    raise Exception("huh")
-                instruction_count += 1
-                if self.code[pc] in TERMINATION_OPCODES:
-                    #print(f"BASIC BLOCK: {pc}={instruction_count}")
-                    break
-                pc += self.inst_arg_len[inst_index] + 1
-
-            self.basic_block_gas[start] = instruction_count
 
     def get_block_start(self, pc: int) -> int:
         """Find the basic block that contains the given PC using binary search."""
@@ -596,6 +579,16 @@ class PVMInterpreter:
 
         self.status = ExitReason.resume.value
 
+        # Reset per-run execution state so invoking multiple times continues execution
+        # from the provided pc/gas rather than a prior exit status.
+        # Track if we're resuming from page-fault to skip gas charge on first iteration
+        skip_first_block_charge = False
+        if self.status == ExitReason.page_fault.value:
+            # Re-execute the faulting instruction after the caller adjusted memory.
+            self.skip_len = 0
+            skip_first_block_charge = True
+        self.status = ExitReason.resume.value
+
         # Note: we cache attribute lookups and globals to locals for the pvm hot loop
         log = self.log
         code = self.code
@@ -614,6 +607,11 @@ class PVMInterpreter:
         skip_len = self.skip_len
         inst_nr = int(self.inst_nr)
 
+        # Gas model: cache block lookup data
+        basic_block_starts_sorted = self.basic_block_starts_sorted
+        basic_block_gas = self.basic_block_gas
+        current_block_start = self.current_block_start
+
         if log:
             log.pvm_counters()
             log.pvm_header()
@@ -631,6 +629,37 @@ class PVMInterpreter:
                 status = exit_panic
                 self.exit_value = None
                 break
+
+            # Gas model: find containing basic block and charge gas
+            # GP-0.7.2-section:A.3 - Charge when entering a block at its start
+            if basic_block_starts_sorted:
+                block_start = get_block_start(basic_block_starts_sorted, pc_local)
+
+                if block_start is not None:
+                    charge_block = False
+                    if current_block_start is None:
+                        # First instruction - charge for initial block
+                        charge_block = True
+                    elif pc_local == block_start:
+                        if current_block_start != block_start:
+                            # PC is at the start of a NEW block - charge for entering new block
+                            charge_block = True
+                        elif not skip_first_block_charge:
+                            # Back at start of same block via backward branch - charge for re-entry
+                            charge_block = True
+
+                    if charge_block:
+                        block_cost = basic_block_gas[block_start]
+                        if gas_local < block_cost:
+                            status = exit_oom
+                            self.exit_value = None
+                            break
+                        gas_local -= block_cost
+
+                    current_block_start = block_start
+
+            # Clear page-fault flag after first iteration (must be outside gas model check)
+            skip_first_block_charge = False
 
             opcode = code[pc_local]
             skip_len = mv_inst_arg_len[inst_index] + 1
@@ -704,5 +733,6 @@ class PVMInterpreter:
         self.status = status
         self.skip_len = skip_len
         self.inst_nr = inst_nr
+        self.current_block_start = current_block_start
 
         self._sync_memory()

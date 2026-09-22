@@ -11,3 +11,7 @@ def _op_trap(vm):
 def _op_fallthrough(vm):
     vm.log and vm.log()
     return
+
+def _op_unlikely(vm):
+    vm.log and vm.log()
+    return

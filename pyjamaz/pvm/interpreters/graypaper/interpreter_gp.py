@@ -1,3 +1,4 @@
+import bisect
 import traceback
 from typing import List, Dict
 
@@ -15,12 +16,13 @@ from pyjamaz.pvm.constants import (
     ExitReason,
     MemOps,
     OpcodeNames,
-    ExitCondition,
+    ExitCondition, TERMINATION_OPCODES,
     MEM_R, MEM_W,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
+from pyjamaz.pvm.gas_model import GasModel
 from .defs import (
     MASK32,
     pvm_Z,
@@ -83,6 +85,12 @@ class PVMInterpreter:
         self.jump_table = []
         self.basic_block_starts_set = set()
 
+        self.basic_block = {}
+        self.basic_block_gas = {}
+        self.basic_block_starts_sorted = []
+        self.current_block_start = None
+        self.gas_model = None
+
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
@@ -111,10 +119,11 @@ class PVMInterpreter:
 
     def create_instruction_lookup(self):
         """
-        Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
+        Create lookups for byte_pos -> instruction_nr and instruction_nr -> instruction_length
         """
         self.inst_pos = {0: 0}
         self.inst_arg_len = []
+        self.basic_block = {0: 0}  # PC 0 is always a block start
 
         inst_nr = 0
         inst_bitmask = self.inst_bitmask
@@ -125,20 +134,16 @@ class PVMInterpreter:
             self.inst_arg_len.append(0)
             return
 
-        # Parse instruction bitmask and create a opcode offset and instruction length lookup
+        # Parse instruction bitmask to build inst_pos and inst_arg_len
         while inst_bitmask_idx < len(inst_bitmask):
             inst_args = 0
-
             is_opcode = False
 
             while not is_opcode:
-
                 is_opcode = inst_bitmask[inst_bitmask_idx]
                 if not is_opcode:
                     inst_args += 1
-
                 inst_bitmask_idx += 1
-
                 if inst_bitmask_idx > len(inst_bitmask) - 1:
                     is_opcode = True
 
@@ -148,6 +153,111 @@ class PVMInterpreter:
             # Note: only add to inst_pos if this position has an opcode in the bitmask
             if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
                 self.inst_pos[inst_bitmask_idx - 1] = inst_nr
+
+
+    def calculate_basic_block_gas(self):
+        """
+        GP-0.7.2-section:A.3  Basic Blocks and Termination Instructions
+        Calculate ϖ (beginning of all basic-blocks)
+        """
+
+        if not self.gas_model:
+            return
+
+        # GP:A.3 - U (all valid opcodes)
+        opcode_positions = sorted(k for k in self.inst_pos.keys() if k < self.code_length)
+
+        # GP:A.5 - ϖ (beginning of basic-blocks)
+        basic_block_starts = set(self.basic_block.keys()) | {0}
+
+        for pc in opcode_positions:
+            opcode = self.code[pc]
+            inst_index = self.inst_pos.get(pc, 0)
+            skip = 1
+            if inst_index < len(self.inst_arg_len):
+                skip = 1 + self.inst_arg_len[inst_index]
+
+            if opcode in TERMINATION_OPCODES:
+                fallthrough = pc + skip
+                # Note: only add fallthrough if it's within original code (exclude synthetic trap)
+                if fallthrough in self.inst_pos:
+                    if fallthrough < self.code_length or opcode == op.fallthrough.value:
+                        basic_block_starts.add(fallthrough)
+
+                if opcode == op.jump.value:
+                    target = self.get_jump_target(pc, inst_index)
+                    if target in self.inst_pos:
+                        basic_block_starts.add(target)
+
+                elif opcode in {
+                    op.branch_eq.value, op.branch_ne.value,
+                    op.branch_lt_u.value, op.branch_lt_s.value,
+                    op.branch_ge_u.value, op.branch_ge_s.value,
+                }:
+                    target = self.get_branch_reg_target(pc, inst_index)
+                    if target in self.inst_pos:
+                        basic_block_starts.add(target)
+
+                elif opcode == op.load_imm_jump.value:
+                    target = self.get_branch_imm_target(pc, inst_index)
+                    if target in self.inst_pos:
+                        basic_block_starts.add(target)
+
+                elif opcode in {
+                    op.branch_eq_imm.value, op.branch_ne_imm.value,
+                    op.branch_lt_u_imm.value, op.branch_le_u_imm.value,
+                    op.branch_ge_u_imm.value, op.branch_gt_u_imm.value,
+                    op.branch_lt_s_imm.value, op.branch_le_s_imm.value,
+                    op.branch_ge_s_imm.value, op.branch_gt_s_imm.value,
+                }:
+                    target = self.get_branch_imm_target(pc, inst_index)
+                    if target in self.inst_pos:
+                        basic_block_starts.add(target)
+
+        # GP-A.5 - filter basic_block_starts (ϖ) to be within code bounds
+        basic_block_starts = {pc for pc in basic_block_starts if 0 <= pc <= self.code_length}
+        self.basic_block = {pc: 0 for pc in basic_block_starts}
+
+        # Store sorted block starts for O(log n) lookup via binary search
+        self.basic_block_starts_sorted = sorted(basic_block_starts)
+
+        # Calculate the gas per block
+        self.basic_block_gas = {}
+        for start in self.basic_block_starts_sorted:
+            self.basic_block_gas[start] = self.gas_model.compute_block_gas_cost(start)
+
+
+    def get_jump_offset(self, pc: int, inst_index: int) -> int:
+        l_x = int(min(4, self.inst_arg_len[inst_index]))
+        return pvm_Z(read_uint(self.code, pc + 1, l_x), l_x)
+
+
+    def get_jump_target(self, pc: int, inst_index: int) -> int:
+        return pc + self.get_jump_offset(pc, inst_index)
+
+
+    def get_branch_reg_offset(self, pc: int, inst_index: int) -> int:
+        l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
+        return pvm_Z(read_uint(self.code, pc + 2, l_x), l_x)
+
+
+    def get_branch_reg_target(self, pc: int, inst_index: int) -> int:
+        return pc + self.get_branch_reg_offset(pc, inst_index)
+
+
+    def get_branch_imm_offset(self, pc: int, inst_index: int) -> int:
+        l_x = int(min(4, (self.code[pc + 1] // 16) % 8))
+        l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+        return pvm_Z(read_uint(self.code, pc + 2 + l_x, l_y), l_y)
+
+
+    def get_branch_imm_target(self, pc: int, inst_index: int) -> int:
+        return pc + self.get_branch_imm_offset(pc, inst_index)
+
+
+    def get_block_start(self, pc: int) -> int:
+        idx = bisect.bisect_right(self.basic_block_starts_sorted, pc) - 1
+        return self.basic_block_starts_sorted[idx] if idx >= 0 else 0
 
 
     def branch(self, b:int, C:bool):
@@ -180,11 +290,27 @@ class PVMInterpreter:
             self.reg[idx] = u64(val)
 
         self.status = ExitReason.resume.value
+        self.current_block_start = None
 
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
-        self.inst_pos: Dict[int,int] = {0: 0}
+        self.inst_pos: Dict[int, int] = {0: 0}
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
+
+        # GP-0.7.2-eq:A.4: extend the code with a synthetic trap
+        self.inst_pos[self.code_length] = len(self.inst_arg_len)
+        self.inst_arg_len.append(0)
+
+        self.gas_model = GasModel(
+            code=self.code,
+            inst_pos=self.inst_pos,
+            inst_arg_len=self.inst_arg_len,
+            opcode_scheme=OpcodeScheme,
+            opcode_enum=op,
+            mem_model="L2HIT",
+            jump_table=self.jump_table,
+        )
+        self.calculate_basic_block_gas()
 
         # GP-0.7.2:A.4
         self.inst_pos[self.code_length] = len(self.inst_arg_len)
@@ -310,6 +436,26 @@ class PVMInterpreter:
         while self.status == ExitReason.resume.value:
             pc_local = int(self.pc)
 
+            # Find containing basic block
+            block_start = self.get_block_start(self.pc) if self.basic_block_starts_sorted else None
+
+            if block_start is not None:
+                charge_block = False
+                if self.current_block_start is None:
+                    charge_block = True
+                elif self.pc == block_start and not (prev_status == ExitReason.page_fault.value and prev_pc == self.pc):
+                    charge_block = True
+
+                if charge_block:
+                    block_cost = self.basic_block_gas[block_start]
+                    if self.gas < block_cost:
+                        self.status = ExitReason.out_of_gas.value
+                        self.exit_value = None
+                        break
+                    self.gas -= block_cost
+
+                self.current_block_start = block_start
+
             if pc_local >= int(self.code_size):
                 self.status = ExitReason.panic.value
                 self.exit_value = None
@@ -344,7 +490,10 @@ class PVMInterpreter:
                                 #self.status = ExitCondition.panic.value
                                 raise PanicError(f"trap")
                             case op.fallthrough.value:
-                                self.log and self.log()
+                                self.log and self.log("fallthrough")
+
+                            case op.unlikely.value:
+                                self.log and self.log("unlikely")
 
                             case _:
                                 raise InvalidOpcode(f"Invalid noargs opcode: {opcode} for instruction type {inst_type}")
@@ -406,9 +555,7 @@ class PVMInterpreter:
 
                     # GP-0.7.2-section:A.5.5 | Instructions with Arguments of One Offset
                     case InstructionType.offset:
-
-                        l_x = int(min(4, self.inst_arg_len[inst_index]))
-                        v_x = pvm_Z(read_uint(self.code, self.pc + 1, l_x), l_x)
+                        v_x = self.get_jump_offset(self.pc, inst_index)
 
                         match opcode:
                             case op.jump.value:
@@ -833,9 +980,7 @@ class PVMInterpreter:
                         r_b = min(12, self.code[self.pc + 1] // 16)
                         w_a = self.reg[r_a]
                         w_b = self.reg[r_b]
-
-                        l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
-                        v_x = pvm_Z(read_uint(self.code, self.pc + 2, l_x), l_x)
+                        v_x = self.get_branch_reg_offset(self.pc, inst_index)
 
                         match opcode:
                             case op.branch_eq.value:

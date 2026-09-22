@@ -57,6 +57,7 @@ class Opcode(Enum):
     # Instructions without Arguments (none)
     trap: int                                      = 0
     fallthrough: int                               = 1
+    unlikely: int                                  = 3
 
     # GP_A.5.2
     # Instructions with Arguments of One Immediate (imm)
@@ -244,6 +245,7 @@ OpcodeScheme = {
     # Instructions with args: none
     op.trap.value                                           : it.none,
     op.fallthrough.value                                    : it.none,
+    op.unlikely.value                                       : it.none,
 
     # GP_A.5.2
     # Instructions with args: imm
@@ -461,6 +463,7 @@ OpcodeNames = {
     # Instructions with args: none
     op.trap.value: "trap",
     op.fallthrough.value: "fallthrough",
+    op.unlikely.value: "unlikely",
 
     # GP_A.5.2
     # Instructions with args: imm
@@ -637,6 +640,33 @@ OpcodeNames = {
     op.min_u.value: "min_u"
 }
 
+TERMINATION_OPCODES = {
+    op.trap.value,
+    op.fallthrough.value,
+
+    op.jump.value,
+    op.jump_ind.value,
+
+    op.load_imm_jump.value,
+    op.load_imm_jump_ind.value,
+
+    op.branch_eq_imm.value,
+    op.branch_ne_imm.value,
+    op.branch_lt_u_imm.value,
+    op.branch_ge_u_imm.value,
+    op.branch_le_u_imm.value,
+    op.branch_gt_u_imm.value,
+    op.branch_lt_s_imm.value,
+    op.branch_ge_s_imm.value,
+    op.branch_le_s_imm.value,
+    op.branch_gt_s_imm.value,
+    op.branch_eq.value,
+    op.branch_ne.value,
+    op.branch_lt_u.value,
+    op.branch_lt_s.value,
+    op.branch_ge_u.value,
+    op.branch_ge_s.value
+}
 
 inst_none = InstructionType.none.value
 inst_imm = InstructionType.imm.value
@@ -655,6 +685,7 @@ inst_reg_reg_reg = InstructionType.reg_reg_reg.value
 
 op_trap = Opcode.trap.value
 op_fallthrough = Opcode.fallthrough.value
+op_unlikely = Opcode.unlikely.value
 op_ecalli = Opcode.ecalli.value
 op_load_imm_64 = Opcode.load_imm_64.value
 op_store_imm_u8 = Opcode.store_imm_u8.value
@@ -792,32 +823,3 @@ op_max = Opcode._max.value
 op_max_u = Opcode.max_u.value
 op_min = Opcode._min.value
 op_min_u = Opcode.min_u.value
-
-
-TERMINATION_OPCODES = {
-    op.trap.value,
-    op.fallthrough.value,
-
-    op.jump.value,
-    op.jump_ind.value,
-
-    op.load_imm_jump.value,
-    op.load_imm_jump_ind.value,
-
-    op.branch_eq_imm.value,
-    op.branch_ne_imm.value,
-    op.branch_lt_u_imm.value,
-    op.branch_ge_u_imm.value,
-    op.branch_le_u_imm.value,
-    op.branch_gt_u_imm.value,
-    op.branch_lt_s_imm.value,
-    op.branch_ge_s_imm.value,
-    op.branch_le_s_imm.value,
-    op.branch_gt_s_imm.value,
-    op.branch_eq.value,
-    op.branch_ne.value,
-    op.branch_lt_u.value,
-    op.branch_lt_s.value,
-    op.branch_ge_u.value,
-    op.branch_ge_s.value
-}

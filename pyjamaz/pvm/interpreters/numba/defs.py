@@ -400,11 +400,11 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
             idx = I32(i)
             break
     if idx < 0:
-        return I32(-1), addr & PAGE_MASK
+        return I32(-1), addr & PAGE_MASK  # Page fault - no section mapped
 
     access = section_access[idx]
     if access >= 0 and access < MEM_W:
-        return I32(-1), addr & PAGE_MASK
+        return I32(-1), addr & PAGE_MASK  # Page fault - not writable
 
     start = U64(section_starts[idx])
     off = addr - start
@@ -481,11 +481,11 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
             idx = I32(i)
             break
     if idx < 0:
-        return I32(-1), addr & PAGE_MASK
+        return I32(-1), addr & PAGE_MASK  # Page fault - no section mapped
 
     access = section_access[idx]
     if access >= 0 and access < MEM_R:
-        return I32(-1), addr & PAGE_MASK
+        return I32(-1), addr & PAGE_MASK  # Page fault - not readable
 
     start = U64(section_starts[idx])
     off = addr - start
