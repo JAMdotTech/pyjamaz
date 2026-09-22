@@ -123,6 +123,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
             ExitReason.out_of_gas.value: "out-of-gas",
         }
 
+        # TODO: weg?
         # self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
         # self.assertEqual(test_vector["expected-regs"], list(pvm.reg), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg}")
         # self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
