@@ -740,6 +740,12 @@ class GasModel:
             return a
         return b
 
+    def decode_cost_PS(self, a: int, b: int, pc: int) -> int:
+        """GP-0.8.0-eq:A.61: register shifts only compare source A with D."""
+        source_a = min(12, self.sim_code[pc + 1] % 16)
+        destination = min(12, self.sim_code[pc + 2])
+        return a if source_a == destination else b
+
     ###################### Section 4: Cost Parameters (GP A.55-A.56)
 
     def memory_latency(self) -> int:
@@ -831,17 +837,11 @@ class GasModel:
             table[opc] = InstructionCost(latency_fn=const(2), decode_fn=const(1), units_fn=units(A=2))
 
         # Shifts/Rotations (64-bit register)
-        table[self.op.shlo_l_64.value] = InstructionCost(
-            latency_fn=const(1),
-            decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
-            units_fn=units(A=1)
-        )
-        table[self.op.shlo_r_64.value] = InstructionCost(latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1))
-
-        for opc in (self.op.shar_r_64.value, self.op.rot_l_64.value, self.op.rot_r_64.value):
+        for opc in (self.op.shlo_l_64.value, self.op.shlo_r_64.value, self.op.shar_r_64.value,
+                    self.op.rot_l_64.value, self.op.rot_r_64.value):
             table[opc] = InstructionCost(
                 latency_fn=const(1),
-                decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+                decode_fn=lambda pc, a=2, b=3: self.decode_cost_PS(a, b, pc),
                 units_fn=units(A=1)
             )
 
@@ -850,7 +850,7 @@ class GasModel:
                     self.op.rot_l_32.value, self.op.rot_r_32.value):
             table[opc] = InstructionCost(
                 latency_fn=const(2),
-                decode_fn=lambda pc, a=3, b=4: self.decode_cost_P(a, b, pc),
+                decode_fn=lambda pc, a=3, b=4: self.decode_cost_PS(a, b, pc),
                 units_fn=units(A=1)
             )
 

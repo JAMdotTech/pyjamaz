@@ -574,19 +574,11 @@ class PVMInterpreter:
         pc: int,
         gas: int
     ):
+        skip_first_block_charge = (
+            self.status == ExitReason.page_fault.value and int(self.pc) == int(pc)
+        )
         self.pc = u32(pc)
         self.gas = i64(gas)
-
-        self.status = ExitReason.resume.value
-
-        # Reset per-run execution state so invoking multiple times continues execution
-        # from the provided pc/gas rather than a prior exit status.
-        # Track if we're resuming from page-fault to skip gas charge on first iteration
-        skip_first_block_charge = False
-        if self.status == ExitReason.page_fault.value:
-            # Re-execute the faulting instruction after the caller adjusted memory.
-            self.skip_len = 0
-            skip_first_block_charge = True
         self.status = ExitReason.resume.value
 
         # Note: we cache attribute lookups and globals to locals for the pvm hot loop
@@ -663,11 +655,6 @@ class PVMInterpreter:
 
             opcode = code[pc_local]
             skip_len = mv_inst_arg_len[inst_index] + 1
-            if gas_local <= 0:
-                status = exit_oom
-                self.exit_value = None
-                break
-            gas_local -= 1
             inst_nr += 1
 
             self.opcode = opcode

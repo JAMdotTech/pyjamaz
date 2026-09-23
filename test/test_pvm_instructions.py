@@ -4,16 +4,13 @@ import unittest
 
 from os import path
 
-import numpy as np
-
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz import settings
 from pyjamaz.pvm.types import PVMCode, PVMProgram
-from pyjamaz.pvm.memory import PVMMemory
-from pyjamaz.pvm import MemorySection, PVMInterpreter
-from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R, OpcodeScheme, Opcode
+from pyjamaz.pvm import PVMMemory, PVMInterpreter
+from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R, PVM_PAGE_SIZE, OpcodeScheme, Opcode
 from pyjamaz.pvm.gas_model import GasModel
 from pyjamaz.pvm.gas_model_logger import TimelineTracker
 
@@ -33,7 +30,7 @@ def load_test_vectors(directory):
             test_vector = json.load(f)
             test_vectors = [(directory, test_vector)]
     else:
-        for filename in os.listdir(directory):
+        for filename in sorted(os.listdir(directory)):
             if filename.endswith('.json'):
                 with open(os.path.join(directory, filename)) as f:
                     test_vector = json.load(f)
@@ -79,18 +76,40 @@ def _build_segments(initial_page_map, initial_memory):
     return segments
 
 
+def _write_fixture_memory(memory, address, contents):
+    # Fixture setup may initialize readonly pages. Restore their permissions
+    # before execution
+    if not contents:
+        return
+    pages = range(address // PVM_PAGE_SIZE, (address + len(contents) - 1) // PVM_PAGE_SIZE + 1)
+    permissions = {}
+    for page in pages:
+        page_address = page * PVM_PAGE_SIZE
+        if not memory.is_accessible(page_address, PVM_PAGE_SIZE, MEM_R):
+            raise ValueError(f"Memory page not mapped at address {page_address}")
+        permissions[page] = MEM_W if memory.is_accessible(page_address, PVM_PAGE_SIZE, MEM_W) else MEM_R
+    try:
+        for page in permissions:
+            memory.change_acl(page, 1, MEM_W)
+        memory.write_bytes(address, bytes(contents))
+    finally:
+        for page, acl in permissions.items():
+            memory.change_acl(page, 1, acl)
+
+
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/integration-tests/'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/integration-tests/doom.json'))
+    @parameterized.expand(load_test_vectors(os.environ.get('PVM_TEST_VECTORS', 'fixtures/pvm/gas-cost/')))
     def test_instruction(self, name, test_vector):
 
+        self.assertTrue(
+            "steps" in test_vector or "block-gas-costs" in test_vector,
+            f"{name}: expected a step-based or block-cost gas-model vector",
+        )
         pvm_code = PVMCode.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
         )
-        pvm_regs = test_vector["initial-regs"]
+        pvm_regs = test_vector.get("initial-regs", [0] * 13)
 
         segments = _build_segments(
             test_vector.get("initial-page-map", []),
@@ -123,21 +142,6 @@ class TestPolkaVMInstructions(unittest.TestCase):
             ExitReason.out_of_gas.value: "out-of-gas",
         }
 
-        # TODO: weg?
-        # self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
-        # self.assertEqual(test_vector["expected-regs"], list(pvm.reg), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg}")
-        # self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
-        # # self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
-        # if test_vector["expected-memory"]:
-        #     for expected_mem in test_vector["expected-memory"]:
-        #         mem_len = len(expected_mem["contents"])
-        #         pvm_mem = list(pvm_memory.read_bytes(expected_mem["address"], mem_len))
-        #         self.assertEqual(
-        #             expected_mem["contents"],
-        #             pvm_mem,
-        #             f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
-        #         )
-
         # Integration tests (doom.json, etc.) only have program + block-gas-costs, no steps
         current_pc = test_vector.get("initial-pc", 0)
         current_gas = test_vector.get("initial-gas", 0)
@@ -149,24 +153,18 @@ class TestPolkaVMInstructions(unittest.TestCase):
                 pvm.reg[reg] = value
             elif "map" in step:
                 mapping = step["map"]
-                section = MemorySection(
-                    address=mapping["address"],
-                    size=mapping["length"],
-                    contents=[0] * mapping["length"],
-                    acl=MEM_W if mapping["is-writable"] else MEM_R
+                pvm_memory.add_segment(
+                    mapping["address"],
+                    mapping["length"],
+                    MEM_W if mapping["is-writable"] else MEM_R,
                 )
-                pvm_memory.map_section(section)
             elif "write" in step:
                 write = step["write"]
-                section = pvm_memory.find_section(write["address"])
-                if not section:
-                    raise ValueError(f"Memory section not found for address {write['address']}")
-                offset = write["address"] - section.address
-                if offset + len(write["contents"]) > len(section.contents):
-                    raise ValueError(f"Write too large for mapped section at {write['address']}")
-                for idx, byt in enumerate(write["contents"]):
-                    section.contents[offset + idx] = np.uint8(byt)
+                _write_fixture_memory(pvm_memory, write["address"], write["contents"])
             elif "run" in step:
+                if pvm.status == ExitReason.host_halt.value:
+                    pvm.next_instruction()
+                    current_pc = pvm.pc
                 pvm.invoke(current_pc, current_gas)
                 current_pc = pvm.pc
                 current_gas = pvm.gas
@@ -179,17 +177,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                 self.assertEqual(expected["regs"], list(pvm.reg), f"{name}:\n Expected registers: {expected['regs']}, but got: {pvm.reg}")
 
                 if "memory" in expected and expected["memory"]:
-                    # for expected_mem in expected["memory"]:
-                    #     section = pvm_memory.find_section(expected_mem["address"])
-                    #     mem_offset = expected_mem["address"] - section.address
-                    #     mem_len = len(expected_mem["contents"])
-                    #     pvm_mem = list(section.contents[mem_offset:mem_offset + mem_len])
-                    #     self.assertEqual(
-                    #         expected_mem["contents"],
-                    #         pvm_mem,
-                    #         f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
-                    #     )
-                    for expected_mem in test_vector["expected-memory"]:
+                    for expected_mem in expected["memory"]:
                         mem_len = len(expected_mem["contents"])
                         pvm_mem = list(pvm_memory.read_bytes(expected_mem["address"], mem_len))
                         self.assertEqual(

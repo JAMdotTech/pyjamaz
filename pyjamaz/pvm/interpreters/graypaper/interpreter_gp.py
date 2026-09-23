@@ -424,6 +424,9 @@ class PVMInterpreter:
         gas: int,
         log=False,
     ):
+        skip_first_block_charge = (
+            self.status == ExitReason.page_fault.value and int(self.pc) == int(pc)
+        )
         self.pc = int(pc)
         self.gas = np.int64(gas)
         self.status = ExitReason.resume.value
@@ -443,7 +446,7 @@ class PVMInterpreter:
                 charge_block = False
                 if self.current_block_start is None:
                     charge_block = True
-                elif self.pc == block_start and not (prev_status == ExitReason.page_fault.value and prev_pc == self.pc):
+                elif self.pc == block_start and not skip_first_block_charge:
                     charge_block = True
 
                 if charge_block:
@@ -455,6 +458,8 @@ class PVMInterpreter:
                     self.gas -= block_cost
 
                 self.current_block_start = block_start
+
+            skip_first_block_charge = False
 
             if pc_local >= int(self.code_size):
                 self.status = ExitReason.panic.value
@@ -471,11 +476,6 @@ class PVMInterpreter:
             self.opcode = opcode = self.code[pc_local]
             inst_type = OpcodeScheme[opcode]
             self.skip_len = self.inst_arg_len[inst_index] + 1
-            if self.gas <= 0:
-                self.status = ExitReason.out_of_gas.value
-                self.exit_value = None
-                break
-            self.gas -= 1
             self.inst_nr += 1
 
             try:
