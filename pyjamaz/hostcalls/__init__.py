@@ -1,16 +1,19 @@
 import logging
 from functools import wraps
+from inspect import signature
 
 from pyjamaz.pvm.exceptions import PanicError
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 
 
-def hostcall(cost: int):
-    if cost < 0:
+def hostcall(cost):
+    """Charge a fixed cost or a cost computed from the call's named arguments."""
+    if not callable(cost) and cost < 0:
         raise ValueError("hostcall cost must be non-negative")
 
     def hostcall_inner(func):
+        parameters = signature(func)
 
         @wraps(func)
         def hc_wrapped(*args, **kwargs):
@@ -30,7 +33,8 @@ def hostcall(cost: int):
             if invocation_output is None:
                 raise PanicError("hostcall could not locate invocation_output")
 
-            invocation_output.gas_limit -= cost
+            gas_cost = cost(parameters.bind(*args, **kwargs).arguments) if callable(cost) else cost
+            invocation_output.gas_limit = int(invocation_output.gas_limit) - gas_cost
             if invocation_output.gas_limit < 0:
                 logging.debug(f"hostcall {func} gas_limit reached")
                 invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)

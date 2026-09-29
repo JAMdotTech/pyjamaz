@@ -1,3 +1,5 @@
+from pyjamaz.pvm.basic_block import decode_instructions
+from pyjamaz.pvm.constants import TERMINATION_OPCODES
 """
 An optimized PVM interpreter using Numba JIT compiler for the main loop & functions.
 """
@@ -33,7 +35,7 @@ from pyjamaz.pvm.constants import (
     op_store_imm_ind_u16, op_store_imm_ind_u32, op_store_imm_ind_u64, op_load_imm_jump,
     op_branch_eq_imm, op_branch_ne_imm, op_branch_lt_u_imm, op_branch_le_u_imm,
     op_branch_ge_u_imm, op_branch_gt_u_imm, op_branch_lt_s_imm, op_branch_le_s_imm,
-    op_branch_ge_s_imm, op_branch_gt_s_imm, op_move_reg, op_sbrk, op_count_set_bits_64,
+    op_branch_ge_s_imm, op_branch_gt_s_imm, op_move_reg, op_count_set_bits_64,
     op_count_set_bits_32, op_leading_zero_bits_64, op_leading_zero_bits_32,
     op_trailing_zero_bits_64, op_trailing_zero_bits_32, op_sign_extend_8, op_sign_extend_16,
     op_zero_extend_16, op_reverse_bytes, op_store_ind_u8, op_store_ind_u16,
@@ -96,6 +98,8 @@ def get_block_start_jit(block_starts_sorted: npt.NDArray[np.int32], pc: I32) -> 
 
     return I32(-1)
 
+
+TERMINATORS = tuple(TERMINATION_OPCODES)
 
 @njit(uint32(
     uint64[::1],  # reg
@@ -261,17 +265,14 @@ def sbrk_jit(
     return new_heap_ptr, grew_bytes
 
 
-@njit(int32(uint32, int64, boolean, uint8[::1]), cache=NUMBA_CACHE)
-def branch_jit(pc: U32, offset: I64, condition: bool, basic_block_start_mask) -> I32:
-    if condition:
-        target_pc = pc + offset
-        tpi = int(target_pc)
-        if not (tpi >= 0 and tpi < len(basic_block_start_mask) and basic_block_start_mask[tpi] != 0):
-            return I32(-1)  # invalid branch: panic
-
-        return I32(1)  # valid branch
-    else:
-        return I32(0)  # no branch: cintinue
+@njit(int32(uint32, int64, boolean, uint8[::1], int64), cache=NUMBA_CACHE)
+def branch_jit(pc, offset, condition, basic_block_start_mask, fallthrough):
+    target = int(pc) + offset
+    if not (0 <= target < len(basic_block_start_mask) and basic_block_start_mask[target]):
+        return I32(-1)
+    if fallthrough >= 0 and not (fallthrough < len(basic_block_start_mask) and basic_block_start_mask[fallthrough]):
+        return I32(-1)
+    return I32(1) if condition else I32(0)
 
 
 @njit(int32(uint32, int32[::1], uint32, uint8[::1]), cache=NUMBA_CACHE)
@@ -521,17 +522,7 @@ def invoke_native(
         if n_blocks > 0:
             block_start = get_block_start_jit(block_starts_sorted, I32(pc))
             if block_start >= 0:
-                charge_block = False
-                if current_block_start < 0:
-                    # First instruction - charge for initial block
-                    charge_block = True
-                elif pc == block_start:
-                    if current_block_start != block_start:
-                        # PC at start of a NEW block - charge for entering new block
-                        charge_block = True
-                    elif not skip_block_charge:
-                        # Back at start of same block via backward branch - charge for re-entry
-                        charge_block = True
+                charge_block = current_block_start < 0
 
                 if charge_block:
                     # Find block index for gas cost lookup
@@ -570,6 +561,8 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP, current_block_start)
             elif opcode == op_fallthrough:
+                if branch_jit(pc, skip_len, True, basic_block_start_mask, I64(-1)) < 0:
+                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 pass
             elif opcode == op_unlikely:
@@ -654,7 +647,7 @@ def invoke_native(
             v_x = pvm_Z_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_jump:
-                branch_result = branch_jit(pc, v_x, True, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_x, True, basic_block_start_mask, I64(-1))
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 skip_len = v_x
@@ -854,14 +847,14 @@ def invoke_native(
 
             if opcode == op_load_imm_jump:
                 reg[r_a] = v_x
-                branch_result = branch_jit(pc, v_y, True, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, True, basic_block_start_mask, I64(-1))
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 skip_len = v_y  # Jump with offset
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_eq_imm:
-                branch_result = branch_jit(pc, v_y, w_a == v_x, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, w_a == v_x, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a == v_x:
@@ -869,7 +862,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_ne_imm:
-                branch_result = branch_jit(pc, v_y, w_a != v_x, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, w_a != v_x, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a != v_x:
@@ -877,7 +870,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_lt_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a < v_x, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, w_a < v_x, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a < v_x:
@@ -885,7 +878,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_le_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a <= v_x, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, w_a <= v_x, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a <= v_x:
@@ -893,7 +886,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_ge_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a >= v_x, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, w_a >= v_x, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a >= v_x:
@@ -901,7 +894,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_gt_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a > v_x, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, w_a > v_x, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a > v_x:
@@ -909,7 +902,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_lt_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8):
@@ -917,7 +910,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_le_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8):
@@ -925,7 +918,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_ge_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8):
@@ -933,7 +926,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_gt_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), basic_block_start_mask)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8):
@@ -952,27 +945,6 @@ def invoke_native(
 
             if opcode == op_move_reg:
                 reg[r_d] = reg[r_a]
-                if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
-
-            elif opcode == op_sbrk:
-                # Note: if there is no heap section (fx inner pvm), sbrk returns 0
-                if len(section_arrays) <= 1 or len(mem_section_starts) <= 1 or len(mem_section_ends) <= 1:
-                    reg[r_d] = U64(0)
-                else:
-                    size = reg[r_a]
-                    current_heap_ptr = heap_info[0]
-                    next_section_start = heap_info[1]
-                    mem_writable_value = I64(heap_info[2])
-
-                    new_heap_ptr, grew_bytes = sbrk_jit(size, current_heap_ptr, next_section_start, mem_writable_value, section_arrays, mem_section_starts, acl_bitmaps)
-                    reg[r_d] = new_heap_ptr
-
-                    if new_heap_ptr != U64(0):
-                        heap_info[0] = new_heap_ptr
-                        mem_section_ends[1] = new_heap_ptr
-                        if grew_bytes > I64(0):
-                            heap_grew_out[0] += grew_bytes
-
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_count_set_bits_64:
@@ -1298,7 +1270,7 @@ def invoke_native(
             v_x = pvm_Z_jit(read_uint_jit(code, pc + 2, l_x), U8(l_x))
 
             if opcode == op_branch_eq:
-                branch_result = branch_jit(pc, v_x, w_a == w_b, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_x, w_a == w_b, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a == w_b:
@@ -1306,7 +1278,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_ne:
-                branch_result = branch_jit(pc, v_x, w_a != w_b, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_x, w_a != w_b, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a != w_b:
@@ -1314,7 +1286,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_lt_u:
-                branch_result = branch_jit(pc, v_x, w_a < w_b, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_x, w_a < w_b, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a < w_b:
@@ -1322,7 +1294,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_lt_s:
-                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), basic_block_start_mask)
+                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8):
@@ -1330,7 +1302,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_ge_u:
-                branch_result = branch_jit(pc, v_x, w_a >= w_b, basic_block_start_mask)
+                branch_result = branch_jit(pc, v_x, w_a >= w_b, basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif w_a >= w_b:
@@ -1338,7 +1310,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_branch_ge_s:
-                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), basic_block_start_mask)
+                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), basic_block_start_mask, I64(pc) + skip_len)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH, current_block_start)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8):
@@ -1619,6 +1591,8 @@ def invoke_native(
             else:
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP, current_block_start)
 
+        if opcode in TERMINATORS:
+            current_block_start = I32(-1)
         pc = U32(pc + skip_len)
 
     # Finally, copy local state to state output
@@ -1700,43 +1674,13 @@ class PVMInterpreter:
         if cached_code is None:
             original_code = np.array(program.code.code, dtype=U8)
             code_length = len(original_code)
-            code = np.empty(code_length + 1, dtype=U8)
+            code = np.zeros(code_length + 25, dtype=U8)
             code[:code_length] = original_code
             code[code_length] = U8(op_trap)
             jump_table = [x.value for x in program.code.jump_table]
             inst_bitmask = program.code.opcode_bitmask
 
-            #Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
-            inst_pos = {0: 0}
-            inst_arg_len = []
-
-            inst_nr = 0
-            inst_bitmask_idx = 1
-            if len(inst_bitmask) == 1:
-                inst_arg_len.append(0)
-            else:
-                # Parse instruction bitmask and create a opcode offset and instruction length lookup
-                while inst_bitmask_idx < len(inst_bitmask):
-                    inst_args = 0
-                    is_opcode = False
-                    while not is_opcode:
-                        is_opcode = inst_bitmask[inst_bitmask_idx]
-                        if not is_opcode:
-                            inst_args += 1
-                        inst_bitmask_idx += 1
-                        if inst_bitmask_idx > len(inst_bitmask) - 1:
-                            is_opcode = True
-
-                    # GP-0.7.2-eq:A.20 (l)
-                    inst_arg_len.append(inst_args)
-                    inst_nr += 1
-                    # Note: only add to inst_pos if this position has an opcode in the bitmask
-                    if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
-                        inst_pos[inst_bitmask_idx - 1] = inst_nr
-
-            # Add synthetic trap instruction at end (GP-A.3)
-            inst_pos[code_length] = len(inst_arg_len)
-            inst_arg_len.append(0)
+            inst_pos, inst_arg_len, code_valid = decode_instructions(original_code, inst_bitmask)
             basic_block_starts_set = detect_basic_blocks(
                 code=bytes(code),
                 code_length=code_length,
@@ -1772,7 +1716,8 @@ class PVMInterpreter:
                 "code_object": program.code,
                 "code": code,
                 "code_length": code_length,
-                "code_size": U64(len(code)),
+                "code_size": U64(code_length),
+                "code_valid": code_valid,
                 "jump_table": jump_table,
                 "jump_table_array": np.array(jump_table, dtype=np.int32),
                 "inst_bitmask": inst_bitmask,
@@ -1793,6 +1738,7 @@ class PVMInterpreter:
         self.code = cached_code["code"]
         self.code_length = cached_code["code_length"]
         self.code_size = cached_code["code_size"]
+        self.code_valid = cached_code["code_valid"]
         self.jump_table = cached_code["jump_table"]
         self.inst_bitmask = cached_code["inst_bitmask"]
         self.inst_pos = cached_code["inst_pos"]
@@ -1960,51 +1906,12 @@ class PVMInterpreter:
         self.mem_section_acl = []
         self.mem_section_access = []
 
-        # Track which sections we've seen (by address) to avoid duplicates
-        seen_addresses = set()
-
-        # Access the actual memory sections (rom, heap, stack, args)
-        for idx, section in enumerate([memory._rom, memory._heap, memory._stack, memory._args]):
-            if section:
-                seen_addresses.add(section.address)
-
-                view_len = int(section.size)
-                section_end = int(section.paged_tail)
-                if idx == 1:
-                    section_end = int(memory.heap_ptr)
-                    view_len = self.get_heap_capacity(memory, section)
-                contents = self.convert_to_numpy(memory, section, view_len)
-                section.contents = contents
-
-                self.mem_sections.append(contents)
-                acl_bitmap = section.acl_bitmap
-                self.mem_section_acl.append(acl_bitmap)
-                self.mem_section_access.append(section.acl if hasattr(section, "acl") else None)
-                mem_section_starts.append(section.address)
-                mem_section_ends.append(section_end)
-                mem_section_size.append(section.size)
-            else:
-                self.mem_sections.append(None)
-                self.mem_section_acl.append(None)
-                self.mem_section_access.append(None)
-                mem_section_starts.append(0)
-                mem_section_ends.append(0)
-                mem_section_size.append(0)
-
-        # Note: Also include sections from memory.sections (fx for test fixtures that use map_section)
-        if hasattr(memory, 'sections') and memory.sections:
-            for section in memory.sections:
-                if section and section.address not in seen_addresses:
-                    seen_addresses.add(section.address)
-                    contents = self.convert_to_numpy(memory, section, int(section.size))
-                    section.contents = contents
-                    self.mem_sections.append(contents)
-                    acl_bitmap = section.acl_bitmap if hasattr(section, 'acl_bitmap') else None
-                    self.mem_section_acl.append(acl_bitmap)
-                    self.mem_section_access.append(section.acl if hasattr(section, "acl") else None)
-                    mem_section_starts.append(section.address)
-                    mem_section_ends.append(section.paged_tail)
-                    mem_section_size.append(section.size)
+        self.mem_sections = [None] * 4
+        self.mem_section_acl = [None] * 4
+        self.mem_section_access = [None] * 4
+        mem_section_starts = [0] * 4
+        mem_section_ends = [0] * 4
+        mem_section_size = [0] * 4
 
         # Note: CPYTHON memory tracks accessibility in page ACL sets (pages_r/pages_w). For inner PVM pages
         # allocated via hc_pages this can be the only source of truth, so synthesize JIT-visible sections from it.
@@ -2069,7 +1976,7 @@ class PVMInterpreter:
                 mem_section_size.append(section_size)
 
         self.mem_section_starts = np.array(mem_section_starts, dtype=U32)
-        self.mem_section_ends = np.array(mem_section_ends, dtype=U32)
+        self.mem_section_ends = np.array(mem_section_ends, dtype=U64)
         self.mem_section_size = np.array(mem_section_size, dtype=U32)
         self._jit_mem_cache_dirty = True
         self._jit_section_starts_cache = None
@@ -2245,6 +2152,14 @@ class PVMInterpreter:
         return [int(x) for x in self.reg]
 
 
+    @property
+    def gas_paid(self):
+        return self.current_block_start >= 0
+
+    @gas_paid.setter
+    def gas_paid(self, value):
+        self.current_block_start = 0 if value else -1
+
     def invoke(self, pc: int, gas: int):
         """
         Pure JIT invoke that uses only Numba compilation.
@@ -2258,6 +2173,10 @@ class PVMInterpreter:
         self.pc = pc
         self.gas = gas
         self.status = ExitReason.resume.value
+        if not self.code_valid or int(pc) not in self.inst_pos:
+            self.status = ExitReason.panic.value
+            self.exit_value = None
+            return
 
         # Note: re-link memory to pick up any sections added via map_section() after init
         self._link_memory(self.mem)

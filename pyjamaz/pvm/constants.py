@@ -57,7 +57,7 @@ class Opcode(Enum):
     # Instructions without Arguments (none)
     trap: int                                      = 0
     fallthrough: int                               = 1
-    unlikely: int                                  = 3
+    unlikely: int                                  = 2
 
     # GP_A.5.2
     # Instructions with Arguments of One Immediate (imm)
@@ -118,17 +118,16 @@ class Opcode(Enum):
     # GP_A.5.9
     # Instructions with Arguments Of Two Registers (reg_reg)
     move_reg: int                                  = 100
-    sbrk: int                                      = 101
-    count_set_bits_64: int                         = 102
-    count_set_bits_32: int                         = 103
-    leading_zero_bits_64: int                      = 104
-    leading_zero_bits_32: int                      = 105
-    trailing_zero_bits_64: int                     = 106
-    trailing_zero_bits_32: int                     = 107
-    sign_extend_8: int                             = 108
-    sign_extend_16: int                            = 109
-    zero_extend_16: int                            = 110
-    reverse_bytes: int                             = 111
+    count_set_bits_64: int                         = 101
+    count_set_bits_32: int                         = 102
+    leading_zero_bits_64: int                      = 103
+    leading_zero_bits_32: int                      = 104
+    trailing_zero_bits_64: int                     = 105
+    trailing_zero_bits_32: int                     = 106
+    sign_extend_8: int                             = 107
+    sign_extend_16: int                            = 108
+    zero_extend_16: int                            = 109
+    reverse_bytes: int                             = 110
 
     # GP_A.5.10
     # Instructions with Arguments Of Two Registers & One Immediate (reg_reg_imm)
@@ -306,7 +305,6 @@ OpcodeScheme = {
     # GP_A.5.9
     # Instructions with args: reg, reg
     op.move_reg.value: it.reg_reg,
-    op.sbrk.value: it.reg_reg,
     op.count_set_bits_64.value: it.reg_reg,
     op.count_set_bits_32.value: it.reg_reg,
     op.leading_zero_bits_64.value: it.reg_reg,
@@ -524,7 +522,6 @@ OpcodeNames = {
     # GP_A.5.9
     # Instructions with args: reg, reg
     op.move_reg.value: "move_reg",
-    op.sbrk.value: "sbrk",
     op.count_set_bits_64.value: "count_set_bits_64",
     op.count_set_bits_32.value: "count_set_bits_32",
     op.leading_zero_bits_64.value: "leading_zero_bits_64",
@@ -722,7 +719,6 @@ op_branch_le_s_imm = Opcode.branch_le_s_imm.value
 op_branch_ge_s_imm = Opcode.branch_ge_s_imm.value
 op_branch_gt_s_imm = Opcode.branch_gt_s_imm.value
 op_move_reg = Opcode.move_reg.value
-op_sbrk = Opcode.sbrk.value
 op_count_set_bits_64 = Opcode.count_set_bits_64.value
 op_count_set_bits_32 = Opcode.count_set_bits_32.value
 op_leading_zero_bits_64 = Opcode.leading_zero_bits_64.value

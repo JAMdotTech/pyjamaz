@@ -8,5 +8,5 @@
   "expected-regs": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   "expected-memory": [],
   "expected-exit-reason": "out_of_gas",
-  "expected-gas": -5
+  "expected-gas": -43
 }

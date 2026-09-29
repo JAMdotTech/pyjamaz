@@ -188,6 +188,8 @@ class PVMCode(Serializable):
         jump_table = Array(UnsignedInteger(jump_table_entry_size * 8), jump_table_entry_count).decode(scale_bytes)
         code = Array(JU8, code_length).decode(scale_bytes)
         opcode_bitmask = BitArray(code_length, strict_decoding=strict_decoding).decode(scale_bytes)
+        if strict_decoding and scale_bytes.get_remaining_length():
+            raise ValueError("Trailing bytes after PVM code blob")
 
         return cls(
             jump_table_entry_count=jump_table_entry_count,
@@ -203,6 +205,11 @@ class PVMCode(Serializable):
         if not isinstance(data, bytes):
             data = bytes(data)
         return _pvm_code_from_bytes_cached(data)
+
+    def is_valid(self, pc=0):
+        from pyjamaz.pvm.basic_block import decode_instructions
+        positions, _, valid = decode_instructions(self.code, self.opcode_bitmask)
+        return valid and int(pc) in positions
 
     def to_codec_type(self) -> JamCodecType:
         codec_def = self.to_codec_def()
@@ -263,8 +270,8 @@ class PVMProgram(Serializable):
         rom_start = PVM_INIT_ZONE_SIZE
         rom_size = page_size(len(rom_contents))
 
-        # If PVM_MIN_HEAP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
-        heap_mem_size = max(page_size(settings.PVM_MIN_HEAP_SIZE), page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
+        # Only declared heap pages are accessible; grow_heap grants additional pages.
+        heap_mem_size = page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE
         heap_start = (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents))
 
         stack_size = page_size(stack_mem_size)
@@ -273,7 +280,7 @@ class PVMProgram(Serializable):
         args_start = 2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE
         args_size = page_size(len(argument_contents))
 
-        return PVMInterpreter.alloc_memory(
+        memory = PVMInterpreter.alloc_memory(
             rom_start=rom_start,
             rom_size=rom_size,
             rom_contents=rom_contents,
@@ -286,6 +293,11 @@ class PVMProgram(Serializable):
             argument_size=args_size,
             argument_contents=argument_contents,
         )
+
+        memory.heap_base = heap_start
+        memory.stack_base = stack_start
+        memory.heap_ptr = heap_start + heap_mem_size
+        return memory
 
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:
@@ -339,6 +351,8 @@ class PVMProgram(Serializable):
 
             pvm_code_size = int.from_bytes(jam_bytes.get_next_bytes(4), byteorder='little')
             pvm_code = jam_bytes.get_next_bytes(pvm_code_size)
+            if jam_bytes.get_remaining_length():
+                return None
 
             if settings.DEBUG and override_heap_mem_pages:
                 heap_mem_pages = override_heap_mem_pages
@@ -365,10 +379,9 @@ class PVMProgram(Serializable):
 
                 return instance
             else:
-                #TODO
-                raise Exception("HUH?")
+                return None
 
-        except RemainingScaleBytesNotEmptyException as e: # TODO deserialize exception
+        except (RemainingScaleBytesNotEmptyException, ValueError, IndexError):
             pass
 
         return None

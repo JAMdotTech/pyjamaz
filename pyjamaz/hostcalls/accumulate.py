@@ -5,7 +5,7 @@ from jamcodec.base import JamBytes
 from jamcodec.types import U64, U32
 
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, \
+from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, \
     PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO, MINIMUM_PUBLIC_SERVICE_ID
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import ValidatorData, DeferredTransfer
@@ -17,13 +17,14 @@ from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.hostcalls import hostcall
+from pyjamaz.hostcalls.gas import sized, items
 from pyjamaz.utils import format_hash
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
 
 
-@hostcall(10)
+@hostcall(items(422, 20, 12))
 def hc_bless(
         registers: List[int],
         memory: PVMMemory,
@@ -60,10 +61,10 @@ def hc_bless(
 
     # Privileged services:
     m = registers[7]  # m: index of manager service (manager of chi(X))
-    a = registers[8] % U32_MAX  # a: address to read values of the assign services (UInt32 for memory)
+    a = int(registers[8])  # a: address to read values of the assign services (UInt32 for memory)
     v = registers[9]  # v: index of designate service (validator queue)
     r = registers[10] # r: index of registrar service
-    o = registers[11] % U32_MAX  # offset to read service indices (UInt32 for memory)
+    o = int(registers[11])  # offset to read service indices (UInt32 for memory)
     n = registers[12] # number of entries in the auto_accumulate_services dictionary to read
 
     assigners = None # GP: bold_a
@@ -91,11 +92,9 @@ def hc_bless(
     if auto_accumulate_services is None or assigners is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
-    # TODO regressie huh?
-    # elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
-    #     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-    #     invocation_output.registers[7] = HostCallResult.HUH.value
-    #     logger and logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
+    elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
     elif m >= 2**32 or v >= 2**32 or r >= 2**32:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
@@ -114,7 +113,7 @@ def hc_bless(
         logger and logger.hc_log("BLESS OK", f"m={m} a={a} v={v} r={r}")
 
 
-@hostcall(10)
+@hostcall(1818)
 def hc_assign(
         registers: List[int],
         memory: PVMMemory,
@@ -145,8 +144,8 @@ def hc_assign(
     None
     """
     logger and logger.hc_regs(f"ASSIGN", "accumulate")
-    core_index = registers[7] % U32_MAX  # Core index to update (0..341)
-    o = registers[8] % U32_MAX  # memory offset (UInt32)
+    core_index = int(registers[7])  # Core index to update (0..341)
+    o = int(registers[8])  # memory offset (UInt32)
     a = registers[9]  # new assigner service (UInt64)
 
     if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MEM_R):
@@ -189,7 +188,7 @@ def hc_assign(
         logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o} a={a}")
 
 
-@hostcall(10)
+@hostcall(items(1100, 302, 8))
 def hc_designate(
         registers: List[int],
         memory: PVMMemory,
@@ -218,12 +217,21 @@ def hc_designate(
     None
     """
     logger and logger.hc_regs(f"DESIGNATE", "accumulate")
-    o = registers[7] % U32_MAX  # memory offset (UInt32)
+    o = int(registers[7])  # memory offset (UInt32)
 
-    if memory.is_accessible(o, 336 * VALIDATOR_COUNT, MEM_R):
+    count = int(registers[8])
+    if not memory.is_accessible(o, 336 * count, MEM_R):
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        return
+    if count < 6 or count > 3 * CORE_COUNT or count % 3:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
+        return
+
+    if memory.is_accessible(o, 336 * count, MEM_R):
         validator_queue = [] #GP: bold_v
         try:
-            for idx in range(VALIDATOR_COUNT):
+            for idx in range(count):
                 offset = o + idx * 336
                 validator_data = ValidatorData.from_jam_bytes(JamBytes(memory.read_bytes(offset, 336)))
                 validator_queue.append(validator_data)
@@ -249,7 +257,7 @@ def hc_designate(
         logger and logger.hc_log("DESIGNATE OK", f"o={o}")
 
 
-@hostcall(10)
+@hostcall(103)
 def hc_checkpoint(
         registers: List[int],
         memory: PVMMemory,
@@ -291,7 +299,7 @@ def hc_checkpoint(
     x.savepoint_context = deepcopy(x.context)
 
 
-@hostcall(10)
+@hostcall(3855)
 def hc_new(
         registers: List[int],
         memory: PVMMemory,
@@ -316,7 +324,7 @@ def hc_new(
     None
     """
     logger and logger.hc_regs(f"NEW", "accumulate")
-    o = registers[7] % U32_MAX  # offset to read service data from (UInt32 for memory)
+    o = int(registers[7])  # offset to read service data from (UInt32 for memory)
     l = registers[8]   # size (byte length) of the code blob (UInt64)
     g = registers[9]   # gas_limit_accumulate (UInt64)
     m = registers[10]  # gas_limit_on_transfer (UInt64)
@@ -410,7 +418,7 @@ def hc_new(
         logger and logger.hc_log("NEW OK", f"old_service={service_id} code_hash={code_hash} code_len={l}")
 
 
-@hostcall(10)
+@hostcall(1028)
 def hc_upgrade(
         registers: List[int],
         memory: PVMMemory,
@@ -442,7 +450,7 @@ def hc_upgrade(
     None
     """
     logger and logger.hc_regs(f"UPGRADE", "accumulate")
-    o = registers[7] % U32_MAX  # offset for service codehash (UInt32 for memory)
+    o = int(registers[7])  # offset for service codehash (UInt32 for memory)
     g = registers[8]  # gas_limit_accumulate (UInt64)
     m = registers[9]  # gas_limit_on_transfer (UInt64)
 
@@ -469,7 +477,6 @@ def hc_upgrade(
         logger and logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
 
 
-@hostcall(10)
 def hc_transfer(
         registers: List[int],
         memory: PVMMemory,
@@ -507,7 +514,7 @@ def hc_transfer(
     d = registers[7]     # destination (UInt64, will be truncated to ServiceIndex)
     a = registers[8]     # amount (UInt64)
     l = registers[9]     # gas_limit (UInt64)
-    o = registers[10] % U32_MAX  # offset for memo (UInt32 for memory)
+    o = int(registers[10])  # offset for memo (UInt32 for memory)
 
     service_id = x.context.service_account_id
     service_account = x.context.state_context.services.retrieve_service_account(service_id)
@@ -530,6 +537,16 @@ def hc_transfer(
     except PVMMemoryError:
         transfer = None
         b = None
+
+    # B.7 charges forwarded gas whenever the transfer is valid, even if the
+    # caller cannot cover the base cost. No account or register changes on OOG.
+    forwarded = int(l) if (transfer is not None and dest_service_account is not None
+                           and l >= dest_service_account.gas_limit_on_transfer
+                           and b >= service_account.threshold_balance) else 0
+    invocation_output.gas_limit = int(invocation_output.gas_limit) - 575 - forwarded
+    if invocation_output.gas_limit < 0:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
+        return
 
     if transfer is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -556,13 +573,6 @@ def hc_transfer(
     else:
         t = l
 
-        # Process additional gas usage
-        invocation_output.gas_limit -= t
-        if invocation_output.gas_limit < 0:
-            invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
-            logger and logger.hc_log("TRANSFER OOG", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
-            return
-
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
@@ -574,7 +584,7 @@ def hc_transfer(
         logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
 
-@hostcall(10)
+@hostcall(458)
 def hc_eject(
         registers: List[int],
         memory: PVMMemory,
@@ -610,7 +620,7 @@ def hc_eject(
     """
     logger and logger.hc_regs(f"EJECT", "accumulate")
     d = registers[7]  # destination service (UInt64)
-    o = registers[8] % U32_MAX  # memory offset (UInt32)
+    o = int(registers[8])  # memory offset (UInt32)
 
     # gp: h
     try:
@@ -668,7 +678,7 @@ def hc_eject(
         logger and logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
 
 
-@hostcall(10)
+@hostcall(643)
 def hc_query(
         registers: List[int],
         memory: PVMMemory,
@@ -699,7 +709,11 @@ def hc_query(
     None
     """
     logger and logger.hc_regs(f"QUERY", "accumulate")
-    o = registers[7] % U32_MAX  # memory offset (UInt32)
+    if int(registers[8]) >= U32_MAX:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
+        return
+    o = int(registers[7])  # memory offset (UInt32)
     preimage_length = registers[8]  # preimage length (UInt64)
 
     service_id = x.context.service_account_id
@@ -757,7 +771,7 @@ def hc_query(
         logger and logger.hc_log("QUERY PANIC", f"")
 
 
-@hostcall(10)
+@hostcall(2193)
 def hc_solicit(
         registers: List[int],
         memory: PVMMemory,
@@ -789,12 +803,16 @@ def hc_solicit(
     None
     """
     logger and logger.hc_regs(f"SOLICIT", "accumulate")
+    if int(registers[8]) >= U32_MAX:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
+        return
 
     state = x.context.state_context
     service_id = x.context.service_account_id
     service_account = x.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
 
-    o = registers[7] % U32_MAX  # memory offset (UInt32)
+    o = int(registers[7])  # memory offset (UInt32)
     preimage_length = registers[8]    # GP: z (UInt64)
 
     #GP: h
@@ -856,7 +874,7 @@ def hc_solicit(
         logger and logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
 
 
-@hostcall(10)
+@hostcall(3250)
 def hc_forget(
         registers: List[int],
         memory: PVMMemory,
@@ -889,7 +907,11 @@ def hc_forget(
     None
     """
     logger and logger.hc_regs(f"FORGET", "accumulate")
-    o = registers[7] % U32_MAX  # memory offset (UInt32)
+    if int(registers[8]) >= U32_MAX:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
+        return
+    o = int(registers[7])  # memory offset (UInt32)
     preimage_length = registers[8]  #GP: z (UInt64)
 
     state = x.context.state_context
@@ -960,7 +982,7 @@ def hc_forget(
         logger and logger.hc_log("FORGET OK", f"preimage_hash={preimage_hash.hex()}")
 
 
-@hostcall(10)
+@hostcall(98)
 def hc_yield(
         registers: List[int],
         memory: PVMMemory,
@@ -1009,7 +1031,7 @@ def hc_yield(
         logger and logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
 
 
-@hostcall(10)
+@hostcall(sized(3980, (2264, 9)))
 def hc_provide(
         registers: List[int],
         memory: PVMMemory,
@@ -1039,6 +1061,10 @@ def hc_provide(
     """
 
     logger and logger.hc_regs(f"PROVIDE", "accumulate")
+    if int(registers[9]) >= U32_MAX:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
+        return
     preimage_address = registers[8] # GP: o
     preimage_length = registers[9]  # GP: z
 

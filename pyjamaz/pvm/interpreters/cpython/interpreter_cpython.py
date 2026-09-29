@@ -1,3 +1,4 @@
+from pyjamaz.pvm.basic_block import decode_instructions
 import traceback
 import typing
 
@@ -40,7 +41,7 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 class PVMInterpreter:
     __slots__ = (
         'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
-        'code', 'code_size',  'code_length', 'jump_table', 'inst_bitmask', 'inst_pos',
+        'code_valid', 'code', 'code_size',  'code_length', 'jump_table', 'inst_bitmask', 'inst_pos',
         'inst_arg_len', 'mv_inst_arg_len', 'mem', 'status', 'exit_value',
         'mem_ops_bytes', 'mem_sections', 'mem_section_access', 'mem_section_acl',
         'mem_section_starts', 'mem_section_ends', 'mem_section_size',
@@ -158,59 +159,30 @@ class PVMInterpreter:
 
 
     def create_instruction_lookup(self):
-        """
-        Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
-        """
-        self.inst_pos = {0: 0}
-        self.inst_arg_len = array("B")
-
-        inst_nr = 0
-        inst_bitmask = self.inst_bitmask
-        inst_bitmask_idx = 1
-
-        # Note: In the exceptional case we only have 1 instruction (trap or fallthrough), we add it manually and be done
-        if len(inst_bitmask) == 1:
-            self.inst_arg_len.append(0)
-            return
-
-        # Parse instruction bitmask and create a opcode offset and instruction length lookup
-        while inst_bitmask_idx < len(inst_bitmask):
-            inst_args = 0
-
-            is_opcode = False
-
-            while not is_opcode:
-
-                is_opcode = inst_bitmask[inst_bitmask_idx]
-                if not is_opcode:
-                    inst_args += 1
-
-                inst_bitmask_idx += 1
-
-                if inst_bitmask_idx > len(inst_bitmask) - 1:
-                    is_opcode = True
-
-            # GP-0.7.2-eq:A.20 (l)
-            self.inst_arg_len.append(inst_args)
-            inst_nr += 1
-            # Note: we double check and only add to inst_pos if this position has an opcode in the bitmask
-            if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
-                self.inst_pos[inst_bitmask_idx - 1] = inst_nr
-
+        positions, lengths, self.code_valid = decode_instructions(
+            self.code[:self.code_length], self.inst_bitmask)
+        self.inst_pos = positions
+        self.inst_arg_len = array("B", lengths)
         self.mv_inst_arg_len = memoryview(self.inst_arg_len)
 
+    @property
+    def gas_paid(self):
+        return self.current_block_start is not None
 
-    def branch(self, b:int, C:bool):
-        """
-        #GP-0.7.2-eq:A.17
-        """
+    @gas_paid.setter
+    def gas_paid(self, value):
+        self.current_block_start = 0 if value else None
+
+    def sjump(self, offset):
+        if int(self.pc) + int(offset) not in self.basic_block_starts_set:
+            raise PanicError("Invalid static jump target")
+        self.skip_len = offset
+
+    def branch(self, b: int, C: bool):
+        if int(self.pc) + int(b) not in self.basic_block_starts_set or int(self.pc) + int(self.skip_len) not in self.basic_block_starts_set:
+            raise PanicError("Invalid conditional branch target or fallthrough")
         if C:
-            target_pc = self.pc + b
-            if target_pc not in self.basic_block_starts_set:
-                #self.status = ExitCondition.panic.value
-                raise PanicError(f"Invalid branch instruction: C={C} b={b} target_pc={target_pc}")
-            else:
-                self.skip_len = b
+            self.skip_len = b
 
 
     def reset(self, program: PVMProgram):
@@ -221,8 +193,8 @@ class PVMInterpreter:
         # GP-0.7.2:A.4 - Store original code and add synthetic trap
         self.code = bytearray(program.code.code)
         self.code_length = len(self.code)  # Original length BEFORE synthetic trap
-        self.code.append(Opcode.trap.value)  # Synthetic trap at end
-        self.code_size = u64(len(self.code))
+        self.code.extend(bytes(25))  # Zero padding for truncated operands (A.6)
+        self.code_size = u64(self.code_length)
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
@@ -240,15 +212,8 @@ class PVMInterpreter:
         self.mv_inst_arg_len = None
 
         self.create_instruction_lookup()
+        self.current_block_start = None
 
-        # GP-0.7.2:A.4 - Update inst_pos for synthetic trap position
-        self.mv_inst_arg_len = None
-        # Note: must append before recreating memoryview
-        self.inst_pos[self.code_length] = len(self.inst_arg_len)
-        self.inst_arg_len.append(0)
-        self.mv_inst_arg_len = memoryview(self.inst_arg_len)
-
-        # Initialize gas model
         self.gas_model = GasModel(
             code=self.code,
             inst_pos=self.inst_pos,
@@ -380,13 +345,6 @@ class PVMInterpreter:
 
     def _sync_memory(self):
         """Sync memory state back to original PVMMemory and MemorySection objects after execution"""
-        if self.mem_sections and self.mem_section_starts[1]:
-            if self.mem._heap:
-                self.mem._heap.contents = self.mem_sections[1]
-                self.mem._heap.size = len(self.mem_sections[1])
-                self.mem._heap.paged_tail = self.mem_section_ends[1]
-                self.mem._heap.acl_bitmap = self.mem_section_acl[1]
-            self.mem.heap_ptr = self.mem_section_ends[1]
         self.mem._mem_addr = self._mem_addr
 
 
@@ -482,6 +440,8 @@ class PVMInterpreter:
         """Write to memory based on opcode"""
         addr = u32(addr)
         bytes_to_write = self.mem_ops_bytes[opcode]
+        if int(addr) < 65536 or int(addr) + bytes_to_write > 2**32:
+            raise PanicError("Instruction accesses low memory guard zone")
 
         try:
             self.mem.write_int(addr, value, bytes_to_write)
@@ -493,6 +453,8 @@ class PVMInterpreter:
         """Read from memory based on opcode"""
         addr = u32(addr)
         bytes_to_read = self.mem_ops_bytes[opcode]
+        if int(addr) < 65536 or int(addr) + bytes_to_read > 2**32:
+            raise PanicError("Instruction accesses low memory guard zone")
 
         try:
             return self.mem.read_int(addr, bytes_to_read)
@@ -581,6 +543,11 @@ class PVMInterpreter:
         self.gas = i64(gas)
         self.status = ExitReason.resume.value
 
+        if not self.code_valid or int(pc) not in self.inst_pos:
+            self.status = ExitReason.panic.value
+            self.exit_value = None
+            return
+
         # Note: we cache attribute lookups and globals to locals for the pvm hot loop
         log = self.log
         code = self.code
@@ -628,17 +595,7 @@ class PVMInterpreter:
                 block_start = get_block_start(basic_block_starts_sorted, pc_local)
 
                 if block_start is not None:
-                    charge_block = False
-                    if current_block_start is None:
-                        # First instruction - charge for initial block
-                        charge_block = True
-                    elif pc_local == block_start:
-                        if current_block_start != block_start:
-                            # PC is at the start of a NEW block - charge for entering new block
-                            charge_block = True
-                        elif not skip_first_block_charge:
-                            # Back at start of same block via backward branch - charge for re-entry
-                            charge_block = True
+                    charge_block = current_block_start is None
 
                     if charge_block:
                         block_cost = basic_block_gas[block_start]
@@ -712,6 +669,8 @@ class PVMInterpreter:
             inst_nr = self.inst_nr
             status = self.status
             if status == exit_resume:
+                if opcode in TERMINATION_OPCODES:
+                    current_block_start = None
                 # Note: we only advance PC on a resume state
                 pc_local = u32(pc_local + skip_len)
 

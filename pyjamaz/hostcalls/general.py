@@ -12,13 +12,39 @@ from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.hostcalls import hostcall
+from pyjamaz.hostcalls.gas import sized, fetch_cost
 
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
 
 
-@hostcall(10)
+def hc_grow_heap(registers, memory, invocation_output, logger):
+    """B.5: request an absolute heap end page, preserving existing contents."""
+    from pyjamaz.pvm.constants import PVM_PAGE_SIZE, PVM_INIT_ZONE_SIZE
+    a = int(memory.heap_base) // PVM_PAGE_SIZE
+    b = (int(memory.stack_base) - PVM_INIT_ZONE_SIZE) // PVM_PAGE_SIZE
+    h = a + sum(a <= page < b for page in memory.pages_w)
+    requested = int(registers[7])
+    gas = int(invocation_output.gas_limit)
+    end = h
+    if requested <= h or requested > b:
+        gas -= 275
+        reason = ExitReason.resume
+    elif gas < 275 + (requested - h) * 121:
+        reason = ExitReason.out_of_gas
+    else:
+        gas -= 275 + (requested - h) * 121
+        end = requested
+        reason = ExitReason.resume
+    memory.change_acl(a, end - a, MEM_W)
+    memory.heap_ptr = end * PVM_PAGE_SIZE
+    invocation_output.registers[7] = end
+    invocation_output.gas_limit = gas
+    invocation_output.exit_condition = ExitCondition(reason=reason)
+
+
+@hostcall(48)
 def hc_gas(
         registers: List[int],
         memory: PVMMemory,
@@ -46,7 +72,7 @@ def hc_gas(
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
 
-@hostcall(10)
+@hostcall(sized(600, (248, 11)))
 def hc_lookup(
         registers: List[int],
         memory: PVMMemory,
@@ -90,8 +116,8 @@ def hc_lookup(
         except StateKeyNoResult:
             service_account = None  # bold_a = ∅
 
-    preimage_hash = registers[8] % U32_MAX  # GP: h (offset to read image hash from pvm mem)
-    o = registers[9] % U32_MAX  # offset to write image data to in pvm mem
+    preimage_hash = int(registers[8])  # GP: h (offset to read image hash from pvm mem)
+    o = int(registers[9])  # offset to write image data to in pvm mem
 
     preimage_hash_unreadable = not memory.is_accessible(preimage_hash, 32, MEM_R) # GP: bold_v = ∇
     preimage_bytes = None # GP: bold_v = ∅
@@ -122,7 +148,7 @@ def hc_lookup(
         logger and logger.hc_log("LOOKUP OK",
                            f"s={service_account_id} h={preimage_hash} len(v)={len(preimage_bytes)} write_bytes({o},{o + l})")
 
-@hostcall(10)
+@hostcall(sized(2407, (1736, 9), (248, 12)))
 def hc_read(
         registers: List[int],
         memory: PVMMemory,
@@ -167,9 +193,9 @@ def hc_read(
     except StateKeyNoResult as e:
         service_account = None  # GP: bold_a = ∅
 
-    k_o = registers[8] % U32_MAX  # offset to read from memory
-    k_z = registers[9] % U32_MAX  # length to read from memory
-    o = registers[10] % U32_MAX   # offset where to write to in pvm mem
+    k_o = int(registers[8])  # offset to read from memory
+    k_z = int(registers[9])  # length to read from memory
+    o = int(registers[10])   # offset where to write to in pvm mem
 
     # GP: bold_v (storage_item)
     storage_key = None
@@ -206,7 +232,7 @@ def hc_read(
                            f"s={target_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
 
 
-@hostcall(10)
+@hostcall(sized(2442, (3358, 8), (216, 10)))
 def hc_write(
         registers: List[int],
         memory: PVMMemory,
@@ -235,10 +261,10 @@ def hc_write(
     None
     """
     logger and logger.hc_regs(f"WRITE", "general")
-    k_o = registers[7] % U32_MAX   # offset to read storage_item_key from memory
-    k_z = registers[8] % U32_MAX   # length to read storage_item_key from memory
-    v_o = registers[9] % U32_MAX   # offset to write storage_item_value from memory
-    v_z = registers[10] % U32_MAX  # length to write storage_item_value from memory
+    k_o = int(registers[7])   # offset to read storage_item_key from memory
+    k_z = int(registers[8])   # length to read storage_item_key from memory
+    v_o = int(registers[9])   # offset to write storage_item_value from memory
+    v_z = int(registers[10])  # length to write storage_item_value from memory
 
     k = None
     l = None
@@ -317,7 +343,7 @@ def hc_write(
         logger and logger.hc_log("WRITE storage",f"a_o={service_account.footprint_storage_bytes} a_i={service_account.footprint_storage_items}")
 
 
-@hostcall(10)
+@hostcall(703)
 def hc_info(
         registers: List[int],
         memory: PVMMemory,
@@ -359,7 +385,7 @@ def hc_info(
     except StateKeyNoResult:
         service_account = None  # GP: t = ∅
 
-    o = registers[8] % U32_MAX
+    o = int(registers[8])
 
     service_account_bytes = None  # GP: bold_v
     if service_account is not None:
@@ -394,7 +420,7 @@ def hc_info(
         logger and logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
 
 
-@hostcall(10)
+@hostcall(fetch_cost)
 def hc_fetch(
         registers: List[int],
         memory: PVMMemory,
@@ -436,7 +462,7 @@ def hc_fetch(
 
     logger and logger.hc_regs(f"FETCH", "general")
 
-    w7 = registers[7] % U32_MAX   # writeAddr (memory address)
+    w7 = int(registers[7])   # writeAddr (memory address)
     w8 = registers[8]              # first (UInt64)
     w9 = registers[9]              # len (UInt64)
     w10 = registers[10]            # kind (UInt64)
@@ -495,20 +521,16 @@ def hc_fetch(
                 U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) +
                 U16.encode(gp_const.MAXIMUM_EXTRINSIC_TICKETS) +
                 U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) +
-                U16.encode(gp_const.TICKET_ENTRIES) +
                 U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
                 U16.encode(gp_const.SLOT_PERIOD) +
                 U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) +
                 U16.encode(gp_const.ROTATION_PERIOD_CORE) +
                 U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) +
                 U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) +
-                U16.encode(gp_const.VALIDATOR_COUNT) +
                 U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) +
                 U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) +
                 U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) +
-                U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES) +
                 U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
-                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) +
                 U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) +
                 U32.encode(gp_const.SIZE_TRANSFER_MEMO) +
                 U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) +
@@ -596,10 +618,11 @@ def hc_fetch(
         logger and logger.hc_log("FETCH result", f"OK kind={w10} wrote={l}bytes f={f} l={l} from len={len(bold_v)}")
 
 
-@hostcall(10)
 def hc_not_found(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     logger and logger.hc_regs(f"NOT_FOUND", "general")
-    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+    invocation_output.gas_limit = int(invocation_output.gas_limit) - 1000
+    invocation_output.exit_condition = ExitCondition(
+        reason=ExitReason.out_of_gas if invocation_output.gas_limit < 0 else ExitReason.resume)
     invocation_output.registers[7] = HostCallResult.WHAT.value

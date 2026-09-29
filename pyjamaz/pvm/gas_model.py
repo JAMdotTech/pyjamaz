@@ -632,6 +632,8 @@ class GasModel:
             case InstructionType.reg_reg_imm:
                 r_a = min(12, self.sim_code[pc + 1] % 16)
                 r_b = min(12, self.sim_code[pc + 1] // 16)
+                if opcode in {self.op.cmov_iz_imm.value, self.op.cmov_nz_imm.value}:
+                    return {r_a, r_b}
                 if opcode in {self.op.store_ind_u8.value, self.op.store_ind_u16.value,
                              self.op.store_ind_u32.value, self.op.store_ind_u64.value}:
                     return {r_a, r_b}
@@ -654,6 +656,8 @@ class GasModel:
             case InstructionType.reg_reg_reg:
                 r_a = min(12, self.sim_code[pc + 1] % 16)
                 r_b = min(12, self.sim_code[pc + 1] // 16)
+                if opcode in {self.op.cmov_iz.value, self.op.cmov_nz.value}:
+                    return {r_a, r_b, min(12, self.sim_code[pc + 2])}
                 return {r_a, r_b}
 
         return set()
@@ -771,7 +775,7 @@ class GasModel:
 
         opcode = self.sim_code[pc]
         target_pc = self._compute_branch_target(pc, opcode)
-        target_op = self.sim_code[target_pc] if target_pc and target_pc < len(self.sim_code) else None
+        target_op = self.sim_code[target_pc] if target_pc is not None and 0 <= target_pc < len(self.sim_code) else None
 
         trap_unlikely = {self.op.unlikely.value, self.op.trap.value}
         if fallthrough_op in trap_unlikely or target_op in trap_unlikely:
@@ -967,7 +971,6 @@ class GasModel:
         table[self.op.jump_ind.value] = InstructionCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
         table[self.op.load_imm_jump_ind.value] = InstructionCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
         table[self.op.ecalli.value] = InstructionCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
-        table[self.op.sbrk.value] = InstructionCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
 
         return table
 

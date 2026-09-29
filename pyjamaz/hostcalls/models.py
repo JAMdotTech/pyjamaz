@@ -140,7 +140,8 @@ class IntegratedPVM:
     """
     code: PVMCode              # GP-0.7.2-eq:B.4 bold_p
     memory: PVMMemory            # GP-0.7.2-eq:B.4 bold_u
-    program_counter: int     # GP-0.7.2-eq:B.4 italic_i
+    program_counter: int     # GP-0.8 B.4
+    gas_paid: bool = False
 
 
 @dataclass
