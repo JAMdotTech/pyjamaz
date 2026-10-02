@@ -1699,7 +1699,11 @@ class Statistics(StateComponent):
 
         post_state = deepcopy(pre_state_statistics)
 
-        # GP-0.7.2-eq:13.4 | Shift statistics after epoch change
+        # GP-0.8.0-eq:13.4--13.6: assurances belong to the prior set;
+        for assurer in sorted({a.validator_index for a in extrinsic_assurances}):
+            post_state.vals_current[assurer].assurances += 1
+
+        # Rotate only after recording the prior validators' assurances.
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             post_state.vals_last = post_state.vals_current
             post_state.vals_current = [ActivityRecord(
@@ -1709,16 +1713,13 @@ class Statistics(StateComponent):
                 pre_images_size=0,
                 guarantees=0,
                 assurances=0
-            ) for _ in range(gp_const.VALIDATOR_COUNT)]
+            ) for _ in post_state_validator_pool.validators]
 
         # GP-0.7.2-eq:13.5 | Update validator stats
         post_state.vals_current[header.author_index].blocks += 1
         post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
         post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
         post_state.vals_current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
-
-        for assurance in extrinsic_assurances:
-            post_state.vals_current[assurance.validator_index].assurances += 1
 
         for reporter in self.block_context.reporters:
             val_index = self.retrieve_validator_index(reporter, post_state_validator_pool)
@@ -1765,6 +1766,7 @@ class Statistics(StateComponent):
             if accumulation_stats:
                 activity_record.accumulate_count += accumulation_stats.nr_work_reports_accumulated
                 activity_record.accumulate_gas_used += accumulation_stats.total_gas_utilized
+                activity_record.accumulate_transfer_count += accumulation_stats.nr_transfers_accumulated
 
             post_state.services[s] = activity_record
 

@@ -1198,10 +1198,15 @@ class CoreActivityRecord(Serializable):
         """
         GP-0.7.2-eq:13.11 (D) | Updating core stats using available work-reports (bold_R) (GP-0.7.0-eq:11.16)
         """
-        self.da_load = sum([
-            w.package_spec.length + EC_SEGMENT_SIZE * ceil(w.package_spec.exports_count * 65/64)
-            for w in available_work_reports if w.core_index == core_index
-        ])
+        # GP-0.7.2-eq:13.11. Keep the ceiling operation in integer space:
+        # protocol counts are integers and consensus arithmetic must not
+        # depend on the precision or rounding behavior of a host float.
+        self.da_load = sum(
+            w.package_spec.length
+            + EC_SEGMENT_SIZE * ((w.package_spec.exports_count * 65 + 63) // 64)
+            for w in available_work_reports
+            if w.core_index == core_index
+        )
 
 @dataclass
 class ServiceActivityRecord(Serializable):
@@ -1240,6 +1245,7 @@ class ServiceActivityRecord(Serializable):
     extrinsic_size: int = field(metadata={'codec': VarInt64}, default=0)
     exports: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_count: int = field(metadata={'codec': VarInt64}, default=0)
+    accumulate_transfer_count: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
 
 
@@ -1260,8 +1266,12 @@ class StatisticsState(State, Serializable):
     services: Map(U32, ServiceActivityRecord)
         GP-0.7.2-eq:13.1 (π_S) | Service activity statistics for last block.
     """
-    vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
-    vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    vals_current: List[ActivityRecord] = field(
+        metadata={'codec': BoundedVec(ActivityRecord.to_codec_def(), 3 * CORE_COUNT, 6, 3)}
+    )
+    vals_last: List[ActivityRecord] = field(
+        metadata={'codec': BoundedVec(ActivityRecord.to_codec_def(), 3 * CORE_COUNT, 6, 3)}
+    )
     cores: List[CoreActivityRecord] = field(metadata={
         'codec': Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
     })
@@ -1270,10 +1280,10 @@ class StatisticsState(State, Serializable):
     })
 
     @classmethod
-    def default(cls) -> 'StatisticsState':
+    def default(cls, validator_count: int = VALIDATOR_COUNT) -> 'StatisticsState':
         return cls(
-            vals_current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
-            vals_last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+            vals_current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(validator_count)],
+            vals_last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(validator_count)],
             cores=[CoreActivityRecord(0, 0, 0, 0, 0, 0, 0, 0) for _ in range(CORE_COUNT)],
             services={},
         )
@@ -1493,7 +1503,7 @@ class JamState(State, Serializable):
                 wonky_set=[],
                 offenders=[],
             ),
-            statistics=StatisticsState.default(),
+            statistics=StatisticsState.default(len(validators)),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[
                     [] for _ in range(EPOCH_TIMESLOTS)
