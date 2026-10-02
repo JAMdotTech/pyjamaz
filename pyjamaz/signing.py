@@ -3,13 +3,28 @@ from typing import Type, TypeVar
 
 import ed25519_zebra
 import bandersnatch_vrfs
+from bandersnatch_vrfs import RingContext
 from bip39 import bip39_to_mini_secret
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256
 
+from pyjamaz.graypaper_constants import valid_validator_count, VALIDATOR_COUNT
 
 T = TypeVar('T')
+
+def jam_ring_context(ring_data: bytes, public_keys: list[bytes]) -> RingContext:
+    """GP-0.8.0-app:G, Bandersnatch spec 4.1: preserve the profile domain.
+    """
+    keys = [bytes(key) for key in public_keys]
+    if not valid_validator_count(len(keys)) or any(len(key) != 32 for key in keys):
+        raise ValueError("invalid JAM validator ring")
+    padding_point = bytes.fromhex(
+        "92ca79e61dd90c1573a8693f199bf6e1e86835cc715cdcf93f5ef222560023aa"
+    )
+    return bandersnatch_vrfs.RingContext(
+        ring_data, keys + [padding_point] * (VALIDATOR_COUNT - len(keys)),
+    )
 
 
 class Keypair:

@@ -15,6 +15,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE, MINIMUM_PUBLIC_SERVICE_ID
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
+from pyjamaz.models.codec import BoundedVec
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage, DeferredTransfer
 from pyjamaz.pvm.invocation import InvocationContext
 from pyjamaz.settings import DEBUG
@@ -120,7 +121,7 @@ class SafroleState(State, Serializable):
     ticket_accumulator: TicketBody
         GP-0.7.2-eq:6.5 (γ_A) | Sealing-key contest ticket accumulator.
     """
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
     ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
     slot_sealer_series: SlotSealerSeries = field(metadata={'codec': SlotSealerSeries.to_codec_def()})
     ticket_accumulator: List[TicketBody] = field(metadata={'codec': Vec(TicketBody.to_codec_def())})
@@ -138,7 +139,7 @@ class ValidatorQueueState(State, Serializable):
         protocol.
     """
     # Todo: review and annotate: ValidatorData
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
 
 
 @dataclass
@@ -152,7 +153,7 @@ class ValidatorPoolState(State, Serializable):
         GP-0.7.2-eq:6.7 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
     """
     # Todo: review and annotate: ValidatorData
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
 
 
 @dataclass
@@ -166,7 +167,7 @@ class ValidatorArchiveState(State, Serializable):
         GP-0.7.2-eq:6.7 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
     """
     # Todo: review and annotate: ValidatorData
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
 
 
 @dataclass

@@ -20,7 +20,7 @@ from pyjamaz.hostcalls.models import PvmAccumulateOutput
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE, DEBUG, \
     USE_THREAD_POOL_ACCUMULATE
-from pyjamaz.signing import Ed25519Keypair
+from pyjamaz.signing import Ed25519Keypair, jam_ring_context
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer, AccumulationInput, \
     AccumulationOperand
@@ -414,7 +414,7 @@ class Safrole(StateComponent):
                 DEBUG and logging.debug(f"New Slot Sealer Series with tickets")
 
             # Update ring commitment using O(); GP-0.7.2-eq:6.13
-            ring_context = RingContext(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
+            ring_context = jam_ring_context(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
             self.post_state_safrole.ring_commitment = ring_context.commitment
 
         # GP-0.7.2-eq:6.30
@@ -447,7 +447,7 @@ class Safrole(StateComponent):
 
             ring_public_keys = [v.bandersnatch for v in ticket_validators]
 
-            ring_context = RingContext(self.ring_data, ring_public_keys)
+            ring_context = jam_ring_context(self.ring_data, ring_public_keys)
 
             if USE_THREAD_POOL_SAFROLE:
 
@@ -469,7 +469,10 @@ class Safrole(StateComponent):
                         idx = futs[fut]
 
                         # Check if ticket already exists
-                        if ticket in self.post_state_safrole.ticket_accumulator:
+                        if any(
+                                existing.id == ticket.id
+                                for existing in self.post_state_safrole.ticket_accumulator
+                        ):
                             # GP-0.7.2-eq:6.33
                             raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                         else:
@@ -481,7 +484,10 @@ class Safrole(StateComponent):
                     ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
 
                     # Check if ticket already exists
-                    if ticket in self.post_state_safrole.ticket_accumulator:
+                    if any(
+                            existing.id == ticket.id
+                            for existing in self.post_state_safrole.ticket_accumulator
+                    ):
                         # GP-0.7.2-eq:6.33
                         raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                     else:
@@ -534,8 +540,12 @@ class Safrole(StateComponent):
         checked_validators = []
         for v in validators:
             if v.ed25519 in offenders:
-                v.bandersnatch = bytes(32)
-                v.ed25519 = bytes(32)
+                v = ValidatorData(
+                    bandersnatch=bytes(32),
+                    ed25519=bytes(32),
+                    bls=bytes(144),
+                    metadata=bytes(128),
+                )
             checked_validators.append(v)
 
         return checked_validators

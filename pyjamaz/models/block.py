@@ -10,6 +10,7 @@ from pyjamaz.exceptions import BlockValidationError
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple, VarInt64
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.models.codec import BoundedVec
 from pyjamaz.models.common import WorkReport, TicketBody, ValidatorData
 from pyjamaz.signing import Ed25519Keypair
 
@@ -32,7 +33,7 @@ class EpochMark(Serializable):
     entropy: bytes = field(metadata={'codec': H256})
     tickets_entropy: bytes = field(metadata={'codec': H256})
     validators: List[EpochMarkValidatorKeys] = field(metadata={
-        'codec': Array(EpochMarkValidatorKeys.to_codec_def(), VALIDATOR_COUNT)
+        'codec': BoundedVec(EpochMarkValidatorKeys.to_codec_def(), 3 * CORE_COUNT, 6, 3)
     })
 
 
@@ -49,7 +50,7 @@ class TicketEnvelope(Serializable):
     signature: Array(U8,784)
         GP-0.7.2-eq:6.29 (p) | Proof of a ticket's validity
     """
-    attempt: int = field(metadata={'codec': VarInt64})
+    attempt: int = field(metadata={'codec': U8})
     signature: bytes = field(metadata={'codec': Array(U8, 784)})
 
     def __post_init__(self):
@@ -121,8 +122,8 @@ class Verdict(Serializable):
     """
     target: bytes = field(metadata={'codec': H256})
     age: int = field(metadata={'codec': U32})
-    # Todo: change array size to use constants: 1+(floor(VALIDATOR_COUNT/3)*2)
-    votes: List[Judgement] = field(metadata={'codec': Array(Judgement.to_codec_def(), 1+(floor(VALIDATOR_COUNT/3)*2))})
+    # GP-0.8.0-eq:10.3: exact cardinality depends on the verdict's key era.
+    votes: List[Judgement] = field(metadata={'codec': BoundedVec(Judgement.to_codec_def(), 2 * CORE_COUNT + 1)})
 
     @cached_property
     def total_positive_votes(self) -> int:
@@ -139,13 +140,13 @@ class Verdict(Serializable):
         return sum([v.vote for v in self.votes])
 
     def is_good(self) -> bool:
-        return self.total_positive_votes == VALIDATOR_COUNT * 2 / 3 + 1
+        return self.total_positive_votes == len(self.votes)
 
     def is_bad(self) -> bool:
         return self.total_positive_votes == 0
 
     def is_wonky(self) -> bool:
-        return self.total_positive_votes == VALIDATOR_COUNT / 3
+        return self.total_positive_votes == (len(self.votes) - 1) // 2
 
 
 @dataclass
