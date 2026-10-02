@@ -5,11 +5,12 @@ from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
 from math import floor
 from typing import List, Optional, TYPE_CHECKING
 
-from pyjamaz.exceptions import BlockValidationError
+from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
 
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple, VarInt64
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.models.codec import BoundedVec
 from pyjamaz.models.common import WorkReport, TicketBody, ValidatorData
 from pyjamaz.signing import Ed25519Keypair
 
@@ -32,7 +33,7 @@ class EpochMark(Serializable):
     entropy: bytes = field(metadata={'codec': H256})
     tickets_entropy: bytes = field(metadata={'codec': H256})
     validators: List[EpochMarkValidatorKeys] = field(metadata={
-        'codec': Array(EpochMarkValidatorKeys.to_codec_def(), VALIDATOR_COUNT)
+        'codec': BoundedVec(EpochMarkValidatorKeys.to_codec_def(), 3 * CORE_COUNT, 6, 3)
     })
 
 
@@ -49,7 +50,7 @@ class TicketEnvelope(Serializable):
     signature: Array(U8,784)
         GP-0.7.2-eq:6.29 (p) | Proof of a ticket's validity
     """
-    attempt: int = field(metadata={'codec': VarInt64})
+    attempt: int = field(metadata={'codec': U8})
     signature: bytes = field(metadata={'codec': Array(U8, 784)})
 
     def __post_init__(self):
@@ -121,8 +122,8 @@ class Verdict(Serializable):
     """
     target: bytes = field(metadata={'codec': H256})
     age: int = field(metadata={'codec': U32})
-    # Todo: change array size to use constants: 1+(floor(VALIDATOR_COUNT/3)*2)
-    votes: List[Judgement] = field(metadata={'codec': Array(Judgement.to_codec_def(), 1+(floor(VALIDATOR_COUNT/3)*2))})
+    # GP-0.8.0-eq:10.3: exact cardinality depends on the verdict's key era.
+    votes: List[Judgement] = field(metadata={'codec': BoundedVec(Judgement.to_codec_def(), 2 * CORE_COUNT + 1)})
 
     @cached_property
     def total_positive_votes(self) -> int:
@@ -139,13 +140,13 @@ class Verdict(Serializable):
         return sum([v.vote for v in self.votes])
 
     def is_good(self) -> bool:
-        return self.total_positive_votes == VALIDATOR_COUNT * 2 / 3 + 1
+        return self.total_positive_votes == len(self.votes)
 
     def is_bad(self) -> bool:
         return self.total_positive_votes == 0
 
     def is_wonky(self) -> bool:
-        return self.total_positive_votes == VALIDATOR_COUNT / 3
+        return self.total_positive_votes == (len(self.votes) - 1) // 2
 
 
 @dataclass
@@ -198,7 +199,8 @@ class Fault(Serializable):
 
     def has_valid_signature(self) -> bool:
         keypair = Ed25519Keypair.from_public_key(self.key)
-        return keypair.verify(b'jam_valid' if self.vote else b'jam_invalid' + self.target, self.signature)
+        context = b'jam_valid' if self.vote else b'jam_invalid'
+        return keypair.verify(context + self.target, self.signature)
 
 
 @dataclass
@@ -218,9 +220,9 @@ class ExtrinsicDisputes(Serializable):
         GP-0.7.2-eq:10.2 (bold_E_F) | Proofs of misbehaviour of one or more validators by signing a judgement found to
         be contradiction to a work-report's validity. This is considered an offence.
     """
-    verdicts: List[Verdict] = field(metadata={'codec': Vec(Verdict.to_codec_def())})
-    culprits: List[Culprit] = field(metadata={'codec': Vec(Culprit.to_codec_def())})
-    faults: List[Fault] = field(metadata={'codec': Vec(Fault.to_codec_def())})
+    verdicts: List[Verdict] = field(metadata={'codec': BoundedVec(Verdict.to_codec_def(), 16)})
+    culprits: List[Culprit] = field(metadata={'codec': BoundedVec(Culprit.to_codec_def(), 16)})
+    faults: List[Fault] = field(metadata={'codec': BoundedVec(Fault.to_codec_def(), 16)})
 
 
 @dataclass
@@ -550,7 +552,7 @@ class Header(Serializable):
 
         """
         if self.author_index >= len(post_state_validator_pool.validators):
-            raise BlockValidationError("Invalid author index")
+            raise BlockValidationError(BlockValidationErrorCode.invalid_author_key)
 
         setattr(self, '_author_bandersnatch_key', post_state_validator_pool.validators[self.author_index].bandersnatch)
 
@@ -602,9 +604,9 @@ class Extrinsic(Serializable):
             t.to_jam_bytes() for t in self.tickets
         ])))
 
-        extrinsic_hash += blake2b_256_hash(bytes(Vec(Preimage.to_codec_def()).encode([
-            p.to_jam_bytes() for p in self.preimages
-        ])))
+        extrinsic_hash += blake2b_256_hash(
+            bytes(Vec(Tuple(U32, H256)).encode([(p.requester, p.hash()) for p in self.preimages]))
+        )
 
         hashed_guarantees = Vec(Tuple(H256, U32, Vec(Credential.to_codec_def()))).encode(
             [
@@ -666,4 +668,5 @@ class GuarantorAssignment:
 class AccumulationStatistic:
     total_gas_utilized: int = 0
     nr_work_reports_accumulated: int = 0
+    nr_transfers_accumulated: int = 0
 

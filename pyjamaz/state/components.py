@@ -20,7 +20,7 @@ from pyjamaz.hostcalls.models import PvmAccumulateOutput
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE, DEBUG, \
     USE_THREAD_POOL_ACCUMULATE
-from pyjamaz.signing import Ed25519Keypair
+from pyjamaz.signing import Ed25519Keypair, jam_ring_context
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer, AccumulationInput, \
     AccumulationOperand
@@ -414,7 +414,7 @@ class Safrole(StateComponent):
                 DEBUG and logging.debug(f"New Slot Sealer Series with tickets")
 
             # Update ring commitment using O(); GP-0.7.2-eq:6.13
-            ring_context = RingContext(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
+            ring_context = jam_ring_context(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
             self.post_state_safrole.ring_commitment = ring_context.commitment
 
         # GP-0.7.2-eq:6.30
@@ -447,7 +447,7 @@ class Safrole(StateComponent):
 
             ring_public_keys = [v.bandersnatch for v in ticket_validators]
 
-            ring_context = RingContext(self.ring_data, ring_public_keys)
+            ring_context = jam_ring_context(self.ring_data, ring_public_keys)
 
             if USE_THREAD_POOL_SAFROLE:
 
@@ -469,7 +469,10 @@ class Safrole(StateComponent):
                         idx = futs[fut]
 
                         # Check if ticket already exists
-                        if ticket in self.post_state_safrole.ticket_accumulator:
+                        if any(
+                                existing.id == ticket.id
+                                for existing in self.post_state_safrole.ticket_accumulator
+                        ):
                             # GP-0.7.2-eq:6.33
                             raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                         else:
@@ -481,7 +484,10 @@ class Safrole(StateComponent):
                     ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
 
                     # Check if ticket already exists
-                    if ticket in self.post_state_safrole.ticket_accumulator:
+                    if any(
+                            existing.id == ticket.id
+                            for existing in self.post_state_safrole.ticket_accumulator
+                    ):
                         # GP-0.7.2-eq:6.33
                         raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                     else:
@@ -534,8 +540,12 @@ class Safrole(StateComponent):
         checked_validators = []
         for v in validators:
             if v.ed25519 in offenders:
-                v.bandersnatch = bytes(32)
-                v.ed25519 = bytes(32)
+                v = ValidatorData(
+                    bandersnatch=bytes(32),
+                    ed25519=bytes(32),
+                    bls=bytes(144),
+                    metadata=bytes(128),
+                )
             checked_validators.append(v)
 
         return checked_validators
@@ -1689,7 +1699,11 @@ class Statistics(StateComponent):
 
         post_state = deepcopy(pre_state_statistics)
 
-        # GP-0.7.2-eq:13.4 | Shift statistics after epoch change
+        # GP-0.8.0-eq:13.4--13.6: assurances belong to the prior set;
+        for assurer in sorted({a.validator_index for a in extrinsic_assurances}):
+            post_state.vals_current[assurer].assurances += 1
+
+        # Rotate only after recording the prior validators' assurances.
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             post_state.vals_last = post_state.vals_current
             post_state.vals_current = [ActivityRecord(
@@ -1699,16 +1713,13 @@ class Statistics(StateComponent):
                 pre_images_size=0,
                 guarantees=0,
                 assurances=0
-            ) for _ in range(gp_const.VALIDATOR_COUNT)]
+            ) for _ in post_state_validator_pool.validators]
 
         # GP-0.7.2-eq:13.5 | Update validator stats
         post_state.vals_current[header.author_index].blocks += 1
         post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
         post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
         post_state.vals_current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
-
-        for assurance in extrinsic_assurances:
-            post_state.vals_current[assurance.validator_index].assurances += 1
 
         for reporter in self.block_context.reporters:
             val_index = self.retrieve_validator_index(reporter, post_state_validator_pool)
@@ -1755,6 +1766,7 @@ class Statistics(StateComponent):
             if accumulation_stats:
                 activity_record.accumulate_count += accumulation_stats.nr_work_reports_accumulated
                 activity_record.accumulate_gas_used += accumulation_stats.total_gas_utilized
+                activity_record.accumulate_transfer_count += accumulation_stats.nr_transfers_accumulated
 
             post_state.services[s] = activity_record
 
