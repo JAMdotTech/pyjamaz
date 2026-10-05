@@ -1352,9 +1352,6 @@ class Disputes(StateComponent):
             post_state=deepcopy(pre_state_disputes), offenders_mark=[]
         )
 
-        if not self.are_faults_verdict_correct(extrinsic_disputes.faults):
-            raise StateTransitionError(DisputesErrorCode.fault_verdict_wrong)
-
         # GP-0.7.2-eq:10.2 | Check if all culprits have valid signatures
         if not all(c.has_valid_signature() for c in extrinsic_disputes.culprits):
             raise StateTransitionError(DisputesErrorCode.bad_signature)
@@ -1387,7 +1384,6 @@ class Disputes(StateComponent):
                 bisect.insort(self.output.post_state.good_set, verdict.target)
 
             elif verdict.is_bad():
-                self.check_valid_culprits_count(extrinsic_disputes.culprits, verdict.target)
                 bisect.insort(self.output.post_state.bad_set, verdict.target)
 
             elif verdict.is_wonky():
@@ -1429,6 +1425,14 @@ class Disputes(StateComponent):
 
         """
         for judgement in verdict.votes:
+            if (
+                isinstance(judgement.index, bool)
+                or judgement.index < 0
+                or judgement.index >= len(validators)
+            ):
+                raise BlockValidationError(
+                    DisputesErrorCode.bad_validator_index
+                )
             keypair = Ed25519Keypair.from_public_key(validators[judgement.index].ed25519)
             if not keypair.verify(judgement.get_signing_context() + verdict.target, judgement.signature):
                 return False
@@ -1510,7 +1514,7 @@ class Disputes(StateComponent):
         -------
         bool
         """
-        return all(culprits[i].key <= culprits[i + 1].key for i in range(len(culprits) - 1))
+        return all(culprits[i].key < culprits[i + 1].key for i in range(len(culprits) - 1))
 
     @staticmethod
     # TODO: proper documentation
@@ -1526,7 +1530,7 @@ class Disputes(StateComponent):
         -------
         bool
         """
-        return all(faults[i].key <= faults[i + 1].key for i in range(len(faults) - 1))
+        return all(faults[i].key < faults[i + 1].key for i in range(len(faults) - 1))
 
     @staticmethod
     def are_faults_verdict_correct(faults: List[Fault]) -> bool:
@@ -1546,8 +1550,17 @@ class Disputes(StateComponent):
             raise StateTransitionError(DisputesErrorCode.culprits_verdict_not_bad)
 
     def add_fault(self, fault: Fault):
-
-        if fault.target in self.output.post_state.good_set:
+        # GP-0.8.0-eq:10.6: the proven judgment must contradict the
+        # established verdict. A false vote contradicts a good verdict, and a
+        # true vote contradicts a bad verdict. Faults against wonky or unknown
+        # reports are not evidence of an offence.
+        contradicts_good = (
+                fault.target in self.output.post_state.good_set and not fault.vote
+        )
+        contradicts_bad = (
+                fault.target in self.output.post_state.bad_set and fault.vote
+        )
+        if contradicts_good or contradicts_bad:
             self.add_offender(fault.key)
         else:
             raise StateTransitionError(DisputesErrorCode.fault_verdict_wrong)
@@ -1597,24 +1610,6 @@ class Disputes(StateComponent):
         if sum(1 for f in faults if f.target == report_hash) == 0:
             raise StateTransitionError(DisputesErrorCode.not_enough_faults)
 
-    @staticmethod
-    # TODO: proper documentation
-    def check_valid_culprits_count(culprits: List[Culprit], report_hash: bytes):
-        """
-        GP-0.7.2-eq:10.14
-
-        Parameters
-        ----------
-        culprits
-        report_hash
-
-        Returns
-        -------
-
-        """
-        if sum(1 for c in culprits if c.target == report_hash) < 2:
-            raise StateTransitionError(DisputesErrorCode.not_enough_culprits)
-
     @classmethod
     def validate_extrinsic_disputes(
             cls,
@@ -1634,10 +1629,20 @@ class Disputes(StateComponent):
             else:
                 raise BlockValidationError(DisputesErrorCode.bad_judgement_age)
 
+            # GP-0.8.0-eq:10.4: threshold follows the verdict's epoch set.
+            if len(verdict.votes) != 2 * len(validators) // 3 + 1:
+                raise BlockValidationError(DisputesErrorCode.bad_votes_count)
+
             if not cls.has_valid_judgement_signatures(verdict, validators):
                 raise BlockValidationError(DisputesErrorCode.bad_signature)
 
-        validator_keys = [v.ed25519 for v in pre_state_validator_pool.validators]
+        validator_keys = {
+            v.ed25519
+            for v in (
+                list(pre_state_validator_pool.validators)
+                + list(pre_state_validator_archive.validators)
+            )
+        }
 
         # GP-0.7.2-eq:10.5 | Check if culprit is in validator set
         for culprit in extrinsic_disputes.culprits:
