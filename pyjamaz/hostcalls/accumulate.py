@@ -17,14 +17,14 @@ from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.hostcalls import hostcall
-from pyjamaz.hostcalls.gas import sized, items
+from pyjamaz.hostcalls.gas import gas_cost_by_size, gas_cost_by_item_count
 from pyjamaz.utils import format_hash
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
 
 
-@hostcall(items(422, 20, 12))
+@hostcall(gas_cost_by_item_count(422, 20, 12))
 def hc_bless(
         registers: List[int],
         memory: PVMMemory,
@@ -188,7 +188,7 @@ def hc_assign(
         logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o} a={a}")
 
 
-@hostcall(items(1100, 302, 8))
+@hostcall(gas_cost_by_item_count(1100, 302, 8))
 def hc_designate(
         registers: List[int],
         memory: PVMMemory,
@@ -1031,7 +1031,7 @@ def hc_yield(
         logger and logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
 
 
-@hostcall(sized(3980, (2264, 9)))
+@hostcall(gas_cost_by_size(3980, (2264, 9)))
 def hc_provide(
         registers: List[int],
         memory: PVMMemory,

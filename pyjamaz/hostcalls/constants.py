@@ -29,7 +29,7 @@ class HostCallDebug(Enum):
 # GP-0.7.2-section:B.5
 class HostCallGeneral(Enum):
     gas               = 0  #ΩG
-    grow_heap         = 1  # ΩR
+    grow_heap         = 1  #ΩR
     fetch             = 2  #ΩY
     lookup            = 3  #ΩL
     read              = 4  #ΩR

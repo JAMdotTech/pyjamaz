@@ -17,14 +17,14 @@ from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
 from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
 from pyjamaz.hostcalls import hostcall
-from pyjamaz.hostcalls.gas import sized, pages_cost, invoke_cost
+from pyjamaz.hostcalls.gas import gas_cost_by_size, pages_cost, invoke_cost
 from pyjamaz.settings import PVM_DEBUGGER
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
 
 
-@hostcall(sized(1125, (264, 11)))
+@hostcall(gas_cost_by_size(1125, (264, 11)))
 def hc_historical_lookup(
         registers: List[int],
         memory: PVMMemory,
@@ -129,7 +129,7 @@ def hc_export(
         logger and logger.hc_log("EXPORT OK", invocation_output.registers[7])
 
 
-@hostcall(sized(1862, (112, 8)))
+@hostcall(gas_cost_by_size(1862, (112, 8)))
 def hc_machine(
         registers: List[int],
         memory: PVMMemory,
@@ -185,7 +185,7 @@ def hc_machine(
         logger and logger.hc_log("MACHINE OK", f"idx={n} pc={i}")
 
 
-@hostcall(sized(377, (336, 10)))
+@hostcall(gas_cost_by_size(377, (336, 10)))
 def hc_peek(
         registers: List[int],
         memory: PVMMemory,
@@ -230,7 +230,7 @@ def hc_peek(
         logger and logger.hc_log("PEEK OK", invocation_output.registers[7])
 
 
-@hostcall(sized(297, (224, 10)))
+@hostcall(gas_cost_by_size(297, (224, 10)))
 def hc_poke(
         registers: List[int],
         memory: PVMMemory,

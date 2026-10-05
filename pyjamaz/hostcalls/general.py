@@ -6,13 +6,13 @@ from pyjamaz import graypaper_constants as gp_const
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationInput
 from pyjamaz.models.state import ServiceAccount, ServicesState
-from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_W, MEM_R
+from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_W, MEM_R, PVM_PAGE_SIZE, PVM_INIT_ZONE_SIZE
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.hostcalls import hostcall
-from pyjamaz.hostcalls.gas import sized, fetch_cost
+from pyjamaz.hostcalls.gas import gas_cost_by_size, fetch_cost
 
 
 U32_MAX = 2 ** 32
@@ -20,25 +20,32 @@ U64_MAX = 2 ** 64
 
 
 def hc_grow_heap(registers, memory, invocation_output, logger):
-    """B.5: request an absolute heap end page, preserving existing contents."""
-    from pyjamaz.pvm.constants import PVM_PAGE_SIZE, PVM_INIT_ZONE_SIZE
-    a = int(memory.heap_base) // PVM_PAGE_SIZE
-    b = (int(memory.stack_base) - PVM_INIT_ZONE_SIZE) // PVM_PAGE_SIZE
-    h = a + sum(a <= page < b for page in memory.pages_w)
-    requested = int(registers[7])
+    """
+    GP-0.8.0-section:B.5 (Ω_R) | General host function: grow_heap
+
+    Grow the writable heap in pages
+    Returns the end page index in register 7
+    """
+    a = int(memory.heap_base) // PVM_PAGE_SIZE  # heap page index (inclusive)
+    b = (int(memory.stack_base) - PVM_INIT_ZONE_SIZE) // PVM_PAGE_SIZE  # Heap page limit (guard we do not overlap stack addr)
+    h = a + sum(a <= page < b for page in memory.pages_w)  # current heap end
+    requested_size = int(registers[7])
     gas = int(invocation_output.gas_limit)
     end = h
-    if requested <= h or requested > b:
+
+    if requested_size <= h or requested_size > b:
         gas -= 275
         reason = ExitReason.resume
-    elif gas < 275 + (requested - h) * 121:
+    elif gas < 275 + (requested_size - h) * 121:
         reason = ExitReason.out_of_gas
     else:
-        gas -= 275 + (requested - h) * 121
-        end = requested
+        gas -= 275 + (requested_size - h) * 121
+        end = requested_size
         reason = ExitReason.resume
+
     memory.change_acl(a, end - a, MEM_W)
     memory.heap_ptr = end * PVM_PAGE_SIZE
+
     invocation_output.registers[7] = end
     invocation_output.gas_limit = gas
     invocation_output.exit_condition = ExitCondition(reason=reason)
@@ -72,7 +79,7 @@ def hc_gas(
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
 
-@hostcall(sized(600, (248, 11)))
+@hostcall(gas_cost_by_size(600, (248, 11)))
 def hc_lookup(
         registers: List[int],
         memory: PVMMemory,
@@ -148,7 +155,7 @@ def hc_lookup(
         logger and logger.hc_log("LOOKUP OK",
                            f"s={service_account_id} h={preimage_hash} len(v)={len(preimage_bytes)} write_bytes({o},{o + l})")
 
-@hostcall(sized(2407, (1736, 9), (248, 12)))
+@hostcall(gas_cost_by_size(2407, (1736, 9), (248, 12)))
 def hc_read(
         registers: List[int],
         memory: PVMMemory,
@@ -232,7 +239,7 @@ def hc_read(
                            f"s={target_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
 
 
-@hostcall(sized(2442, (3358, 8), (216, 10)))
+@hostcall(gas_cost_by_size(2442, (3358, 8), (216, 10)))
 def hc_write(
         registers: List[int],
         memory: PVMMemory,
