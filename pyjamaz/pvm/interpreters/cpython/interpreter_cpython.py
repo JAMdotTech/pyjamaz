@@ -30,7 +30,7 @@ from pyjamaz.pvm.constants import (
     ExitCondition,
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
 )
-from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.pvm.types import PVMProgram, validate_pvm_gas
 from .memory import PVMMemory
 from pyjamaz.pvm.gas_model import GasModel
 from pyjamaz.pvm.basic_block import detect_basic_blocks, get_block_start
@@ -218,10 +218,6 @@ class PVMInterpreter:
             code=self.code,
             inst_pos=self.inst_pos,
             inst_arg_len=self.inst_arg_len,
-            opcode_scheme=OpcodeScheme,
-            opcode_enum=Opcode,
-            mem_model="L2HIT",
-            jump_table=self.jump_table,
         )
         self._calculate_basic_block_gas()
 
@@ -240,7 +236,7 @@ class PVMInterpreter:
             code_length=self.code_length,
             inst_pos=self.inst_pos,
             inst_arg_len=self.inst_arg_len,
-        )
+        ) if self.code_valid else set()
 
         self.basic_block_starts_set = set(basic_block_starts)
         # Store sorted block starts for O(log n) lookup via binary search
@@ -536,11 +532,12 @@ class PVMInterpreter:
         pc: int,
         gas: int
     ):
+        checked_gas = validate_pvm_gas(gas)
         skip_first_block_charge = (
             self.status == ExitReason.page_fault.value and int(self.pc) == int(pc)
         )
         self.pc = u32(pc)
-        self.gas = i64(gas)
+        self.gas = checked_gas
         self.status = ExitReason.resume.value
 
         if not self.code_valid or int(pc) not in self.inst_pos:

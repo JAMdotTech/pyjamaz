@@ -42,7 +42,7 @@ from .defs import (
     read_uint, u64, u32, i64, u8, i32
 )
 
-from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.pvm.types import PVMProgram, validate_pvm_gas
 from .memory import PVMMemory
 from pyjamaz.pvm.basic_block import detect_basic_blocks
 
@@ -127,7 +127,7 @@ class PVMInterpreter:
 
     def calculate_basic_block_gas(self):
         self.basic_block_starts_set = detect_basic_blocks(
-            self.code, self.code_length, self.inst_pos, self.inst_arg_len)
+            self.code, self.code_length, self.inst_pos, self.inst_arg_len) if self.code_valid else set()
         self.basic_block_starts_sorted = sorted(self.basic_block_starts_set)
         self.basic_block_gas = {start: self.gas_model.compute_block_gas_cost(start)
                                 for start in self.basic_block_starts_sorted}
@@ -214,10 +214,6 @@ class PVMInterpreter:
             code=self.code,
             inst_pos=self.inst_pos,
             inst_arg_len=self.inst_arg_len,
-            opcode_scheme=OpcodeScheme,
-            opcode_enum=op,
-            mem_model="L2HIT",
-            jump_table=self.jump_table,
         )
         self.calculate_basic_block_gas()
 
@@ -327,11 +323,12 @@ class PVMInterpreter:
         gas: int,
         log=False,
     ):
+        checked_gas = validate_pvm_gas(gas)
         skip_first_block_charge = (
             self.status == ExitReason.page_fault.value and int(self.pc) == int(pc)
         )
         self.pc = int(pc)
-        self.gas = np.int64(gas)
+        self.gas = checked_gas
         self.status = ExitReason.resume.value
 
         if self.log:

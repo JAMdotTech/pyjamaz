@@ -21,8 +21,8 @@ from pyjamaz.pvm.gas_model_logger import TimelineTracker
 
 # logging enabled:
 tracker = TimelineTracker()
-gas_model = GasModel(..., timeline_tracker=tracker)
-cost = gas_model.compute_block_gas_cost(block_pc)
+gas_model = GasModel(...)
+cost = gas_model.compute_block_gas_cost(block_pc, timeline_tracker=tracker)
 timeline = tracker.get_timeline(block_pc)
 print(tracker.render_timeline(timeline, gas_model))
 
@@ -72,7 +72,7 @@ class TimelineTracker:
 
     This class is designed to be optionally passed to GasModel. When present,
     the gas model will call tracking methods during simulation. When absent,
-    no tracking overhead is incurred.
+    no timeline records are allocated.
     """
 
     def __init__(self):

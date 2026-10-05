@@ -10,7 +10,7 @@ from parameterized import parameterized
 from pyjamaz import settings
 from pyjamaz.pvm.types import PVMCode, PVMProgram
 from pyjamaz.pvm import PVMMemory, PVMInterpreter
-from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R, PVM_PAGE_SIZE, OpcodeScheme, Opcode
+from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R, PVM_PAGE_SIZE
 from pyjamaz.pvm.gas_model import GasModel
 from pyjamaz.pvm.gas_model_logger import TimelineTracker
 
@@ -205,8 +205,6 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     code=pvm.code,
                     inst_pos=pvm.inst_pos,
                     inst_arg_len=pvm.inst_arg_len,
-                    opcode_scheme=OpcodeScheme,
-                    opcode_enum=Opcode,
                 )
                 if GAS_LOG_FILE:
                     log_file_handle = open(GAS_LOG_FILE, 'a')

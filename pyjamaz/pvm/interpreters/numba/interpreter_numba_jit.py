@@ -62,7 +62,7 @@ from pyjamaz.pvm.constants import (
     inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, MemOps, ExitCondition, OpcodeNames
 )
 
-from pyjamaz.pvm.types import PVMProgram, page_size
+from pyjamaz.pvm.types import PVMProgram, page_size, validate_pvm_gas
 from pyjamaz.pvm.interpreters.numba.memory_section import MemorySection
 from pyjamaz.pvm.interpreters.numba.memory import PVMMemory
 from pyjamaz.pvm.basic_block import detect_basic_blocks
@@ -107,7 +107,7 @@ TERMINATORS = tuple(TERMINATION_OPCODES)
     int64[::1],   # state_out
     int64,        # status
     int64,        # pc
-    int64,        # gas
+    uint64,       # gas
     int64,        # inst_nr
     int64,        # exit_value
     uint32,       # skip_len
@@ -120,7 +120,7 @@ def sync_state_and_return(
         state_out:List[U64],
         status:I64,
         pc:I64,
-        gas:I64,
+        gas:U64,
         inst_nr:I64,
         exit_value:I64,
         skip_len:U32,
@@ -131,7 +131,7 @@ def sync_state_and_return(
         registers_out[i] = reg[i]
     state_out[STATE_STATUS] = I64(status)
     state_out[STATE_PC] = I64(pc)
-    state_out[STATE_GAS] = I64(gas)
+    state_out[STATE_GAS] = I64(gas)  # Preserve all bits in the signed state buffer.
     state_out[STATE_INST_NR] = I64(inst_nr)
     state_out[STATE_EXIT_VALUE] = I64(exit_value)
     state_out[STATE_SKIP_LEN] = I64(skip_len)
@@ -315,7 +315,7 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
     inst_nr = int(local_state[0])
     opcode = int(local_state[1])
     pc = int(local_state[2])
-    gas = int(local_state[3])
+    gas = U64(local_state[3])
     start_time = float(local_state[4])
 
     if len(opcode_names) == 0:
@@ -400,7 +400,7 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
 
 @njit(int32(
     uint32,          # pc
-    int64,           # gas
+    uint64,          # gas
     uint32,          # inst_nr
     uint32,          # skip_len
 
@@ -426,7 +426,7 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
 
     # Gas model parameters
     int32[::1],      # block_starts_sorted
-    int32[::1],      # block_gas_costs (parallel to block_starts_sorted)
+    uint64[::1],     # block_gas_costs (parallel to block_starts_sorted)
     int32,           # current_block_start_in (-1 if none)
     boolean,         # skip_first_block_charge (for page-fault resumption)
 
@@ -477,7 +477,7 @@ def invoke_native(
         Error code (0 = success, >0 = specific error)
     """
     pc = U32(pc_start)
-    gas = I64(gas_start)
+    gas = U64(gas_start)
     status = EXIT_RESUME
     exit_value = I64(0)
     skip_len = I64(initial_skip_len)
@@ -532,10 +532,10 @@ def invoke_native(
                             block_idx = I32(i)
                             break
                     if block_idx >= 0:
-                        block_cost = I64(block_gas_costs[block_idx])
+                        block_cost = U64(block_gas_costs[block_idx])
                         if gas < block_cost:
                             return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE, current_block_start)
-                        gas -= block_cost
+                        gas = U64(gas - block_cost)
 
                 current_block_start = block_start
 
@@ -1861,10 +1861,6 @@ class PVMInterpreter:
             code=bytes(self.code),
             inst_pos=self.inst_pos,
             inst_arg_len=self.inst_arg_len,
-            opcode_scheme=OpcodeScheme,
-            opcode_enum=OpcodeEnum,
-            mem_model="L2HIT",
-            jump_table=self.jump_table,
         )
 
         # Detect all basic block starts (use code_length, not len(self.code), since code includes synthetic trap)
@@ -1873,7 +1869,7 @@ class PVMInterpreter:
             code_length=self.code_length,
             inst_pos=self.inst_pos,
             inst_arg_len=self.inst_arg_len,
-        )
+        ) if self.code_valid else set()
 
         self.basic_block_starts_sorted = sorted(basic_block_starts)
 
@@ -1890,7 +1886,7 @@ class PVMInterpreter:
 
         # Create numpy arrays for JIT function
         self.block_starts_array = np.array(block_starts, dtype=np.int32)
-        self.block_gas_costs_array = np.array(block_costs, dtype=np.int32)
+        self.block_gas_costs_array = np.array(block_costs, dtype=np.uint64)
 
         # Track current block start (for pagefault resumption)
         self.current_block_start = -1
@@ -2165,13 +2161,14 @@ class PVMInterpreter:
         Pure JIT invoke that uses only Numba compilation.
         No fallback to Python interpreter.
         """
+        checked_gas = validate_pvm_gas(gas)
         # Note: detect if we're resuming from a page fault (skip first block charge)
         skip_first_block_charge = (
             self.status == ExitReason.page_fault.value and int(self.pc) == int(pc)
         )
 
         self.pc = pc
-        self.gas = gas
+        self.gas = checked_gas
         self.status = ExitReason.resume.value
         if not self.code_valid or int(pc) not in self.inst_pos:
             self.status = ExitReason.panic.value
@@ -2204,7 +2201,7 @@ class PVMInterpreter:
         # Call the Numba compiled invoke function
         error_code = invoke_native(
             np.uint32(self.pc),
-            np.int64(self.gas),
+            np.uint64(self.gas),
             np.uint32(self.inst_nr),
             np.uint32(initial_skip_len),
 
@@ -2246,7 +2243,7 @@ class PVMInterpreter:
         pc_out_val = np.uint32(state_out[STATE_PC])
         self.exit_value = int(state_out[STATE_EXIT_VALUE])
         skip_len = int(state_out[STATE_SKIP_LEN])
-        self.gas = int(state_out[STATE_GAS])
+        self.gas = int(state_out[STATE_GAS]) & ((1 << 64) - 1)
         self.inst_nr = np.uint32(state_out[STATE_INST_NR])
         self.current_block_start = int(state_out[STATE_CURRENT_BLOCK_START])
         self.pc = pc_out_val
