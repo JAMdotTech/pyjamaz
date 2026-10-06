@@ -99,7 +99,7 @@ def _write_fixture_memory(memory, address, contents):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors(os.environ.get('PVM_TEST_VECTORS', 'fixtures/pvm/gas-cost/')))
+    @parameterized.expand(load_test_vectors(os.environ.get('PVM_TEST_VECTORS', 'fixtures/pvm/programs/')))
     def test_instruction(self, name, test_vector):
 
         self.assertTrue(
