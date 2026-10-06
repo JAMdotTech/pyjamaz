@@ -14,7 +14,7 @@ def _fetch_reg_imm_offset(vm):
 def _op_load_imm_jump(vm):
     r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.reg[r_a] = v_x
-    vm.branch(v_y, True)
+    vm.sjump(v_y)
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y, context={"skip_len": vm.skip_len})
 
 def _op_branch_eq_imm(vm):

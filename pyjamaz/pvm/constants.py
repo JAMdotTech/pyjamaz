@@ -57,6 +57,7 @@ class Opcode(Enum):
     # Instructions without Arguments (none)
     trap: int                                      = 0
     fallthrough: int                               = 1
+    unlikely: int                                  = 2
 
     # GP_A.5.2
     # Instructions with Arguments of One Immediate (imm)
@@ -117,17 +118,16 @@ class Opcode(Enum):
     # GP_A.5.9
     # Instructions with Arguments Of Two Registers (reg_reg)
     move_reg: int                                  = 100
-    sbrk: int                                      = 101
-    count_set_bits_64: int                         = 102
-    count_set_bits_32: int                         = 103
-    leading_zero_bits_64: int                      = 104
-    leading_zero_bits_32: int                      = 105
-    trailing_zero_bits_64: int                     = 106
-    trailing_zero_bits_32: int                     = 107
-    sign_extend_8: int                             = 108
-    sign_extend_16: int                            = 109
-    zero_extend_16: int                            = 110
-    reverse_bytes: int                             = 111
+    count_set_bits_64: int                         = 101
+    count_set_bits_32: int                         = 102
+    leading_zero_bits_64: int                      = 103
+    leading_zero_bits_32: int                      = 104
+    trailing_zero_bits_64: int                     = 105
+    trailing_zero_bits_32: int                     = 106
+    sign_extend_8: int                             = 107
+    sign_extend_16: int                            = 108
+    zero_extend_16: int                            = 109
+    reverse_bytes: int                             = 110
 
     # GP_A.5.10
     # Instructions with Arguments Of Two Registers & One Immediate (reg_reg_imm)
@@ -244,6 +244,7 @@ OpcodeScheme = {
     # Instructions with args: none
     op.trap.value                                           : it.none,
     op.fallthrough.value                                    : it.none,
+    op.unlikely.value                                       : it.none,
 
     # GP_A.5.2
     # Instructions with args: imm
@@ -304,7 +305,6 @@ OpcodeScheme = {
     # GP_A.5.9
     # Instructions with args: reg, reg
     op.move_reg.value: it.reg_reg,
-    op.sbrk.value: it.reg_reg,
     op.count_set_bits_64.value: it.reg_reg,
     op.count_set_bits_32.value: it.reg_reg,
     op.leading_zero_bits_64.value: it.reg_reg,
@@ -461,6 +461,7 @@ OpcodeNames = {
     # Instructions with args: none
     op.trap.value: "trap",
     op.fallthrough.value: "fallthrough",
+    op.unlikely.value: "unlikely",
 
     # GP_A.5.2
     # Instructions with args: imm
@@ -521,7 +522,6 @@ OpcodeNames = {
     # GP_A.5.9
     # Instructions with args: reg, reg
     op.move_reg.value: "move_reg",
-    op.sbrk.value: "sbrk",
     op.count_set_bits_64.value: "count_set_bits_64",
     op.count_set_bits_32.value: "count_set_bits_32",
     op.leading_zero_bits_64.value: "leading_zero_bits_64",
@@ -637,6 +637,33 @@ OpcodeNames = {
     op.min_u.value: "min_u"
 }
 
+TERMINATION_OPCODES = {
+    op.trap.value,
+    op.fallthrough.value,
+
+    op.jump.value,
+    op.jump_ind.value,
+
+    op.load_imm_jump.value,
+    op.load_imm_jump_ind.value,
+
+    op.branch_eq_imm.value,
+    op.branch_ne_imm.value,
+    op.branch_lt_u_imm.value,
+    op.branch_ge_u_imm.value,
+    op.branch_le_u_imm.value,
+    op.branch_gt_u_imm.value,
+    op.branch_lt_s_imm.value,
+    op.branch_ge_s_imm.value,
+    op.branch_le_s_imm.value,
+    op.branch_gt_s_imm.value,
+    op.branch_eq.value,
+    op.branch_ne.value,
+    op.branch_lt_u.value,
+    op.branch_lt_s.value,
+    op.branch_ge_u.value,
+    op.branch_ge_s.value
+}
 
 inst_none = InstructionType.none.value
 inst_imm = InstructionType.imm.value
@@ -655,6 +682,7 @@ inst_reg_reg_reg = InstructionType.reg_reg_reg.value
 
 op_trap = Opcode.trap.value
 op_fallthrough = Opcode.fallthrough.value
+op_unlikely = Opcode.unlikely.value
 op_ecalli = Opcode.ecalli.value
 op_load_imm_64 = Opcode.load_imm_64.value
 op_store_imm_u8 = Opcode.store_imm_u8.value
@@ -691,7 +719,6 @@ op_branch_le_s_imm = Opcode.branch_le_s_imm.value
 op_branch_ge_s_imm = Opcode.branch_ge_s_imm.value
 op_branch_gt_s_imm = Opcode.branch_gt_s_imm.value
 op_move_reg = Opcode.move_reg.value
-op_sbrk = Opcode.sbrk.value
 op_count_set_bits_64 = Opcode.count_set_bits_64.value
 op_count_set_bits_32 = Opcode.count_set_bits_32.value
 op_leading_zero_bits_64 = Opcode.leading_zero_bits_64.value
@@ -792,32 +819,3 @@ op_max = Opcode._max.value
 op_max_u = Opcode.max_u.value
 op_min = Opcode._min.value
 op_min_u = Opcode.min_u.value
-
-
-TERMINATION_OPCODES = {
-    op.trap.value,
-    op.fallthrough.value,
-
-    op.jump.value,
-    op.jump_ind.value,
-
-    op.load_imm_jump.value,
-    op.load_imm_jump_ind.value,
-
-    op.branch_eq_imm.value,
-    op.branch_ne_imm.value,
-    op.branch_lt_u_imm.value,
-    op.branch_ge_u_imm.value,
-    op.branch_le_u_imm.value,
-    op.branch_gt_u_imm.value,
-    op.branch_lt_s_imm.value,
-    op.branch_ge_s_imm.value,
-    op.branch_le_s_imm.value,
-    op.branch_gt_s_imm.value,
-    op.branch_eq.value,
-    op.branch_ne.value,
-    op.branch_lt_u.value,
-    op.branch_lt_s.value,
-    op.branch_ge_u.value,
-    op.branch_ge_s.value
-}

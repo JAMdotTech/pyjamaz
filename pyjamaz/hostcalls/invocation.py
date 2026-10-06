@@ -19,7 +19,7 @@ from pyjamaz.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_c
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new, hc_provide
 from pyjamaz.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.hostcalls.debug import hc_log
-from pyjamaz.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch, hc_not_found
+from pyjamaz.hostcalls.general import hc_grow_heap, hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch, hc_not_found
 from pyjamaz.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_invoke, hc_expunge, hc_pages
 from pyjamaz.settings import DEBUG
@@ -61,6 +61,9 @@ class AccumulateInvocationMutator(InvocationMutator):
 
             case HostCallDebug.log.value:
                 hc_log(registers, memory, service_id, invocation_output, _pvm.log)
+
+            case HostCallGeneral.grow_heap.value:
+                hc_grow_heap(registers, memory, invocation_output, _pvm.log)
 
             case HostCallGeneral.gas.value:
                 #GP-0.7.2-eq:B.12 | G
@@ -303,6 +306,9 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
             case HostCallDebug.log.value:
                 hc_log(registers, memory, -1, ctx_out, _pvm.log)
 
+            case HostCallGeneral.grow_heap.value:
+                hc_grow_heap(registers, memory, ctx_out, _pvm.log)
+
             case HostCallGeneral.gas.value:
                 #GP-0.7.2-eq:B.12 | G
                 hc_gas(registers, memory, ctx_out, _pvm.log)
@@ -432,6 +438,9 @@ class RefineInvocationMutator(InvocationMutator):
 
             case HostCallDebug.log.value:
                 hc_log(registers, memory, self.service_account_id, ctx_out, _pvm.log)
+
+            case HostCallGeneral.grow_heap.value:
+                hc_grow_heap(registers, memory, ctx_out, _pvm.log)
 
             case HostCallGeneral.gas.value:
                 #GP-0.7.2-eq:B.12 | G
