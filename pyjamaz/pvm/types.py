@@ -15,18 +15,18 @@ from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger
 from pyjamaz import settings
 
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
-from pyjamaz.pvm.exceptions import PVMMemoryError, PVMGasDomainError
+from pyjamaz.pvm.exceptions import PVMMemoryError, PVMGasError
 
 
 def validate_pvm_gas(gas: int) -> int:
-    """GP 4.23/A.1: validate unsigned 64-bit gas before changing VM state.
+    """GP 4.23/A.1: validate unsigned 64-bit gas before changing VM state
 
-    Host-call debits can return a negative counter on OOG; that result is
-    terminal and cannot be supplied as a new PVM execution budget.
+    Hostcall costs can return a negative counter on OOG; that result is
+    terminal and cannot be supplied as a new PVM execution budget
     """
     value = index(gas)
     if not 0 <= value < 1 << 64:
-        raise PVMGasDomainError(f"GP 0.8.0 PVM gas outside unsigned 64-bit domain: {value}")
+        raise PVMGasError(f"Gas outside U64 bit range: {value}")
     return value
 
 

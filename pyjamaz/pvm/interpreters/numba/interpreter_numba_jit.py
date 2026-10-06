@@ -131,7 +131,7 @@ def sync_state_and_return(
         registers_out[i] = reg[i]
     state_out[STATE_STATUS] = I64(status)
     state_out[STATE_PC] = I64(pc)
-    state_out[STATE_GAS] = I64(gas)  # Preserve all bits in the signed state buffer.
+    state_out[STATE_GAS] = I64(gas)
     state_out[STATE_INST_NR] = I64(inst_nr)
     state_out[STATE_EXIT_VALUE] = I64(exit_value)
     state_out[STATE_SKIP_LEN] = I64(skip_len)
