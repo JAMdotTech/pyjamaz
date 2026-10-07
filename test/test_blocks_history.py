@@ -10,8 +10,8 @@ from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import RecentHistory
 from pyjamaz.storage import InMemoryStorageEngine
-from pyjamaz.models.block import Header, Guarantee
-from pyjamaz.models.common import RefinementContext, WorkPackageSpec, WorkReport
+from pyjamaz.models.block import Header
+from pyjamaz.models.common import RefinementContext, WorkPackageSpec, WorkReport, Guarantee
 from pyjamaz.models.state import RecentHistoryState
 
 
@@ -52,7 +52,7 @@ class TestBlockHistory(unittest.TestCase):
             parent=bytes(32),
             parent_state_root=bytes.fromhex(test_vector["input"]["parent_state_root"][2:]),
             extrinsic_hash=bytes(32),
-            timeslot=0,
+            timeslot=test_vector["input"]["slot"],
             epoch_marker=None,
             tickets_marker=None,
             offenders_marker=[],

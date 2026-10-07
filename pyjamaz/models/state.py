@@ -251,8 +251,7 @@ class RecentBlock(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})
     beefy_root: bytes = field(metadata={'codec': H256})
     state_root: bytes = field(metadata={'codec': H256})
-    # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
-    # length prefix encoding.
+    slot: int = field(metadata={'codec': U32}, default=0, kw_only=True)
     reported: List[ReportedWorkPackage] = field(metadata={'codec': Vec(ReportedWorkPackage.to_codec_def())})
 
     def __post_init__(self):

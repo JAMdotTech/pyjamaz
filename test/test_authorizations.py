@@ -7,13 +7,13 @@ from typing import Optional
 from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
-from pyjamaz.models.common import WorkReport
+from pyjamaz.models.common import WorkReport, Guarantee
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import AuthorizerPools
 from pyjamaz.storage import InMemoryStorageEngine
-from pyjamaz.models.block import Header, Guarantee
+from pyjamaz.models.block import Header
 from pyjamaz.models.state import AuthorizerPoolsState, AuthorizerQueuesState
 
 

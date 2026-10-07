@@ -23,7 +23,7 @@ from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL
 from pyjamaz.signing import Ed25519Keypair, jam_ring_context
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer, AccumulationInput, \
-    AccumulationOperand
+    AccumulationOperand, Credential, Guarantee
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -36,7 +36,7 @@ from pyjamaz.state.base import StateComponent
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, \
+    Preimage, Assurance, Verdict, Judgement, Culprit, Fault, GuarantorAssignment, \
     EpochMarkValidatorKeys
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
@@ -719,6 +719,7 @@ class RecentHistory(StateComponent):
 
         recent_block = RecentBlock(
             header_hash=header.hash,
+            slot=header.timeslot,
             beefy_root=mmr.super_peak(),
             state_root=bytes(32),
             reported=reported_work_packages
@@ -815,7 +816,9 @@ class Assurances(StateComponent):
             self,
             extrinsic_assurances: List[Assurance],
             intermediate_state_assurances_after_disputes: AssurancesState,
-            header: Header
+            header: Header,
+            pre_state_validator_pool: ValidatorPoolState | None = None,
+            post_state_validator_pool: ValidatorPoolState | None = None,
     ) -> AssurancesAfterAssurancesOutput:
         """
         GP-0.7.2-eq:11.29 (ρ‡) | Intermediate state transition function for the state's assurances that processes
@@ -849,18 +852,28 @@ class Assurances(StateComponent):
                     total_assurances_per_core[core] += 1
 
         # Check for available reports
-        for idx, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
-            if assurance:
-                if total_assurances_per_core[assurance.report.core_index] > 2 / 3 * gp_const.VALIDATOR_COUNT:
+        # GP-0.8.0-eq:11.17--11.18: assurances use the prior active set;
+        # changes in set size then clear every remaining assignment.
+        validator_count = (len(pre_state_validator_pool.validators)
+                           if pre_state_validator_pool is not None
+                           else gp_const.VALIDATOR_COUNT)
+        size_changed = (post_state_validator_pool is not None
+                        and len(post_state_validator_pool.validators) != validator_count)
+        availability_threshold = validator_count * 2 // 3 + 1
+        for core_index, pending in enumerate(
+                intermediate_state_assurances_after_disputes.assurances
+        ):
+            if pending:
+                if total_assurances_per_core[core_index] >= availability_threshold:
                     # GP-0.7.2-eq:11.16 | Work report becomes available
-                    reported.append(intermediate_state_assurances_after_disputes.assurances[idx].report)
+                    reported.append(pending.report)
 
                     # GP-0.7.2-eq:11.17 | Remove from assurances
-                    intermediate_state_assurances_after_assurances.assurances[idx] = None
+                    intermediate_state_assurances_after_assurances.assurances[core_index] = None
 
                 # GP-0.7.2-eq:11.17 Check for timed out work reports
-                if assurance and header.timeslot >= assurance.timeout + gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD:
-                    intermediate_state_assurances_after_assurances.assurances[idx] = None
+                if size_changed or header.timeslot >= pending.timeout + gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD:
+                    intermediate_state_assurances_after_assurances.assurances[core_index] = None
 
         return AssurancesAfterAssurancesOutput(
             intermediate_state_after_assurances=intermediate_state_assurances_after_assurances,
@@ -881,7 +894,11 @@ class Assurances(StateComponent):
         -------
         bool
         """
-        return all([a.validator_index < len(post_state_validator_pool.validators) for a in assurances])
+        return all(
+            not isinstance(a.validator_index, bool)
+            and 0 <= a.validator_index < len(post_state_validator_pool.validators)
+            for a in assurances
+        )
 
     @staticmethod
     def are_assurances_sorted(assurances: List[Assurance]) -> bool:

@@ -12,13 +12,21 @@ from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Assurance
+from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
+
+
+VECTOR_DIR = stf_vector_dir("assurances", TEST_SUITE)
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'assurances', TEST_SUITE)
+    abs_dir = VECTOR_DIR
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -34,9 +42,7 @@ class TestAssurances(unittest.TestCase):
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
-        test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'assurances', TEST_SUITE, test_vector_file
-        )
+        test_vector_file = VECTOR_DIR / test_vector_file
         with open(test_vector_file) as f:
             return json.load(f)
 
@@ -75,7 +81,15 @@ class TestAssurances(unittest.TestCase):
             intermediate_output = assurances.state_transition_after_assurances(
                 extrinsic_assurances=extrinsic_assurances,
                 intermediate_state_assurances_after_disputes=pre_state_assurances,
-                header=header
+                header=header,
+                pre_state_validator_pool=pre_state_validator_pool,
+                # The official isolated component fixture uses a synthetic
+                # three-validator posterior set in Tiny. Decode each record
+                # without treating this fixture context as a canonical state.
+                post_state_validator_pool=ValidatorPoolState(validators=[
+                    ValidatorData.from_json(v)
+                    for v in test_vector["pre_state"]["post_validators"]
+                ]),
             )
 
             output = assurances.state_transition_after_guarantees(

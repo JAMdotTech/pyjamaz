@@ -7,7 +7,7 @@ import ipaddress
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String, Bool
+from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String, Bool, H512
 
 from pyjamaz.exceptions import BlockValidationError
 from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO, VALIDATOR_COUNT
@@ -621,6 +621,47 @@ class WorkReport(Serializable):
     def hash(self) -> bytes:
         return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
+
+
+@dataclass
+class Credential(Serializable):
+    """
+    GP-0.7.2-eq:11.22 (a) | Single item in the signatures attribute of a guarantee comprising a validator index and its
+    Ed25519 signature.
+
+    Attributes
+    ----------
+    validator_index: U16
+        GP-0.7.2-eq:11.22 (blackboard_N_V) | A validator index.
+    signature: H512
+        GP-0.7.2-eq:11.22 (blackboard_V_-) | A valid Ed25519 signature corresponding to the validator index.
+    """
+    validator_index: int = field(metadata={'codec': U16})
+    signature: bytes = field(metadata={'codec': H512})
+
+
+@dataclass
+class Guarantee(Serializable):
+    """
+    GP-0.7.2-eq:11.23 (bold_E_G) | Single item in the guarantees extrinsic. Report of newly completed workload whose
+    accuracy is guaranteed by specific validators.
+
+    Attributes
+    ----------
+    report: pyjamaz.models.common.WorkReport
+        GP-0.7.2-eq:11.23 (bold_r) | A work report.
+    slot: U32
+        GP-0.7.2-eq:11.23 (t) | A timeslot.
+    signatures: Vec(Credential)
+        GP-0.7.2-eq:11.23 (a) | A set of credentials.
+    """
+    report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
+    slot: int = field(metadata={'codec': U32})
+    # Todo: consider renaming to 'credentials'
+    signatures: List[Credential] = field(metadata={'codec': Vec(Credential.to_codec_def())})
+
+
+
 @dataclass
 class Assurance(Serializable):
     """
@@ -633,8 +674,16 @@ class Assurance(Serializable):
     timeout: U32
         GP-0.7.2-eq:11.1 (t) | A timeslot.
     """
-    report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    timeout: int = field(metadata={'codec': U32})
+    guarantee: Guarantee = field(metadata={'codec': Guarantee.to_codec_def()})
+    registered_slot: int = field(metadata={'codec': U32})
+
+    @property
+    def report(self) -> WorkReport:
+        return self.guarantee.report
+
+    @property
+    def timeout(self) -> int:
+        return self.registered_slot
 
 
 @dataclass
@@ -711,3 +760,4 @@ class AccumulationInput(Serializable):
     deferred_transfer: DeferredTransfer = field(default=None, metadata={'codec': DeferredTransfer.to_codec_def()})
 
     _codec_enum = True
+

@@ -29,7 +29,7 @@ from pyjamaz.merkle import ConstantDepthMerkleTree
 from pyjamaz.models.app import StateDump, Trace, D3LEntry
 from pyjamaz.models.common import WorkPackage, WorkReport, WorkPackageBundle, WorkPackageStatus, \
     WorkPackageReportableStatus, WorkPackageReadyStatus, BlockDesc, WorkPackageReportedStatus, WorkExecResult, \
-    WorkDigest, WorkPackageSpec
+    WorkDigest, WorkPackageSpec, Credential, Guarantee
 from pyjamaz.runtime.types import WorkPackageQueueItem
 from pyjamaz.settings import SOLO_MODE, DEBUG, SKIP_VALIDATE_GUARANTEES
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
@@ -40,8 +40,7 @@ from pyjamaz.storage import StorageEngine, FileStorageEngine
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services, \
     AccumulationQueue, AccumulationHistory, RecentAccumulationLog
-from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, Credential, \
-    Assurance
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Assurance
 from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState, PendingChanges
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal

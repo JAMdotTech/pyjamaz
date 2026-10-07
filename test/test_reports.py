@@ -7,7 +7,8 @@ from typing import Optional
 from parameterized import parameterized
 
 from pyjamaz.exceptions import StateTransitionError
-from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
+from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes
+from pyjamaz.models.common import Guarantee
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
     ServiceAccount, PendingChanges
