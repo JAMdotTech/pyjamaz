@@ -1,6 +1,6 @@
 import logging
-from dataclasses import dataclass
-from typing import Optional, List, Dict
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict, Callable
 
 from pyjamaz.accumulation import edit_queue, work_report_dependencies, work_report_mapping, priority_queue
 from pyjamaz.graypaper_constants import ROTATION_PERIOD_CORE, EPOCH_TIMESLOTS
@@ -11,7 +11,7 @@ from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMa
 from pyjamaz.settings import DEBUG
 from pyjamaz.state.storage import StateStorage
 
-from pyjamaz.transport.pubsub import PubSub
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import guarantor_permute, flatten_list
 
 
@@ -19,6 +19,8 @@ from pyjamaz.utils import guarantor_permute, flatten_list
 class AppContext:
     pubsub: Optional[PubSub] = None
     state_storage: Optional[StateStorage] = None
+    header_lookup: Optional[Callable[[bytes], Optional[Header]]] = None
+    post_commit_signals: List[PubSubSignal] = field(default_factory=list)
 
 @dataclass
 class BlockContext:

@@ -2,27 +2,35 @@ import json
 import os
 import unittest
 from os import path
+from types import SimpleNamespace
 from typing import Optional
 
 from parameterized import parameterized
 
 from pyjamaz.exceptions import StateTransitionError
-from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes
-from pyjamaz.models.common import Guarantee
+from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
-    ServiceAccount, PendingChanges
+    ServiceAccount, PendingChanges, AccumulationQueueState
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorageEngine
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
+
+
+VECTOR_DIR = stf_vector_dir("reports", TEST_SUITE)
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'reports', TEST_SUITE)
+    abs_dir = VECTOR_DIR
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -47,9 +55,7 @@ class TestReports(unittest.TestCase):
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
-        test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'reports', TEST_SUITE, test_vector_file
-        )
+        test_vector_file = VECTOR_DIR / test_vector_file
         with open(test_vector_file) as f:
             return json.load(f)
 
@@ -128,6 +134,25 @@ class TestReports(unittest.TestCase):
         )
 
         pre_accumulation_history = AccumulationHistoryState(accumulation_history=[])
+        pre_accumulation_queue = AccumulationQueueState(
+            accumulation_queue=[[] for _ in range(EPOCH_TIMESLOTS)]
+        )
+
+        # Equation 11.35 is an off-state check against the retained ancestor
+        # header set. Populate that set from the vector's declared contexts.
+        self.app_context.state_storage.ancestors.clear()
+        for guarantee in extrinsic_guarantees:
+            lookup_header = Header.default()
+            lookup_header.timeslot = guarantee.report.context.lookup_anchor_slot
+            setattr(lookup_header, "_hash", guarantee.report.context.lookup_anchor)
+            self.app_context.state_storage.add_ancestor(lookup_header)
+            # The component corpus delegates ancestor-chain validation to the
+            # caller. Supply a child commitment for its declared lookup root.
+            lookup_child = Header.default()
+            lookup_child.parent = lookup_header.hash
+            lookup_child.parent_state_root = guarantee.report.context.lookup_anchor_state_root
+            lookup_child.timeslot = lookup_header.timeslot + 1
+            self.app_context.state_storage.add_ancestor(lookup_child)
 
         post_entropy = EntropyState.from_json({"entropy": test_vector["pre_state"]["entropy"]})
 
@@ -164,6 +189,7 @@ class TestReports(unittest.TestCase):
                 post_state_validator_pool=post_state_validator_pool,
                 header=header,
                 pre_accumulation_history=pre_accumulation_history,
+                pre_accumulation_queue=pre_accumulation_queue,
                 post_entropy=post_entropy,
                 post_state_timeslot=post_state_timeslot,
                 post_state_validator_archive=post_state_validator_archive,
@@ -187,9 +213,9 @@ class TestReports(unittest.TestCase):
             # Reformat JSON output confirm test format
             for idx, assignment in enumerate(post_state['assurances']):
                 if post_state['assurances'][idx]:
-                    post_state['assurances'][idx]["report"]["segment_root_lookup"] = [{
+                    post_state['assurances'][idx]["guarantee"]["report"]["segment_root_lookup"] = [{
                         "segment_tree_root": sr, "work_package_hash": wh
-                    } for wh, sr in post_state['assurances'][idx]["report"]["segment_root_lookup"]]
+                    } for wh, sr in post_state['assurances'][idx]["guarantee"]["report"]["segment_root_lookup"]]
 
         except StateTransitionError as e:
             assurances_output = {'err': e.custom_error_code.name}

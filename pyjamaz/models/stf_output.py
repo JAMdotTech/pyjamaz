@@ -262,6 +262,8 @@ class GuaranteeErrorCode(Serializable, enum.Enum):
     banned_validator = 23,
     lookup_anchor_not_recent = 24,
     missing_work_results = 25
+    bad_anchor_slot = 26
+    bad_erasure_shards = 27
 
 
 @dataclass
