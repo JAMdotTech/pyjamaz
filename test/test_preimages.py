@@ -1,7 +1,6 @@
 import json
 import os
 import unittest
-from os import path
 from typing import Optional
 
 from pyjamaz.exceptions import StateTransitionError
@@ -14,12 +13,20 @@ from pyjamaz.state.components import Services
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Preimage
 from pyjamaz.models.state import TimeslotState, ServicesState, ServiceAccount, PendingChanges
+from pyjamaz.settings import TEST_SUITE
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
+
+
+VECTOR_DIR = stf_vector_dir("preimages", TEST_SUITE, local_profiled=False)
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'preimages')
+    abs_dir = VECTOR_DIR
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -38,9 +45,7 @@ class TestPreimages(unittest.IsolatedAsyncioTestCase):
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
-        test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'preimages', test_vector_file
-        )
+        test_vector_file = VECTOR_DIR / test_vector_file
         with open(test_vector_file) as f:
             return json.load(f)
 

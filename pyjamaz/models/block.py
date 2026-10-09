@@ -2,15 +2,16 @@ from dataclasses import dataclass, field
 from functools import cached_property
 
 from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
+from math import floor
 from typing import List, Optional, TYPE_CHECKING
 
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple
-from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, CORE_COUNT
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple, VarInt64
+from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.models.common import WorkReport, TicketBody, ValidatorData, Credential, Guarantee
 from pyjamaz.models.codec import BoundedVec
-from pyjamaz.models.common import TicketBody, ValidatorData, Credential, Guarantee
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
@@ -279,6 +280,24 @@ class Assurance(Serializable):
     @property
     def cores_engaged(self) -> list:
         return [c for c, e in enumerate(self.bitfield) if e == True]
+
+
+@dataclass(frozen=True)
+class AncestorReference:
+    """Trusted hash/slot ancestry without a supplied header's commitments.
+
+    Fuzzer v1's BLOCK_ANCESTRY carries only these references. In particular,
+    it cannot provide the child state-root evidence required by GP080 11.38.
+    This object deliberately has no JAM header encoding.
+    """
+
+    hash: bytes
+    parent: bytes
+    timeslot: int
+
+    @property
+    def parent_state_root(self) -> None:
+        return None
 
 
 @dataclass
@@ -565,9 +584,9 @@ class Extrinsic(Serializable):
             t.to_jam_bytes() for t in self.tickets
         ])))
 
-        extrinsic_hash += blake2b_256_hash(
-            bytes(Vec(Tuple(U32, H256)).encode([(p.requester, p.hash()) for p in self.preimages]))
-        )
+        extrinsic_hash += blake2b_256_hash(bytes(Vec(Tuple(U32, H256)).encode([
+            (p.requester, p.hash()) for p in self.preimages
+        ])))
 
         hashed_guarantees = Vec(Tuple(H256, U32, Vec(Credential.to_codec_def()))).encode(
             [
@@ -630,4 +649,3 @@ class AccumulationStatistic:
     total_gas_utilized: int = 0
     nr_work_reports_accumulated: int = 0
     nr_transfers_accumulated: int = 0
-

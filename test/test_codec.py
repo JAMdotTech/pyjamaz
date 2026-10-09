@@ -12,15 +12,20 @@ from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPools
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
     ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap, \
     AccumulationQueueState, AccumulationHistoryState, DeferredTransfers, AccumulationStateComponents
+from pyjamaz.settings import TEST_SUITE
 from test.test_safrole import SafroleTestOutput, SafroleOutputMarks
 
+try:
+    from test.vector_fixtures import codec_vector_dir
+except ModuleNotFoundError:
+    from vector_fixtures import codec_vector_dir
 
-class TestCodec(unittest.TestCase):
+
+@unittest.skipUnless(TEST_SUITE == 'tiny', 'JDT fixtures are Tiny-profile only')
+class TestJDTCodec(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.test_vector_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec')
-        cls.test_vector_w3f_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'w3f')
         cls.test_vector_jdt_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'jdt')
 
     def test_jdt_beefy_commitment_map(self):
@@ -239,6 +244,12 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_jdt_dir, f'state_validator_queue.bin'), "rb") as f:
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
+
+class TestCodec(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.test_vector_w3f_dir = codec_vector_dir(TEST_SUITE)
 
     def test_w3f_extrinsic_assurances(self):
         with open(path.join(self.test_vector_w3f_dir, f'assurances_extrinsic.json')) as f:
