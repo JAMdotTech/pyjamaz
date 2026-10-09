@@ -2162,6 +2162,7 @@ class Services(StateComponent):
         self.block_context.set_accumulation_statistics(
             accumulation_gas_utilized=output.accumulation_gas_utilized,
             nr_work_results_accumulated=output.nr_work_results_accumulated,
+            processed_transfers=output.processed_transfers,
         )
 
         # GP-0.7.2-eq:12.31 | Update last_accumulation_slot
@@ -2268,6 +2269,7 @@ class Services(StateComponent):
             post_accumulation_state=accumulation_state,
             accumulation_commitment=output.accumulation_commitment,
             accumulation_gas_utilized=output.accumulation_gas_utilized,
+            processed_transfers=list(deferred_transfers) + second_output.processed_transfers,
         )
 
     async def parallel_accumulation(

@@ -1000,14 +1000,20 @@ class ServicesState(State, Serializable):
         for (service_id, storage_hash), storage_item in pending_changes.storage_items.items():
             if storage_item is not None:
                 self.services[service_id].storage_items[storage_hash] = storage_item
+            elif service_id in self.services:
+                self.services[service_id].storage_items.pop(storage_hash, None)
 
         for (service_id, preimage_hash), preimage_blob in pending_changes.preimages.items():
             if preimage_blob is not None:
                 self.services[service_id].preimages[preimage_hash] = preimage_blob
+            elif service_id in self.services:
+                self.services[service_id].preimages.pop(preimage_hash, None)
 
         for (service_id, preimage_hash, preimage_size), availability in pending_changes.preimages_availability.items():
             if availability is not None:
                 self.services[service_id].preimage_availability[(preimage_hash, preimage_size)] = availability
+            elif service_id in self.services:
+                self.services[service_id].preimage_availability.pop((preimage_hash, preimage_size), None)
 
 
 
@@ -1689,3 +1695,4 @@ class FullAccumulationOutput:
     accumulation_commitment: BeefyCommitmentMap
     # bold_u
     accumulation_gas_utilized: Dict[int, int]
+    processed_transfers: List[DeferredTransfer] = field(default_factory=list)
