@@ -7,10 +7,10 @@ import ipaddress
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String, Bool
+from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String, Bool, H512
 
 from pyjamaz.exceptions import BlockValidationError
-from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO
+from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO, VALIDATOR_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 # from pyjamaz.models.block import Credential, Guarantee
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
@@ -91,10 +91,13 @@ class RefinementContext(Serializable):
         GP-0.7.2-eq:11.4 (bold_p) | An optional prerequisite work-package.
     """
     anchor: bytes = field(metadata={'codec': H256})
+    # GP-0.8.0-eq:C.26: the anchor slot is committed before its roots.
+    anchor_slot: int = field(metadata={'codec': U32}, default=0, kw_only=True)
     state_root: bytes = field(metadata={'codec': H256})
     beefy_root: bytes = field(metadata={'codec': H256})
     lookup_anchor: bytes = field(metadata={'codec': H256})
     lookup_anchor_slot: int = field(metadata={'codec': U32})
+    lookup_anchor_state_root: bytes = field(metadata={'codec': H256}, default=bytes(32), kw_only=True)
     prerequisites: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
@@ -174,8 +177,36 @@ class ImportSegment(Serializable):
     index: U16
         GP-0.7.2-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
     """
+    WORK_PACKAGE_HASH_FLAG: typing.ClassVar[int] = 1 << 15
+    SEGMENT_INDEX_MASK: typing.ClassVar[int] = WORK_PACKAGE_HASH_FLAG - 1
+
     tree_root: bytes = field(metadata={'codec': H256})
     index: int = field(metadata={'codec': U16})
+
+    @property
+    def is_work_package_hash(self) -> bool:
+        """Whether ``tree_root`` is the tagged work-package-hash variant."""
+        return bool(self.index & self.WORK_PACKAGE_HASH_FLAG)
+
+    @property
+    def segment_index(self) -> int:
+        """The logical export index after removing C.35's discriminator."""
+        return self.index & self.SEGMENT_INDEX_MASK
+
+    @classmethod
+    def from_segment_root(cls, segment_root: bytes, index: int) -> "ImportSegment":
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < cls.WORK_PACKAGE_HASH_FLAG:
+            raise ValueError("import segment index must fit in u15")
+        return cls(tree_root=bytes(segment_root), index=index)
+
+    @classmethod
+    def from_work_package_hash(cls, work_package_hash: bytes, index: int) -> "ImportSegment":
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < cls.WORK_PACKAGE_HASH_FLAG:
+            raise ValueError("import segment index must fit in u15")
+        return cls(
+            tree_root=bytes(work_package_hash),
+            index=index | cls.WORK_PACKAGE_HASH_FLAG,
+        )
 
 
 @dataclass
@@ -345,7 +376,7 @@ class WorkPackageReadyStatus(Serializable):
             "reported_in": self.reported_in.serialize(),
             "core": self.core,
             "report_hash": base64_encode(self.report_hash),
-            "ready_in": self.ready_in.to_json()
+            "ready_in": self.ready_in.serialize()
         }
 
 @dataclass
@@ -360,7 +391,7 @@ class WorkPackageStatus(Serializable):
 
     def to_json(self) -> dict:
         value = self.enum_value()[1]
-        if type(value) is not str:
+        if not isinstance(value, (str, bool)):
             value = value.serialize()
         return {self.enum_value()[0]: value}
 
@@ -518,6 +549,8 @@ class WorkPackageSpec(Serializable):
     hash: bytes = field(metadata={'codec': H256})
     length: int = field(metadata={'codec': U32})
     erasure_root: bytes = field(metadata={'codec': H256})
+    # GP-0.8.0-eq:C.27: immutable size of the assuring validator set.
+    erasure_shards: int = field(metadata={'codec': U16}, default=VALIDATOR_COUNT, kw_only=True)
     exports_root: bytes = field(metadata={'codec': H256})
     exports_count: int = field(metadata={'codec': U16})
 
@@ -588,6 +621,47 @@ class WorkReport(Serializable):
     def hash(self) -> bytes:
         return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
+
+
+@dataclass
+class Credential(Serializable):
+    """
+    GP-0.7.2-eq:11.22 (a) | Single item in the signatures attribute of a guarantee comprising a validator index and its
+    Ed25519 signature.
+
+    Attributes
+    ----------
+    validator_index: U16
+        GP-0.7.2-eq:11.22 (blackboard_N_V) | A validator index.
+    signature: H512
+        GP-0.7.2-eq:11.22 (blackboard_V_-) | A valid Ed25519 signature corresponding to the validator index.
+    """
+    validator_index: int = field(metadata={'codec': U16})
+    signature: bytes = field(metadata={'codec': H512})
+
+
+@dataclass
+class Guarantee(Serializable):
+    """
+    GP-0.7.2-eq:11.23 (bold_E_G) | Single item in the guarantees extrinsic. Report of newly completed workload whose
+    accuracy is guaranteed by specific validators.
+
+    Attributes
+    ----------
+    report: pyjamaz.models.common.WorkReport
+        GP-0.7.2-eq:11.23 (bold_r) | A work report.
+    slot: U32
+        GP-0.7.2-eq:11.23 (t) | A timeslot.
+    signatures: Vec(Credential)
+        GP-0.7.2-eq:11.23 (a) | A set of credentials.
+    """
+    report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
+    slot: int = field(metadata={'codec': U32})
+    # Todo: consider renaming to 'credentials'
+    signatures: List[Credential] = field(metadata={'codec': Vec(Credential.to_codec_def())})
+
+
+
 @dataclass
 class Assurance(Serializable):
     """
@@ -600,8 +674,16 @@ class Assurance(Serializable):
     timeout: U32
         GP-0.7.2-eq:11.1 (t) | A timeslot.
     """
-    report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    timeout: int = field(metadata={'codec': U32})
+    guarantee: Guarantee = field(metadata={'codec': Guarantee.to_codec_def()})
+    registered_slot: int = field(metadata={'codec': U32})
+
+    @property
+    def report(self) -> WorkReport:
+        return self.guarantee.report
+
+    @property
+    def timeout(self) -> int:
+        return self.registered_slot
 
 
 @dataclass
@@ -678,3 +760,4 @@ class AccumulationInput(Serializable):
     deferred_transfer: DeferredTransfer = field(default=None, metadata={'codec': DeferredTransfer.to_codec_def()})
 
     _codec_enum = True
+

@@ -1,3 +1,4 @@
+from pyjamaz.graypaper_constants import TICKET_SUBMISSION_END_SLOT
 import asyncio
 import json
 import logging
@@ -99,7 +100,7 @@ class PyjamazApp:
 
         self.block_context = BlockContext()
 
-        self.app_context = AppContext(state_storage=self.state_storage)
+        self.app_context = AppContext(state_storage=self.state_storage, header_lookup=self.retrieve_block_header)
 
         self.import_lock = asyncio.Lock()
 
@@ -330,13 +331,18 @@ class PyjamazApp:
         # Retrieve parent header
         parent_header = self.state_storage.get_parent(block.header)
 
-        if parent_header is None:
+        if parent_header is None or (
+            block.header.parent == bytes(32)
+            and self.state_storage.finalized_block_hash not in (None, bytes(32))
+        ):
             DEBUG and logging.debug(f"Parent hash {format_hash(block.header.parent)} does not has a valid ancestor")
-            raise StateTransitionError(BlockValidationErrorCode.bad_slot)
+            raise StateTransitionError(BlockValidationErrorCode.no_valid_ancestor)
 
         # GP-0.7.2-eq:5.7
         if block.header.timeslot <= parent_header.timeslot:
             raise StateTransitionError(BlockValidationErrorCode.bad_slot)
+
+        self.app_context.post_commit_signals.clear()
 
         # Reset block context
         self.block_context.reset()
@@ -502,6 +508,8 @@ class PyjamazApp:
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
             intermediate_state_assurances_after_disputes=assurances_after_disputes_output.intermediate_state_after_disputes,
+            pre_state_validator_pool=pre_state_validator_pool,
+            post_state_validator_pool=validator_pool_output.post_state,
             header=block.header,
         )
 
@@ -535,6 +543,7 @@ class PyjamazApp:
                 post_state_validator_pool=validator_pool_output.post_state,
                 header=block.header,
                 pre_accumulation_history=pre_state_accumulation_history,
+                pre_accumulation_queue=pre_state_accumulation_queue,
                 post_entropy=entropy_output.post_state,
                 post_state_timeslot=timeslot_output.post_state,
                 post_state_validator_archive=validator_archive_output.post_state,
@@ -661,6 +670,11 @@ class PyjamazApp:
         self.state_storage.commit()
 
         self.working_state.state_root = self.state_storage.state_root()
+        signals = tuple(self.app_context.post_commit_signals)
+        self.app_context.post_commit_signals.clear()
+        if self.app_context.pubsub:
+            for signal in signals:
+                await self.app_context.pubsub.publish(signal)
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
@@ -688,14 +702,24 @@ class PyjamazApp:
 
     @log_execution_time
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
-
-        output = await self.state_transition(block, produce=False)
-
+        restore_hash = self.state_storage.block_hash
+        if restore_hash == block.header.hash:
+            restore_hash = block.header.parent if self.state_storage.has_state_at(block.header.parent) else None
+        try:
+            output = await self.state_transition(block, produce=False)
+        except BaseException:
+            if self.state_storage.block_hash == block.header.hash:
+                self.state_storage.discard_candidate(block.header.hash, restore_hash)
+            self.app_context.post_commit_signals.clear()
+            self.working_state = self.retrieve_jam_state()
+            raise
         await self.add_ancestor_block(block)
-
         return output
 
     async def store_block(self, block: Block):
+        # Retain complete same-slot siblings by canonical identity (GP080 5.3).
+        self.block_db.put(b'block-by-hash:' + block.header.hash, block.to_jam_bytes().to_bytes())
+        # Keep the existing slot index for the main runtime's compatibility API.
         # Store block in DB
         self.block_db.put(
             b'block:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.to_jam_bytes().to_bytes()
@@ -722,11 +746,15 @@ class PyjamazApp:
             return Block.from_jam_bytes(JamBytes(block_data))
 
     def retrieve_block_by_hash(self, block_hash: bytes) -> Optional[Block]:
-        timeslot_data = self.block_db.get(b'block_number:' + block_hash)
-        if timeslot_data is not None:
-            block_data = self.block_db.get(b'block:' + timeslot_data)
-            if block_data is not None:
-                return Block.from_jam_bytes(JamBytes(block_data))
+        block_data = self.block_db.get(b'block-by-hash:' + block_hash)
+        if block_data is None:
+            timeslot_data = self.block_db.get(b'block_number:' + block_hash)
+            if timeslot_data is not None:
+                block_data = self.block_db.get(b'block:' + timeslot_data)
+        if block_data is None:
+            return None
+        block = Block.from_jam_bytes(JamBytes(block_data))
+        return block if block.header.hash == block_hash else None
 
     def retrieve_block_header(self, block_hash: bytes) -> Optional[Header]:
         header_data = self.block_db.get(b'block_header:' + block_hash)
@@ -918,28 +946,24 @@ class PyjamazApp:
             safrole_state: SafroleState, entropy_state: EntropyState,
     ) -> Block:
 
-        if timeslot % EPOCH_TIMESLOTS > 0:
-            entropy = entropy_state.entropy[2]
-
-            if not SOLO_MODE and self.block_extrinsic.can_add_own_ticket(timeslot):
-
-                ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
-                ring_context = RingContext(self.config.ring_data, ring_public_keys)
-
+        # GP-0.8.0-eq:6.6,6.30: derive entries from the pending era.
+        validator_count = len(safrole_state.validators)
+        if not SOLO_MODE and timeslot % EPOCH_TIMESLOTS > 0:
+            from pyjamaz.signing import jam_ring_context
+            ring_context = jam_ring_context(
+                self.config.ring_data, [v.bandersnatch for v in safrole_state.validators],
+            )
+            while self.block_extrinsic.can_add_own_ticket(timeslot, validator_count=validator_count):
                 self.block_extrinsic.add_own_ticket(
-                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
-
-                self.block_extrinsic.add_own_ticket(
-                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
-
-                self.block_extrinsic.add_own_ticket(
-                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                    ring_context, entropy_state.entropy[2], self.config.keys.bandersnatch,
+                    self.get_author_index(), validator_count=validator_count,
                 )
 
         extrinsic = Extrinsic(
-            tickets=self.block_extrinsic.collect_tickets(),
+            tickets=self.block_extrinsic.collect_tickets(
+                safrole_state.ticket_accumulator,
+                submission_allowed=timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT,
+            ),
             disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
             preimages=self.block_extrinsic.collect_preimages(self.working_state.services),
             assurances=self.block_extrinsic.collect_assurances(),

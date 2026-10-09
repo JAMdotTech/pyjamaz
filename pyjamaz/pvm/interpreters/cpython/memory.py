@@ -130,7 +130,10 @@ class PVMMemory(AbstractMemory):
         raise PVMMemoryError(f"Memory address {addr} ACL {access} check failed")
 
     def read_bytes(self, address: int, length: int, padding: int = None) -> bytes:
-        address = int(address) & _ADDR_MASK
+        address = int(address)
+        if address < 0 or address >= self.SIZE:
+            self._mem_addr = address
+            raise PVMMemoryError("Host memory address outside address space")
         self._mem_addr = address
 
         if length <= 0:
@@ -176,7 +179,10 @@ class PVMMemory(AbstractMemory):
             return
 
         data_bytes = content if isinstance(content, (bytes, bytearray, memoryview)) else bytes(content)
-        address = int(address) & _ADDR_MASK
+        address = int(address)
+        if address < 0 or address >= self.SIZE:
+            self._mem_addr = address
+            raise PVMMemoryError("Host memory address outside address space")
         self._mem_addr = address
 
         length = len(data_bytes)
@@ -225,7 +231,9 @@ class PVMMemory(AbstractMemory):
     def is_accessible(self, address: int, length: int, mode: int) -> bool:
         if length == 0:
             return True
-        address = int(address) & _ADDR_MASK
+        address, length = int(address), int(length)
+        if address < 0 or length < 0 or address + length > self.SIZE:
+            return False
 
         if mode not in (MEM_R, MEM_W, MEM_RW):
             raise PVMError(f"Invalid PVMMemory mode: {mode}")

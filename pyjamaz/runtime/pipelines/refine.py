@@ -8,9 +8,8 @@ import anyio
 from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.runtime.extrinsics import WorkpackageExtrinsicCollector
-from pyjamaz.models.block import Credential, Guarantee
 from pyjamaz.models.common import WorkPackage, WorkPackageStatus, WorkPackageReportableStatus, \
-    WorkPackageReportedStatus, BlockDesc
+    WorkPackageReportedStatus, BlockDesc, Credential, Guarantee
 from pyjamaz.runtime.types import WorkPackageQueueItem
 from pyjamaz.settings import DEBUG, GUARANTEE_SIGNATURE_WAIT_PERIOD
 from pyjamaz.transport.pubsub import PubSubSignal

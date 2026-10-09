@@ -20,6 +20,10 @@ from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block
 from pyjamaz.models.state import (DisputesState, AssurancesState, TimeslotState, ValidatorArchiveState,
                                   ValidatorPoolState, JamState, State)
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
 
 
 @dataclass
@@ -34,7 +38,7 @@ class TestState(State):
 def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
     test_vectors = []
     for directory in directories:
-        abs_dir = path.join(path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'disputes'), directory)
+        abs_dir = stf_vector_dir("disputes", directory)
         for filename in os.listdir(str(abs_dir)):
             if filename.endswith('.json'):
                 if file_filter is None or file_filter in filename:
@@ -47,7 +51,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
 
-        cls.test_vector_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'disputes')
+        cls.test_vector_dir = stf_vector_dir("disputes", TEST_SUITE).parent
 
         # Set up ring data
         data_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'pyjamaz', 'data')

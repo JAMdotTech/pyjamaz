@@ -1,6 +1,6 @@
 import logging
-from dataclasses import dataclass
-from typing import Optional, List, Dict
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict, Callable
 
 from pyjamaz.accumulation import edit_queue, work_report_dependencies, work_report_mapping, priority_queue
 from pyjamaz.graypaper_constants import ROTATION_PERIOD_CORE, EPOCH_TIMESLOTS
@@ -11,7 +11,7 @@ from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMa
 from pyjamaz.settings import DEBUG
 from pyjamaz.state.storage import StateStorage
 
-from pyjamaz.transport.pubsub import PubSub
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import guarantor_permute, flatten_list
 
 
@@ -19,6 +19,8 @@ from pyjamaz.utils import guarantor_permute, flatten_list
 class AppContext:
     pubsub: Optional[PubSub] = None
     state_storage: Optional[StateStorage] = None
+    header_lookup: Optional[Callable[[bytes], Optional[Header]]] = None
+    post_commit_signals: List[PubSubSignal] = field(default_factory=list)
 
 @dataclass
 class BlockContext:
@@ -203,7 +205,9 @@ class BlockContext:
         # GP-0.7.2-eq:12.11
         self.accumulatable_work_reports = self.ready_work_reports + priority_queue(q)
 
-    def set_accumulation_statistics(self, accumulation_gas_utilized: Dict[int, int], nr_work_results_accumulated: int):
+    def set_accumulation_statistics(
+            self, accumulation_gas_utilized: Dict[int, int],
+            nr_work_results_accumulated: int, processed_transfers=()):
         """
         GP-0.7.2-eq:12.26,12.27 | Compose accumulation statistics (S)
         """
@@ -221,10 +225,16 @@ class BlockContext:
                     digests_per_service[d.service_id] += 1
 
 
-        for s, u in accumulation_gas_utilized.items():
-            if digests_per_service.get(s, 0) + u > 0:
+        transfers_per_service = {}
+        for transfer in processed_transfers:
+            transfers_per_service[transfer.receiver] = transfers_per_service.get(transfer.receiver, 0) + 1
+
+        service_ids = set(accumulation_gas_utilized) | set(digests_per_service) | set(transfers_per_service)
+        for s in sorted(service_ids):
+            u = accumulation_gas_utilized.get(s, 0)
+            if digests_per_service.get(s, 0) + transfers_per_service.get(s, 0) + u > 0:
                 if s not in self.accumulation_statistics:
                     self.accumulation_statistics[s] = AccumulationStatistic()
                 self.accumulation_statistics[s].total_gas_utilized = u
                 self.accumulation_statistics[s].nr_work_reports_accumulated = digests_per_service.get(s,0)
-
+                self.accumulation_statistics[s].nr_transfers_accumulated = transfers_per_service.get(s, 0)

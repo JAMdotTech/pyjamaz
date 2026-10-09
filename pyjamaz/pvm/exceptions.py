@@ -12,3 +12,7 @@ class PanicError(ValueError):
 
 class PVMError(ValueError):
     pass
+
+
+class PVMGasError(PVMError):
+    """A PVM invocation supplied gas outside the unsigned 64-bit domain."""

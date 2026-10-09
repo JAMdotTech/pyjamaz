@@ -20,10 +20,10 @@ from pyjamaz.hostcalls.models import PvmAccumulateOutput
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE, DEBUG, \
     USE_THREAD_POOL_ACCUMULATE
-from pyjamaz.signing import Ed25519Keypair
+from pyjamaz.signing import Ed25519Keypair, jam_ring_context
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer, AccumulationInput, \
-    AccumulationOperand
+    AccumulationOperand, Credential, Guarantee
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -36,7 +36,7 @@ from pyjamaz.state.base import StateComponent
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, \
+    Preimage, Assurance, Verdict, Judgement, Culprit, Fault, GuarantorAssignment, \
     EpochMarkValidatorKeys
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
@@ -414,7 +414,7 @@ class Safrole(StateComponent):
                 DEBUG and logging.debug(f"New Slot Sealer Series with tickets")
 
             # Update ring commitment using O(); GP-0.7.2-eq:6.13
-            ring_context = RingContext(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
+            ring_context = jam_ring_context(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
             self.post_state_safrole.ring_commitment = ring_context.commitment
 
         # GP-0.7.2-eq:6.30
@@ -447,7 +447,7 @@ class Safrole(StateComponent):
 
             ring_public_keys = [v.bandersnatch for v in ticket_validators]
 
-            ring_context = RingContext(self.ring_data, ring_public_keys)
+            ring_context = jam_ring_context(self.ring_data, ring_public_keys)
 
             if USE_THREAD_POOL_SAFROLE:
 
@@ -469,7 +469,10 @@ class Safrole(StateComponent):
                         idx = futs[fut]
 
                         # Check if ticket already exists
-                        if ticket in self.post_state_safrole.ticket_accumulator:
+                        if any(
+                                existing.id == ticket.id
+                                for existing in self.post_state_safrole.ticket_accumulator
+                        ):
                             # GP-0.7.2-eq:6.33
                             raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                         else:
@@ -481,7 +484,10 @@ class Safrole(StateComponent):
                     ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
 
                     # Check if ticket already exists
-                    if ticket in self.post_state_safrole.ticket_accumulator:
+                    if any(
+                            existing.id == ticket.id
+                            for existing in self.post_state_safrole.ticket_accumulator
+                    ):
                         # GP-0.7.2-eq:6.33
                         raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                     else:
@@ -534,8 +540,12 @@ class Safrole(StateComponent):
         checked_validators = []
         for v in validators:
             if v.ed25519 in offenders:
-                v.bandersnatch = bytes(32)
-                v.ed25519 = bytes(32)
+                v = ValidatorData(
+                    bandersnatch=bytes(32),
+                    ed25519=bytes(32),
+                    bls=bytes(144),
+                    metadata=bytes(128),
+                )
             checked_validators.append(v)
 
         return checked_validators
@@ -709,6 +719,7 @@ class RecentHistory(StateComponent):
 
         recent_block = RecentBlock(
             header_hash=header.hash,
+            slot=header.timeslot,
             beefy_root=mmr.super_peak(),
             state_root=bytes(32),
             reported=reported_work_packages
@@ -755,8 +766,30 @@ class Assurances(StateComponent):
         AssurancesAfterDisputesOutput
             Output Containing: Intermediate state after processing disputes of AssurancesState (ρ†)
         """
-        # Todo: properly set intermediate_state_after_disputes by implementing STF
-        intermediate_state_assurances_after_disputes = pre_state_assurances
+        intermediate_state_assurances_after_disputes = deepcopy(
+            pre_state_assurances
+        )
+
+        # GP-0.7.2-eq:10.15: bad and wonky verdicts cancel a matching
+        # pending report before any assurances in this block are processed.
+        # A good verdict has exactly the super-majority threshold and leaves
+        # the report in place.
+        rejected_reports = {
+            verdict.target
+            for verdict in extrinsic_disputes.verdicts
+            if not verdict.is_good()
+        }
+        for core_index, pending in enumerate(
+            intermediate_state_assurances_after_disputes.assurances
+        ):
+            if (
+                pending is not None
+                and pending.report.hash() in rejected_reports
+            ):
+                intermediate_state_assurances_after_disputes.assurances[
+                    core_index
+                ] = None
+
         return AssurancesAfterDisputesOutput(
             intermediate_state_after_disputes=intermediate_state_assurances_after_disputes
         )
@@ -805,7 +838,9 @@ class Assurances(StateComponent):
             self,
             extrinsic_assurances: List[Assurance],
             intermediate_state_assurances_after_disputes: AssurancesState,
-            header: Header
+            header: Header,
+            pre_state_validator_pool: ValidatorPoolState | None = None,
+            post_state_validator_pool: ValidatorPoolState | None = None,
     ) -> AssurancesAfterAssurancesOutput:
         """
         GP-0.7.2-eq:11.29 (ρ‡) | Intermediate state transition function for the state's assurances that processes
@@ -839,18 +874,28 @@ class Assurances(StateComponent):
                     total_assurances_per_core[core] += 1
 
         # Check for available reports
-        for idx, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
-            if assurance:
-                if total_assurances_per_core[assurance.report.core_index] > 2 / 3 * gp_const.VALIDATOR_COUNT:
+        # GP-0.8.0-eq:11.17--11.18: assurances use the prior active set;
+        # changes in set size then clear every remaining assignment.
+        validator_count = (len(pre_state_validator_pool.validators)
+                           if pre_state_validator_pool is not None
+                           else gp_const.VALIDATOR_COUNT)
+        size_changed = (post_state_validator_pool is not None
+                        and len(post_state_validator_pool.validators) != validator_count)
+        availability_threshold = validator_count * 2 // 3 + 1
+        for core_index, pending in enumerate(
+            intermediate_state_assurances_after_disputes.assurances
+        ):
+            if pending:
+                if total_assurances_per_core[core_index] >= availability_threshold:
                     # GP-0.7.2-eq:11.16 | Work report becomes available
-                    reported.append(intermediate_state_assurances_after_disputes.assurances[idx].report)
+                    reported.append(pending.report)
 
                     # GP-0.7.2-eq:11.17 | Remove from assurances
-                    intermediate_state_assurances_after_assurances.assurances[idx] = None
+                    intermediate_state_assurances_after_assurances.assurances[core_index] = None
 
                 # GP-0.7.2-eq:11.17 Check for timed out work reports
-                if assurance and header.timeslot >= assurance.timeout + gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD:
-                    intermediate_state_assurances_after_assurances.assurances[idx] = None
+                if size_changed or header.timeslot >= pending.timeout + gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD:
+                    intermediate_state_assurances_after_assurances.assurances[core_index] = None
 
         return AssurancesAfterAssurancesOutput(
             intermediate_state_after_assurances=intermediate_state_assurances_after_assurances,
@@ -871,7 +916,11 @@ class Assurances(StateComponent):
         -------
         bool
         """
-        return all([a.validator_index < len(post_state_validator_pool.validators) for a in assurances])
+        return all(
+            not isinstance(a.validator_index, bool)
+            and 0 <= a.validator_index < len(post_state_validator_pool.validators)
+            for a in assurances
+        )
 
     @staticmethod
     def are_assurances_sorted(assurances: List[Assurance]) -> bool:
@@ -910,6 +959,7 @@ class Assurances(StateComponent):
             post_state_validator_pool: ValidatorPoolState,
             header: Header,
             pre_accumulation_history: AccumulationHistoryState,
+            pre_accumulation_queue: AccumulationQueueState,
             post_entropy: EntropyState,
             post_state_timeslot: TimeslotState,
             post_state_validator_archive: ValidatorArchiveState,
@@ -932,8 +982,7 @@ class Assurances(StateComponent):
         for w in work_reports:
 
             # TODO add GP ref
-            if len(w.results) == 0:
-                raise StateTransitionError(GuaranteeErrorCode.missing_work_results)
+            self.check_work_result_count(w)
 
             # GP-0.7.2-eq:11.8 | Work report respects gas requirements
             self.check_size_limit(w)
@@ -972,7 +1021,9 @@ class Assurances(StateComponent):
         if self.work_packages_exists_in_pipeline(
                 extrinsic_work_package_hashes,
                 intermediate_state_recent_history,
-                pre_accumulation_history
+                pre_accumulation_history,
+                pre_accumulation_queue,
+                intermediate_state_assurances_after_assurances,
         ):
             raise StateTransitionError(GuaranteeErrorCode.duplicate_package)
 
@@ -982,11 +1033,25 @@ class Assurances(StateComponent):
             if context.lookup_anchor_slot < header.timeslot - gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR:
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
 
+            # GP-0.7.2-eq:11.35 | The lookup anchor must identify a retained
+            # ancestor header at exactly the declared slot.
+            if not self.lookup_anchor_is_known(
+                context,
+                self.app_context.state_storage,
+                header,
+                self.app_context.header_lookup,
+            ):
+                raise StateTransitionError(GuaranteeErrorCode.lookup_anchor_not_recent)
+
             # GP-0.7.2-eq:11.35 | Anchor must be in recent history
             recent_block = intermediate_state_recent_history.get_recent_block(context.anchor)
 
             if not recent_block:
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
+
+            # GP-0.8.0-eq:11.36: the recent anchor includes its exact slot.
+            if recent_block.slot != context.anchor_slot:
+                raise StateTransitionError(GuaranteeErrorCode.bad_anchor_slot)
 
             if recent_block.state_root != context.state_root:
                 raise StateTransitionError(GuaranteeErrorCode.bad_state_root)
@@ -1006,8 +1071,17 @@ class Assurances(StateComponent):
 
             guarantor_assignments = self.get_guarantor_assignments(guarantee, post_state_timeslot)
 
-            if guarantee.report.core_index > len(intermediate_state_assurances_after_assurances.assurances):
+            if not 0 <= guarantee.report.core_index < len(
+                intermediate_state_assurances_after_assurances.assurances
+            ):
                 raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
+
+            # GP-0.8.0-eq:11.28: an old assignment never reactivates a core.
+            if guarantee.report.core_index >= len(post_state_validator_pool.validators) // 3:
+                raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
+            # GP-0.8.0-eq:11.31: erasure chunks equal the new assurer set size.
+            if guarantee.report.package_spec.erasure_shards != len(post_state_validator_pool.validators):
+                raise StateTransitionError(GuaranteeErrorCode.bad_erasure_shards)
 
             if not self.are_guarantors_unqiue_and_sorted(guarantee.signatures):
                 raise StateTransitionError(GuaranteeErrorCode.not_sorted_or_unique_guarantors)
@@ -1018,7 +1092,7 @@ class Assurances(StateComponent):
 
             for credential in guarantee.signatures:
 
-                if credential.validator_index >= gp_const.VALIDATOR_COUNT:
+                if not self.is_valid_guarantor_index(credential.validator_index, len(guarantor_assignments)):
                     raise StateTransitionError(GuaranteeErrorCode.bad_validator_index)
 
                 # GP-0.7.2-eq:11.26 | Check for valid assignment
@@ -1071,6 +1145,79 @@ class Assurances(StateComponent):
             return self.block_context.guarantor_assignments
         else:
             return self.block_context.prev_guarantor_assignments
+
+    @staticmethod
+    def lookup_anchor_is_known(
+        context,
+        state_storage,
+        header: Header | None = None,
+        header_lookup=None,
+    ) -> bool:
+        if state_storage is None:
+            return False
+
+        # Isolated STF/vector execution has no persistent block store. Preserve
+        # the explicit supplied-ancestor check in that environment.
+        if header is None or header_lookup is None:
+            lookup_header = state_storage.ancestors.get(context.lookup_anchor)
+            return (
+                lookup_header is not None
+                and lookup_header.timeslot == context.lookup_anchor_slot
+                and (any(
+                    child.parent == context.lookup_anchor
+                    and child.parent_state_root == context.lookup_anchor_state_root
+                    for child in state_storage.ancestors.values()
+                ) or (header is not None
+                      and header.parent == context.lookup_anchor
+                      and header.parent_state_root == context.lookup_anchor_state_root))
+            )
+
+        # GP-0.8.0-eq:5.3,11.38: membership in A means ancestry, not merely that a
+        # header with this hash was observed on some fork. Walk from the block's
+        # parent and resolve pruned finalized headers from persistent storage.
+        cursor = bytes(header.parent)
+        visited: set[bytes] = set()
+        logging.debug(
+            "Checking lookup anchor %s at slot %s from parent %s; retained=%s",
+            format_hash(context.lookup_anchor),
+            context.lookup_anchor_slot,
+            format_hash(cursor),
+            [
+                (format_hash(candidate), retained.timeslot)
+                for candidate, retained in state_storage.ancestors.items()
+            ],
+        )
+        # A includes H itself (5.3), so the incoming header can establish
+        # its parent's posterior root through its own prior-state commitment.
+        child = header
+        while cursor != bytes(32) and cursor not in visited:
+            visited.add(cursor)
+            ancestor = state_storage.ancestors.get(cursor)
+            if ancestor is None:
+                ancestor = header_lookup(cursor)
+            if ancestor is None:
+                return False
+            if ancestor.hash != cursor:
+                return False
+            if cursor == context.lookup_anchor:
+                # GP-0.8.0-eq:11.38: the child independently
+                # commits to the lookup anchor's posterior state root.
+                return (ancestor.timeslot == context.lookup_anchor_slot
+                        and child is not None
+                        and child.parent_state_root == context.lookup_anchor_state_root)
+            if ancestor.timeslot < context.lookup_anchor_slot:
+                return False
+            child = ancestor
+            cursor = bytes(ancestor.parent)
+        return False
+
+    @staticmethod
+    def check_work_result_count(work_report: WorkReport) -> None:
+        """GP-0.7.2-eq:11.2: a report contains 1..I work digests."""
+        if not 1 <= len(work_report.results) <= gp_const.MAXIMUM_WORK_ITEMS:
+            # The conformance error vocabulary has a single cardinality error
+            # for this field; retain it for both empty and oversized reports.
+            raise StateTransitionError(GuaranteeErrorCode.missing_work_results)
 
     @staticmethod
     def check_size_limit(work_report: WorkReport):
@@ -1130,7 +1277,9 @@ class Assurances(StateComponent):
     def work_packages_exists_in_pipeline(
             work_package_hashes: Set[bytes],
             recent_history_state: RecentHistoryState,
-            accumulation_history: AccumulationHistoryState
+            accumulation_history: AccumulationHistoryState,
+            accumulation_queue: AccumulationQueueState,
+            assurances_state: AssurancesState,
     ) -> bool:
         """
         GP-0.7.2-eq:11.36,11.37,11.38 | Check if work-packages appear in pipeline
@@ -1145,19 +1294,30 @@ class Assurances(StateComponent):
         -------
         bool
         """
-        # TODO finish additional checks 11.36 and 11.37
-        if any(w in accumulation_history.accumulation_history for w in work_package_hashes):
-            return True
-
-        for recent_block in recent_history_state.recent_blocks:
-            for item in recent_block.reported:
-                if item.hash in work_package_hashes:
-                    return True
-
-        # TODO q = prerequisites acc. queue -> add state
-        # TODO a zoek in pre_state_assurances
-
-        return False
+        pipeline_hashes = {
+            reported.hash
+            for recent_block in recent_history_state.recent_blocks
+            for reported in recent_block.reported
+        }
+        # GP-0.7.2-eq:11.38, union of every history bucket in xi.
+        pipeline_hashes.update(
+            package_hash
+            for bucket in accumulation_history.accumulation_history
+            for package_hash in bucket
+        )
+        # GP-0.7.2-eq:11.36, q: packages waiting in the accumulation queue.
+        pipeline_hashes.update(
+            queued.report.package_spec.hash
+            for bucket in accumulation_queue.accumulation_queue
+            for queued in bucket
+        )
+        # GP-0.7.2-eq:11.37, a: reports still pending availability.
+        pipeline_hashes.update(
+            pending.report.package_spec.hash
+            for pending in assurances_state.assurances
+            if pending is not None
+        )
+        return not work_package_hashes.isdisjoint(pipeline_hashes)
 
     @log_execution_time
     def state_transition_after_guarantees(
@@ -1196,8 +1356,8 @@ class Assurances(StateComponent):
 
             # GP-0.7.2-eq:11.43 | Assign work report to core
             post_state_assurances.assurances[guarantee.report.core_index] = AssuranceStateItem(
-                report=guarantee.report,
-                timeout=post_state_timeslot.number
+                guarantee=deepcopy(guarantee),
+                registered_slot=post_state_timeslot.number
             )
 
             reported.append(
@@ -1225,6 +1385,15 @@ class Assurances(StateComponent):
             reporters=reporters
         )
 
+
+    @staticmethod
+    def is_valid_guarantor_index(validator_index: int, validator_count: int = gp_const.VALIDATOR_COUNT) -> bool:
+        """Enforce the equation 11.23 ``N_V`` credential-index domain."""
+        return (
+            isinstance(validator_index, int)
+            and not isinstance(validator_index, bool)
+            and 0 <= validator_index < validator_count
+        )
 
     @staticmethod
     def valid_guarantee_signature(credential: Credential, guarantee: Guarantee, validator_ed25519: bytes) -> bool:
@@ -1301,7 +1470,6 @@ class Assurances(StateComponent):
         value = self.retrieve()
         return AssurancesState.from_jam_bytes(JamBytes(value))
 
-
 class PrivilegedServices(StateComponent):
     """
     PrivilegedServices has no native STF. STF is delegated to a particular PrivilegedService.
@@ -1342,9 +1510,6 @@ class Disputes(StateComponent):
             post_state=deepcopy(pre_state_disputes), offenders_mark=[]
         )
 
-        if not self.are_faults_verdict_correct(extrinsic_disputes.faults):
-            raise StateTransitionError(DisputesErrorCode.fault_verdict_wrong)
-
         # GP-0.7.2-eq:10.2 | Check if all culprits have valid signatures
         if not all(c.has_valid_signature() for c in extrinsic_disputes.culprits):
             raise StateTransitionError(DisputesErrorCode.bad_signature)
@@ -1377,7 +1542,6 @@ class Disputes(StateComponent):
                 bisect.insort(self.output.post_state.good_set, verdict.target)
 
             elif verdict.is_bad():
-                self.check_valid_culprits_count(extrinsic_disputes.culprits, verdict.target)
                 bisect.insort(self.output.post_state.bad_set, verdict.target)
 
             elif verdict.is_wonky():
@@ -1419,6 +1583,14 @@ class Disputes(StateComponent):
 
         """
         for judgement in verdict.votes:
+            if (
+                isinstance(judgement.index, bool)
+                or judgement.index < 0
+                or judgement.index >= len(validators)
+            ):
+                raise BlockValidationError(
+                    DisputesErrorCode.bad_validator_index
+                )
             keypair = Ed25519Keypair.from_public_key(validators[judgement.index].ed25519)
             if not keypair.verify(judgement.get_signing_context() + verdict.target, judgement.signature):
                 return False
@@ -1500,7 +1672,7 @@ class Disputes(StateComponent):
         -------
         bool
         """
-        return all(culprits[i].key <= culprits[i + 1].key for i in range(len(culprits) - 1))
+        return all(culprits[i].key < culprits[i + 1].key for i in range(len(culprits) - 1))
 
     @staticmethod
     # TODO: proper documentation
@@ -1516,7 +1688,7 @@ class Disputes(StateComponent):
         -------
         bool
         """
-        return all(faults[i].key <= faults[i + 1].key for i in range(len(faults) - 1))
+        return all(faults[i].key < faults[i + 1].key for i in range(len(faults) - 1))
 
     @staticmethod
     def are_faults_verdict_correct(faults: List[Fault]) -> bool:
@@ -1536,8 +1708,17 @@ class Disputes(StateComponent):
             raise StateTransitionError(DisputesErrorCode.culprits_verdict_not_bad)
 
     def add_fault(self, fault: Fault):
-
-        if fault.target in self.output.post_state.good_set:
+        # GP-0.8.0-eq:10.6: the proven judgment must contradict the
+        # established verdict. A false vote contradicts a good verdict, and a
+        # true vote contradicts a bad verdict. Faults against wonky or unknown
+        # reports are not evidence of an offence.
+        contradicts_good = (
+                fault.target in self.output.post_state.good_set and not fault.vote
+        )
+        contradicts_bad = (
+                fault.target in self.output.post_state.bad_set and fault.vote
+        )
+        if contradicts_good or contradicts_bad:
             self.add_offender(fault.key)
         else:
             raise StateTransitionError(DisputesErrorCode.fault_verdict_wrong)
@@ -1587,24 +1768,6 @@ class Disputes(StateComponent):
         if sum(1 for f in faults if f.target == report_hash) == 0:
             raise StateTransitionError(DisputesErrorCode.not_enough_faults)
 
-    @staticmethod
-    # TODO: proper documentation
-    def check_valid_culprits_count(culprits: List[Culprit], report_hash: bytes):
-        """
-        GP-0.7.2-eq:10.14
-
-        Parameters
-        ----------
-        culprits
-        report_hash
-
-        Returns
-        -------
-
-        """
-        if sum(1 for c in culprits if c.target == report_hash) < 2:
-            raise StateTransitionError(DisputesErrorCode.not_enough_culprits)
-
     @classmethod
     def validate_extrinsic_disputes(
             cls,
@@ -1624,10 +1787,20 @@ class Disputes(StateComponent):
             else:
                 raise BlockValidationError(DisputesErrorCode.bad_judgement_age)
 
+            # GP-0.8.0-eq:10.4: threshold follows the verdict's epoch set.
+            if len(verdict.votes) != 2 * len(validators) // 3 + 1:
+                raise BlockValidationError(DisputesErrorCode.bad_votes_count)
+
             if not cls.has_valid_judgement_signatures(verdict, validators):
                 raise BlockValidationError(DisputesErrorCode.bad_signature)
 
-        validator_keys = [v.ed25519 for v in pre_state_validator_pool.validators]
+        validator_keys = {
+            v.ed25519
+            for v in (
+                list(pre_state_validator_pool.validators)
+                + list(pre_state_validator_archive.validators)
+            )
+        }
 
         # GP-0.7.2-eq:10.5 | Check if culprit is in validator set
         for culprit in extrinsic_disputes.culprits:
@@ -1689,7 +1862,11 @@ class Statistics(StateComponent):
 
         post_state = deepcopy(pre_state_statistics)
 
-        # GP-0.7.2-eq:13.4 | Shift statistics after epoch change
+        # GP-0.8.0-eq:13.4--13.6: assurances belong to the prior set;
+        for assurer in sorted({a.validator_index for a in extrinsic_assurances}):
+            post_state.vals_current[assurer].assurances += 1
+
+        # Rotate only after recording the prior validators' assurances.
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             post_state.vals_last = post_state.vals_current
             post_state.vals_current = [ActivityRecord(
@@ -1699,16 +1876,13 @@ class Statistics(StateComponent):
                 pre_images_size=0,
                 guarantees=0,
                 assurances=0
-            ) for _ in range(gp_const.VALIDATOR_COUNT)]
+            ) for _ in post_state_validator_pool.validators]
 
         # GP-0.7.2-eq:13.5 | Update validator stats
         post_state.vals_current[header.author_index].blocks += 1
         post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
         post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
         post_state.vals_current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
-
-        for assurance in extrinsic_assurances:
-            post_state.vals_current[assurance.validator_index].assurances += 1
 
         for reporter in self.block_context.reporters:
             val_index = self.retrieve_validator_index(reporter, post_state_validator_pool)
@@ -1755,6 +1929,7 @@ class Statistics(StateComponent):
             if accumulation_stats:
                 activity_record.accumulate_count += accumulation_stats.nr_work_reports_accumulated
                 activity_record.accumulate_gas_used += accumulation_stats.total_gas_utilized
+                activity_record.accumulate_transfer_count += accumulation_stats.nr_transfers_accumulated
 
             post_state.services[s] = activity_record
 
@@ -1987,6 +2162,7 @@ class Services(StateComponent):
         self.block_context.set_accumulation_statistics(
             accumulation_gas_utilized=output.accumulation_gas_utilized,
             nr_work_results_accumulated=output.nr_work_results_accumulated,
+            processed_transfers=output.processed_transfers,
         )
 
         # GP-0.7.2-eq:12.31 | Update last_accumulation_slot
@@ -2093,6 +2269,7 @@ class Services(StateComponent):
             post_accumulation_state=accumulation_state,
             accumulation_commitment=output.accumulation_commitment,
             accumulation_gas_utilized=output.accumulation_gas_utilized,
+            processed_transfers=list(deferred_transfers) + second_output.processed_transfers,
         )
 
     async def parallel_accumulation(

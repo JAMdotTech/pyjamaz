@@ -1,23 +1,30 @@
 import json
 import os
 import unittest
-from os import path
 from typing import Optional
 
 from parameterized import parameterized
 
 from pyjamaz.settings import TEST_SUITE
+from pyjamaz.graypaper_constants import CORE_COUNT
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Statistics
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.state import StatisticsState, TimeslotState, ValidatorPoolState
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
+
+
+VECTOR_DIR = stf_vector_dir("statistics", TEST_SUITE)
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'statistics', TEST_SUITE)
+    abs_dir = VECTOR_DIR
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -34,9 +41,7 @@ class TestStatistics(unittest.TestCase):
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
-        test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'statistics', TEST_SUITE, test_vector_file
-            )
+        test_vector_file = VECTOR_DIR / test_vector_file
         with open(test_vector_file) as f:
             return json.load(f)
 
@@ -65,17 +70,8 @@ class TestStatistics(unittest.TestCase):
                     "extrinsic_count": 0,
                     "bundle_size": 0,
                     "gas_used": 0
-                },
-                {
-                    "da_load": 0,
-                    "popularity": 0,
-                    "imports": 0,
-                    "exports": 0,
-                    "extrinsic_size": 0,
-                    "extrinsic_count": 0,
-                    "bundle_size": 0,
-                    "gas_used": 0
                 }
+                for _ in range(CORE_COUNT)
             ],
             "services": [],
         })

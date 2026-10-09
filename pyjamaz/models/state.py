@@ -15,6 +15,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE, MINIMUM_PUBLIC_SERVICE_ID
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
+from pyjamaz.models.codec import BoundedVec
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage, DeferredTransfer
 from pyjamaz.pvm.invocation import InvocationContext
 from pyjamaz.settings import DEBUG
@@ -120,7 +121,7 @@ class SafroleState(State, Serializable):
     ticket_accumulator: TicketBody
         GP-0.7.2-eq:6.5 (γ_A) | Sealing-key contest ticket accumulator.
     """
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
     ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
     slot_sealer_series: SlotSealerSeries = field(metadata={'codec': SlotSealerSeries.to_codec_def()})
     ticket_accumulator: List[TicketBody] = field(metadata={'codec': Vec(TicketBody.to_codec_def())})
@@ -138,7 +139,7 @@ class ValidatorQueueState(State, Serializable):
         protocol.
     """
     # Todo: review and annotate: ValidatorData
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
 
 
 @dataclass
@@ -152,7 +153,7 @@ class ValidatorPoolState(State, Serializable):
         GP-0.7.2-eq:6.7 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
     """
     # Todo: review and annotate: ValidatorData
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
 
 
 @dataclass
@@ -166,7 +167,7 @@ class ValidatorArchiveState(State, Serializable):
         GP-0.7.2-eq:6.7 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
     """
     # Todo: review and annotate: ValidatorData
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    validators: List[ValidatorData] = field(metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), 3 * CORE_COUNT, 6, 3)})
 
 
 @dataclass
@@ -250,8 +251,7 @@ class RecentBlock(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})
     beefy_root: bytes = field(metadata={'codec': H256})
     state_root: bytes = field(metadata={'codec': H256})
-    # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
-    # length prefix encoding.
+    slot: int = field(metadata={'codec': U32}, default=0, kw_only=True)
     reported: List[ReportedWorkPackage] = field(metadata={'codec': Vec(ReportedWorkPackage.to_codec_def())})
 
     def __post_init__(self):
@@ -1000,14 +1000,20 @@ class ServicesState(State, Serializable):
         for (service_id, storage_hash), storage_item in pending_changes.storage_items.items():
             if storage_item is not None:
                 self.services[service_id].storage_items[storage_hash] = storage_item
+            elif service_id in self.services:
+                self.services[service_id].storage_items.pop(storage_hash, None)
 
         for (service_id, preimage_hash), preimage_blob in pending_changes.preimages.items():
             if preimage_blob is not None:
                 self.services[service_id].preimages[preimage_hash] = preimage_blob
+            elif service_id in self.services:
+                self.services[service_id].preimages.pop(preimage_hash, None)
 
         for (service_id, preimage_hash, preimage_size), availability in pending_changes.preimages_availability.items():
             if availability is not None:
                 self.services[service_id].preimage_availability[(preimage_hash, preimage_size)] = availability
+            elif service_id in self.services:
+                self.services[service_id].preimage_availability.pop((preimage_hash, preimage_size), None)
 
 
 
@@ -1197,10 +1203,15 @@ class CoreActivityRecord(Serializable):
         """
         GP-0.7.2-eq:13.11 (D) | Updating core stats using available work-reports (bold_R) (GP-0.7.0-eq:11.16)
         """
-        self.da_load = sum([
-            w.package_spec.length + EC_SEGMENT_SIZE * ceil(w.package_spec.exports_count * 65/64)
-            for w in available_work_reports if w.core_index == core_index
-        ])
+        # GP-0.7.2-eq:13.11. Keep the ceiling operation in integer space:
+        # protocol counts are integers and consensus arithmetic must not
+        # depend on the precision or rounding behavior of a host float.
+        self.da_load = sum(
+            w.package_spec.length
+            + EC_SEGMENT_SIZE * ((w.package_spec.exports_count * 65 + 63) // 64)
+            for w in available_work_reports
+            if w.core_index == core_index
+        )
 
 @dataclass
 class ServiceActivityRecord(Serializable):
@@ -1239,6 +1250,7 @@ class ServiceActivityRecord(Serializable):
     extrinsic_size: int = field(metadata={'codec': VarInt64}, default=0)
     exports: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_count: int = field(metadata={'codec': VarInt64}, default=0)
+    accumulate_transfer_count: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
 
 
@@ -1259,8 +1271,12 @@ class StatisticsState(State, Serializable):
     services: Map(U32, ServiceActivityRecord)
         GP-0.7.2-eq:13.1 (π_S) | Service activity statistics for last block.
     """
-    vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
-    vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    vals_current: List[ActivityRecord] = field(
+        metadata={'codec': BoundedVec(ActivityRecord.to_codec_def(), 3 * CORE_COUNT, 6, 3)}
+    )
+    vals_last: List[ActivityRecord] = field(
+        metadata={'codec': BoundedVec(ActivityRecord.to_codec_def(), 3 * CORE_COUNT, 6, 3)}
+    )
     cores: List[CoreActivityRecord] = field(metadata={
         'codec': Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
     })
@@ -1269,10 +1285,10 @@ class StatisticsState(State, Serializable):
     })
 
     @classmethod
-    def default(cls) -> 'StatisticsState':
+    def default(cls, validator_count: int = VALIDATOR_COUNT) -> 'StatisticsState':
         return cls(
-            vals_current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
-            vals_last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+            vals_current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(validator_count)],
+            vals_last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(validator_count)],
             cores=[CoreActivityRecord(0, 0, 0, 0, 0, 0, 0, 0) for _ in range(CORE_COUNT)],
             services={},
         )
@@ -1492,7 +1508,7 @@ class JamState(State, Serializable):
                 wonky_set=[],
                 offenders=[],
             ),
-            statistics=StatisticsState.default(),
+            statistics=StatisticsState.default(len(validators)),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[
                     [] for _ in range(EPOCH_TIMESLOTS)
@@ -1679,3 +1695,4 @@ class FullAccumulationOutput:
     accumulation_commitment: BeefyCommitmentMap
     # bold_u
     accumulation_gas_utilized: Dict[int, int]
+    processed_transfers: List[DeferredTransfer] = field(default_factory=list)

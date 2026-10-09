@@ -6,8 +6,8 @@ from bandersnatch_vrfs import RingContext, vrf_output
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, EPOCH_TIMESLOTS, TICKET_SUBMISSION_END_SLOT, \
     MAXIMUM_EXTRINSIC_TICKETS
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
-from pyjamaz.models.common import TicketBody, WorkPackage
+from pyjamaz.models.block import TicketEnvelope, Assurance, Preimage
+from pyjamaz.models.common import TicketBody, WorkPackage, Guarantee
 from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair

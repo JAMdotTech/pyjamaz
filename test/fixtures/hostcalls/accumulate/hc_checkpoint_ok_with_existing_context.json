@@ -25,7 +25,7 @@
       }
     ]
   },
-  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 999990, 0, 0, 0, 0],
+  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 999897, 0, 0, 0, 0],
   "expected-memory": [],
   "expected-exit-reason": "resume"
 }
