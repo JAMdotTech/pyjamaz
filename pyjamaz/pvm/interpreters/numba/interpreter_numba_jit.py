@@ -1801,7 +1801,7 @@ class PVMInterpreter:
             ], dtype=np.uint64
         )
 
-        self._init_gas_model()
+        self._init_gas_model(cached_code)
 
     def get_heap_capacity(self, memory: PVMMemory, heap_section: MemorySection) -> int:
         heap_start = int(heap_section.address)
@@ -1851,7 +1851,7 @@ class PVMInterpreter:
             arr = np.ascontiguousarray(arr, dtype=np.uint8)
         return arr
 
-    def _init_gas_model(self):
+    def _init_gas_model(self, cached_code):
         """
         GP-0.7.2-section:A.3 - Basic Blocks and Gas Costs
         Initialize gas model data structures for block-based gas charging.
@@ -1863,30 +1863,23 @@ class PVMInterpreter:
             inst_arg_len=self.inst_arg_len,
         )
 
-        # Detect all basic block starts (use code_length, not len(self.code), since code includes synthetic trap)
-        basic_block_starts = detect_basic_blocks(
-            code=bytes(self.code),
-            code_length=self.code_length,
-            inst_pos=self.inst_pos,
-            inst_arg_len=self.inst_arg_len,
-        ) if self.code_valid else set()
+        block_gas = cached_code.get("basic_block_gas")
+        if block_gas is None:
+            # Gas costs depend only on immutable code metadata. Retain them in
+            # the bounded code cache, which also keeps the code object alive.
+            basic_block_starts = self.basic_block_starts_set if self.code_valid else ()
+            block_gas = tuple(
+                (start, self.gas_model.compute_block_gas_cost(start))
+                for start in sorted(basic_block_starts)
+            )
+            cached_code["basic_block_gas"] = block_gas
 
-        self.basic_block_starts_sorted = sorted(basic_block_starts)
-
-        # Compute gas cost for each block and store as parallel numpy arrays
-        # These are used by the JIT function for fast lookup
-        block_starts = []
-        block_costs = []
-        self.basic_block_gas = {}
-        for start in self.basic_block_starts_sorted:
-            cost = self.gas_model.compute_block_gas_cost(start)
-            block_starts.append(start)
-            block_costs.append(cost)
-            self.basic_block_gas[start] = cost
-
-        # Create numpy arrays for JIT function
-        self.block_starts_array = np.array(block_starts, dtype=np.int32)
-        self.block_gas_costs_array = np.array(block_costs, dtype=np.uint64)
+        # Numba expects writable arrays; keep those and the public mapping
+        # private to each VM, sharing only the immutable cached cost tuples.
+        self.basic_block_gas = dict(block_gas)
+        self.basic_block_starts_sorted = list(self.basic_block_gas)
+        self.block_starts_array = np.array(self.basic_block_starts_sorted, dtype=np.int32)
+        self.block_gas_costs_array = np.array(list(self.basic_block_gas.values()), dtype=np.uint64)
 
         # Track current block start (for pagefault resumption)
         self.current_block_start = -1
