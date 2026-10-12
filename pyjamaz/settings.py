@@ -33,6 +33,9 @@ SKIP_TIMESLOT_WALL_CLOCK_CHECK = False
 SKIP_VALIDATE_GUARANTEES = False
 # Opt in to the final v0.8.0 vectors' documented non-manager bless deviation.
 GP080_NON_MANAGER_BLESS_COMPAT = True
+# Final v0.8.0 vectors adopt GP #533's grow_heap pricing and OOG gas drain.
+# Set False to use the printed GP 0.8.0 B.15-B.16 rules instead.
+GP080_GROW_HEAP_OOG_COMPAT = True
 
 DEBUG_PROGRAM_OVERRIDE = {}
 

@@ -31,10 +31,12 @@ class FuzzerTarget:
         self.server: Optional[asyncio.AbstractServer] = None
 
 
-    def msg_get_state(self) -> FuzzerMessage:
+    def msg_get_state(self, block_hash: Optional[bytes] = None) -> FuzzerMessage:
         return FuzzerMessage(
-            # Include the selected block's committed overlay, not just finality.
-            state=self.app.state_storage.as_list()
+            # Read the requested posterior state without changing the selected
+            # branch. Unavailable states raise and close the protocol session.
+            state=(self.app.state_storage.as_list_at(block_hash)
+                   if block_hash is not None else self.app.state_storage.as_list())
         )
 
 
@@ -173,7 +175,7 @@ class FuzzerTarget:
             return self.msg_handshake()
 
         elif req.get_state is not None:
-            return self.msg_get_state()
+            return self.msg_get_state(req.get_state)
 
         elif req.initialize is not None:
             return await self.msg_initialize(req)

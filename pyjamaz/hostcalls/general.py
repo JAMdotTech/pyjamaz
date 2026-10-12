@@ -2,7 +2,7 @@ from copy import deepcopy
 from typing import List, Optional
 
 from jamcodec.types import U64, U32, VarInt64, U8, U16, Vec, Bytes
-from pyjamaz import graypaper_constants as gp_const
+from pyjamaz import graypaper_constants as gp_const, settings
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationInput
 from pyjamaz.models.state import ServiceAccount, ServicesState
@@ -31,24 +31,30 @@ def hc_grow_heap(registers, memory, invocation_output, logger):
     h = a + sum(a <= page < b for page in memory.pages_w)  # current heap end
     requested_size = int(registers[7])
     gas = int(invocation_output.gas_limit)
-    end = h
+    query = requested_size <= h or requested_size > b
+    end = h if query else requested_size
+    compatibility = settings.GP_VERSION == "0.8.0" and settings.GP080_GROW_HEAP_OOG_COMPAT
 
-    if requested_size <= h or requested_size > b:
-        gas -= 275
-        reason = ExitReason.resume
-    elif gas < 275 + (requested_size - h) * 121:
-        reason = ExitReason.out_of_gas
+    if compatibility:
+        # The final vectors adopt GP #533: price the effective end page,
+        # including base-only queries, and exhaust the gas on any OOG.
+        cost = 275 + (end - h) * 121
+        invocation_output.gas_limit = max(0, gas - cost)
     else:
-        gas -= 275 + (requested_size - h) * 121
-        end = requested_size
-        reason = ExitReason.resume
+        # Printed B.15 preserves the table's explicit gas result, while
+        # B.16 independently guards mutations using the nominal cost.
+        cost = 275 + (requested_size - h) * 121
+        invocation_output.gas_limit = gas - 275 if query else (gas if gas < cost else gas - cost)
 
-    memory.change_acl(a, end - a, MEM_W)
-    memory.heap_ptr = end * PVM_PAGE_SIZE
+    if gas < cost:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
+        return
 
     invocation_output.registers[7] = end
-    invocation_output.gas_limit = gas
-    invocation_output.exit_condition = ExitCondition(reason=reason)
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+    if not query:
+        memory.change_acl(a, end - a, MEM_W)
+        memory.heap_ptr = end * PVM_PAGE_SIZE
 
 
 @hostcall(48)
