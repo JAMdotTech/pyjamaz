@@ -27,7 +27,12 @@ def hc_grow_heap(registers, memory, invocation_output, logger):
     Returns the end page index in register 7
     """
     a = int(memory.heap_base) // PVM_PAGE_SIZE  # heap page index (inclusive)
-    b = (int(memory.stack_base) - PVM_INIT_ZONE_SIZE) // PVM_PAGE_SIZE  # Heap page limit (guard we do not overlap stack addr)
+    stack_base = int(memory.stack_base)
+    if settings.GP_VERSION == "0.8.0" and settings.GP080_GROW_HEAP_STACK_COMPAT:
+        # GP #538 reserves whole zones for the stack, while its mapped pages
+        # retain their original placement within that reservation.
+        stack_base = stack_base // PVM_INIT_ZONE_SIZE * PVM_INIT_ZONE_SIZE
+    b = (stack_base - PVM_INIT_ZONE_SIZE) // PVM_PAGE_SIZE  # Exclusive heap end, before the guard zone.
     h = a + sum(a <= page < b for page in memory.pages_w)  # current heap end
     requested_size = int(registers[7])
     gas = int(invocation_output.gas_limit)

@@ -8,6 +8,10 @@ PVM_PAGE_SIZE = 2**12 #ZP
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI
 
+# Final v0.8.0 test vectors adopt GP #559's inclusive program limits.
+PVM_MAX_CODE_SIZE = 2**25
+PVM_MAX_JUMP_TABLE_ENTRIES = 2**24
+
 
 MEM_I = 0  # inaccessible memory
 MEM_R = 1  # readable memory

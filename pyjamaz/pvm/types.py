@@ -14,7 +14,10 @@ from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger
 
 from pyjamaz import settings
 
-from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
+from pyjamaz.pvm.constants import (
+    PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE,
+    PVM_MAX_CODE_SIZE, PVM_MAX_JUMP_TABLE_ENTRIES,
+)
 from pyjamaz.pvm.exceptions import PVMMemoryError, PVMGasError
 
 
@@ -197,6 +200,12 @@ class PVMCode(Serializable):
         jump_table_entry_count = VarInt64.decode(scale_bytes)
         jump_table_entry_size = JU8.decode(scale_bytes)
         code_length = VarInt64.decode(scale_bytes)
+
+        # GP #559: validate declared sizes before decoding either payload.
+        if code_length > PVM_MAX_CODE_SIZE:
+            raise ValueError(f"PVM code length exceeds {PVM_MAX_CODE_SIZE} bytes: {code_length}")
+        if jump_table_entry_count > PVM_MAX_JUMP_TABLE_ENTRIES:
+            raise ValueError(f"PVM jump table exceeds {PVM_MAX_JUMP_TABLE_ENTRIES} entries: {jump_table_entry_count}")
 
         jump_table = Array(UnsignedInteger(jump_table_entry_size * 8), jump_table_entry_count).decode(scale_bytes)
         code = Array(JU8, code_length).decode(scale_bytes)
