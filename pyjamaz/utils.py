@@ -4,11 +4,9 @@ import logging
 import time
 from base64 import b64encode, b64decode
 from functools import wraps
-from math import floor
 from typing import List, Optional
 
-from jamcodec.types import VarInt64
-from pyjamaz.graypaper_constants import CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, ROTATION_PERIOD_CORE
+from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, ROTATION_PERIOD_CORE
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.settings import DEBUG, PROFILING
@@ -117,9 +115,13 @@ def guarantor_rotation(core_indices: List[int], rotation_offset: int) -> List[in
     -------
     List[int]
     """
-    return [(x+rotation_offset) % CORE_COUNT for x in core_indices]
+    # GP-0.8.0-eq:11.21: one active core for each three validators.
+    active_cores = len(core_indices) // 3
+    if not active_cores or len(core_indices) % 3:
+        raise ValueError("invalid guarantor assignment size")
+    return [(x + rotation_offset) % active_cores for x in core_indices]
 
-def guarantor_permute(entropy: bytes, timeslot: int) -> List[int]:
+def guarantor_permute(entropy: bytes, timeslot: int, *, validator_count: int = VALIDATOR_COUNT) -> List[int]:
     """
     GP-0.7.2-eq:11.20 (function_P) | Guarantor assigment permute function
 
@@ -133,10 +135,10 @@ def guarantor_permute(entropy: bytes, timeslot: int) -> List[int]:
     List[int]
     """
     core_indices = entropy_shuffle(
-        data=[floor(CORE_COUNT * i / VALIDATOR_COUNT) for i in range (0, VALIDATOR_COUNT)],
+        data=[i // 3 for i in range(validator_count)],
         entropy=entropy
     )
-    return guarantor_rotation(core_indices, floor(timeslot % EPOCH_TIMESLOTS / ROTATION_PERIOD_CORE))
+    return guarantor_rotation(core_indices, (timeslot % EPOCH_TIMESLOTS) // ROTATION_PERIOD_CORE)
 
 
 def substitute_if_nothing(*args) -> Optional[any]:
@@ -150,7 +152,7 @@ def substitute_if_nothing(*args) -> Optional[any]:
 
 
 def vrf_input_ticket_seal(entropy: bytes, ticket_attempt: int) -> bytes:
-    return b"jam_ticket_seal" + entropy + VarInt64.encode(ticket_attempt).to_bytes()
+    return b"jam_ticket_seal" + entropy + int(ticket_attempt).to_bytes(1, "little")
 
 
 def vrf_input_fallback_seal(entropy: bytes) -> bytes:

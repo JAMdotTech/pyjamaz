@@ -92,7 +92,10 @@ class BlockContext:
         -------
 
         """
-        assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
+        assignments = guarantor_permute(
+            post_entropy.entropy[2], post_timeslot.number,
+            validator_count=len(post_validator_pool.validators),
+        )
 
         DEBUG and logging.debug(f"Guarantor assignments for {post_timeslot.number}: {assignments}")
 
@@ -131,7 +134,10 @@ class BlockContext:
             entropy = post_entropy.entropy[3]
             validators = post_validator_archive.validators
 
-        assignments = guarantor_permute(entropy, post_timeslot.number - ROTATION_PERIOD_CORE)
+        assignments = guarantor_permute(
+            entropy, post_timeslot.number - ROTATION_PERIOD_CORE,
+            validator_count=len(validators),
+        )
 
         self.prev_guarantor_assignments = [
             GuarantorAssignment(

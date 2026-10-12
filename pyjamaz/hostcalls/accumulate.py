@@ -4,6 +4,7 @@ from typing import List
 from jamcodec.base import JamBytes
 from jamcodec.types import U64, U32
 
+from pyjamaz import settings
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, \
     PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO, MINIMUM_PUBLIC_SERVICE_ID
@@ -92,7 +93,10 @@ def hc_bless(
     if auto_accumulate_services is None or assigners is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
-    elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
+    elif (
+        x.context.service_account_id != x.context.state_context.privileged_services.manager
+        and not (settings.GP_VERSION == "0.8.0" and settings.GP080_NON_MANAGER_BLESS_COMPAT)
+    ):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
     elif m >= 2**32 or v >= 2**32 or r >= 2**32:

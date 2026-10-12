@@ -282,7 +282,7 @@ class Safrole(StateComponent):
 
     @log_execution_time
     def create_ticket_body(self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes) -> TicketBody:
-        if ticket_data.attempt >= gp_const.TICKET_ENTRIES:
+        if ticket_data.attempt >= gp_const.ticket_entries(len(self.post_state_safrole.validators)):
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
         vrf_input_data = ticket_data.generate_vrf_input(entropy)
@@ -2366,8 +2366,7 @@ class Services(StateComponent):
 
         deferred_transfers = []
 
-        deleted_service_ids = [] # bold_m
-        updated_service_ids = []
+        pending_changes = self._merge_accumulation_service_changes(accumulation_state.services, outputs)
 
         for service_id, output in outputs:
             # Update gas usage (u)
@@ -2375,21 +2374,6 @@ class Services(StateComponent):
 
             # Update transfers (t')
             deferred_transfers += output.deferred_transfers
-
-            # GP-0.7.2-eq:12.21 Process provided pre-images
-            for s, i in output.preimages:
-                try:
-                    availability = output.state_context.services.retrieve_preimage_availability(
-                        s, blake2b_256_hash(i), len(i)
-                        )
-                except StateKeyNoResult:
-                    # TODO check this
-                    availability = None
-                if availability == []:
-                    output.state_context.services.store_preimage_availability(
-                        s, blake2b_256_hash(i), len(i), [post_state_timeslot.number]
-                    )
-                    output.state_context.services.store_preimage(s, i)
 
             if output.accumulation_output is not None:
                 beefy_commitment_map.add_accumulation_output(service_id, output.accumulation_output)  # b
@@ -2425,76 +2409,81 @@ class Services(StateComponent):
                 if service_id == pre_state_assigners[c]:
                     accumulation_state.authorizer_queues = output.state_context.authorizer_queues
 
-            # Apply pending changes in services to global transaction (d')
-
-            for (s_id, storage_hash), value in output.state_context.services.pending_changes.storage_items.items():
-                if value is None:
-                    output.state_context.services.delete_storage_item(s_id, storage_hash, save_to_tx=True)
-                else:
-                    output.state_context.services.store_storage_item(s_id, storage_hash, value, save_to_tx=True)
-
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(
-                        PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[service_id, storage_hash, value])
-                    )
-
-            for (s_id, preimage_hash), value in output.state_context.services.pending_changes.preimages.items():
-                if value is None:
-                    output.state_context.services.delete_preimage(s_id, preimage_hash, save_to_tx=True)
-                else:
-                    output.state_context.services.store_preimage(s_id, value, save_to_tx=True)
-
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(
-                        PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[service_id, preimage_hash, value])
-                    )
-
-            for (s_id, preimage_hash,
-                 preimage_length), value in output.state_context.services.pending_changes.preimages_availability.items():
-                if value is None:
-                    output.state_context.services.delete_preimage_availability(
-                        s_id, preimage_hash, preimage_length, save_to_tx=True
-                        )
-                else:
-                    output.state_context.services.store_preimage_availability(
-                        s_id, preimage_hash, preimage_length, value, save_to_tx=True
-                        )
-
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(
-                        PubSubSignal(
-                            topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
-                            data=[service_id, preimage_hash, preimage_length, value]
-                        )
-                    )
-
-            for s_id, service_account in output.state_context.services.pending_changes.service_accounts.items():
-
-                if service_account is None:
-                    deleted_service_ids.append(s_id)
-                else:
-                    updated_service_ids.append((s_id, service_account))
-
-            # Apply pending_changes to accumulation_state
-            accumulation_state.services.add_pending_changes(output.state_context.services.pending_changes)
-
-        # Apply pending deleted services
-        for s_id in deleted_service_ids:
-            accumulation_state.services.delete_service_account(s_id, save_to_tx=True)
+        # GP 0.8.0: commit (d union n) minus m as one merge. Retain the
+        # deletion markers for later reads and detached-state materialization.
+        services = accumulation_state.services
+        services.pending_changes = pending_changes
+        for s_id, service_account in pending_changes.service_accounts.items():
+            if service_account is None:
+                services.delete_service_account(s_id, save_to_tx=True)
+            else:
+                services.store_service_account(s_id, service_account, save_to_tx=True)
             if self.app_context.pubsub:
                 await self.app_context.pubsub.publish(
-                    PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[s_id, None])
+                    PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[s_id, service_account])
                 )
 
-        # Apply pending service account changes
-        for s_id, service_account in updated_service_ids:
-            if s_id not in deleted_service_ids:
-                accumulation_state.services.store_service_account(s_id, service_account, save_to_tx=True)
+        for (s_id, storage_hash), value in pending_changes.storage_items.items():
+            if value is None:
+                services.delete_storage_item(s_id, storage_hash, save_to_tx=True)
+            else:
+                services.store_storage_item(s_id, storage_hash, value, save_to_tx=True)
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[s_id, storage_hash, value])
+                )
 
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(
-                        PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[s_id, service_account])
+        for (s_id, preimage_hash), value in pending_changes.preimages.items():
+            if value is None:
+                services.delete_preimage(s_id, preimage_hash, save_to_tx=True)
+            else:
+                services.store_preimage(s_id, value, save_to_tx=True)
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[s_id, preimage_hash, value])
+                )
+
+        for (s_id, preimage_hash, preimage_length), value in pending_changes.preimages_availability.items():
+            if value is None:
+                services.delete_preimage_availability(s_id, preimage_hash, preimage_length, save_to_tx=True)
+            else:
+                services.store_preimage_availability(s_id, preimage_hash, preimage_length, value, save_to_tx=True)
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
+                                 data=[s_id, preimage_hash, preimage_length, value])
+                )
+
+        # Preimage provisions may target other services. Integrate them only
+        # after the merge, when both the account and its request have survived.
+        for _, output in outputs:
+            for s_id, preimage in output.preimages:
+                if not services.service_exists(s_id):
+                    continue
+                preimage_hash = blake2b_256_hash(preimage)
+                try:
+                    availability = services.retrieve_preimage_availability(s_id, preimage_hash, len(preimage))
+                except StateKeyNoResult:
+                    continue
+                if availability == []:
+                    # A foreign recipient may only exist in backing storage.
+                    # Materialization of the new maps also needs its account.
+                    if s_id not in services.services:
+                        services.services[s_id] = services.retrieve_service_account(s_id)
+                    services.store_preimage_availability(
+                        s_id, preimage_hash, len(preimage), [post_state_timeslot.number], save_to_tx=True
                     )
+                    services.store_preimage(s_id, preimage, save_to_tx=True)
+                    if self.app_context.pubsub:
+                        await self.app_context.pubsub.publish(
+                            PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[s_id, preimage_hash, preimage])
+                        )
+                        await self.app_context.pubsub.publish(
+                            PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
+                                         data=[s_id, preimage_hash, len(preimage), [post_state_timeslot.number]])
+                        )
+
+        services.add_pending_changes()
 
         # Check if manager service modified a', v' and r' and then override
         for c in range(CORE_COUNT):
@@ -2513,6 +2502,56 @@ class Services(StateComponent):
             accumulation_commitment=beefy_commitment_map,
             accumulation_gas_utilized=accumulation_gas_utilized
         )
+
+    @staticmethod
+    def _merge_accumulation_service_changes(services: ServicesState, outputs) -> PendingChanges:
+        """Select own/new account changes, then let round-wide deletions win.
+
+        GP 0.8.0 section 12.2 defines n from each invocation's own account
+        and accounts absent at the start of this round. A foreign account
+        ejected and recreated within one invocation is neither new nor
+        finally absent: its prior account and all its maps survive.
+        """
+        map_names = ("storage_items", "preimages", "preimages_availability")
+        candidates = set()
+        for _, output in outputs:
+            pending = output.state_context.services.pending_changes
+            candidates.update(pending.service_accounts)
+            for name in map_names:
+                candidates.update(key[0] for key in getattr(pending, name))
+
+        # The detached dictionary may be incomplete; consult backing storage
+        # before any output is committed, including for later-round creations.
+        existing = {s_id for s_id in candidates if services.service_exists(s_id)}
+        deleted = {
+            s_id for _, output in outputs
+            for s_id, account in output.state_context.services.pending_changes.service_accounts.items()
+            if s_id in existing and account is None
+        }
+        merged = PendingChanges()
+        new_writers = {}
+        for writer, output in outputs:
+            pending = output.state_context.services.pending_changes
+            for s_id, account in pending.service_accounts.items():
+                if account is None or s_id in deleted or (s_id in existing and s_id != writer):
+                    continue
+                if s_id not in existing:
+                    if s_id in new_writers and new_writers[s_id] != writer:
+                        raise BlockValidationError("Conflicting new service account IDs during accumulation")
+                    new_writers[s_id] = writer
+                merged.service_accounts[s_id] = account
+            for name in map_names:
+                target = getattr(merged, name)
+                for key, value in getattr(pending, name).items():
+                    if key[0] in deleted:
+                        target[key] = None
+                    elif (key[0] == writer and key[0] in existing) or (
+                        key[0] not in existing and pending.service_accounts.get(key[0]) is not None
+                    ):
+                        target[key] = value
+
+        merged.service_accounts.update({s_id: None for s_id in sorted(deleted)})
+        return merged
 
     @staticmethod
     def single_step_accumulation(
