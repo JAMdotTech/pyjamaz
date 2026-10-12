@@ -532,6 +532,30 @@ async def init(
 async def fuzzer():
     pass
 
+def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) -> List[Header]:
+    """Resolve input-header ancestry, oldest first (GP-0.8.0-5.3,11.38).
+
+    Use genesis and preceding block headers, not report claims or expected
+    post-state roots, to establish lookup-anchor membership and commitments.
+    """
+    headers = []
+    next_hash = bytes(block.header.parent)
+    seen = set()
+    while next_hash in known_headers:
+        if next_hash in seen:
+            raise ValueError("cycle in trace header ancestry")
+        seen.add(next_hash)
+        header = known_headers[next_hash]
+        if bytes(header.hash) != next_hash:
+            raise ValueError("trace header does not match its indexed hash")
+        child_slot = headers[-1].timeslot if headers else block.header.timeslot
+        if header.timeslot >= child_slot:
+            raise ValueError("trace ancestor timeslots are not strictly increasing")
+        headers.append(header)
+        next_hash = bytes(header.parent)
+    return list(reversed(headers))
+
+
 @main.command('traces', help='Run trace files in specified folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
@@ -563,9 +587,10 @@ async def replay_traces(
         lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
     )
 
-    last_parent = None
-
     start_time = time.time()
+    mismatch_count = 0
+    known_headers: dict[bytes, Header] = {}
+    trace_parent = None
 
     # Process files in traces folder
     for nr, block_file in enumerate(traces_files, start=1):
@@ -583,22 +608,33 @@ async def replay_traces(
 
         # Clear pending changesets
         app.state_storage.clear()
+        # Each trace supplies an independent pre-state; do not reuse a cached
+        # state merely because the next header claims the same parent root.
+        app.working_state = None
 
-        # Add stub parent as ancestor
-        stub_parent = Header.default()
-        stub_parent.hash = trace.block.header.parent
-        stub_parent.timeslot = max(0, trace.block.header.timeslot - 1)
-
-        # Set finalized head
-        app.state_storage.set_finalized_block_hash(stub_parent.hash)
+        if block_file.parent != trace_parent:
+            known_headers.clear()
+            genesis_file = block_file.parent / "genesis.bin"
+            if genesis_file.exists():
+                genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
+                known_headers[bytes(genesis.header.hash)] = genesis.header
+            trace_parent = block_file.parent
+        ancestor_headers = _trace_ancestor_headers(trace.block, known_headers)
+        if not ancestor_headers and trace.block.header.timeslot != 0:
+            raise click.ClickException(
+                f"trace {block_file} is missing its parent header; provide the "
+                "corpus genesis.bin and preceding trace inputs"
+            )
+        known_headers[bytes(trace.block.header.hash)] = trace.block.header
+        app.state_storage.set_finalized_block_hash(trace.block.header.parent)
 
         # Update state from trace pre-state
         for k, v in trace.pre_state.keyvals:
             app.state_db.put(bytes(k), bytes(v))
 
-        # Add stub
-        await app.store_block_header(stub_parent)
-        await app.add_ancestor_header(stub_parent)
+        for ancestor_header in ancestor_headers:
+            await app.store_block_header(ancestor_header)
+            await app.add_ancestor_header(ancestor_header)
 
         # Store block
         await app.store_block(trace.block)
@@ -609,14 +645,9 @@ async def replay_traces(
         if app.working_state.state_root == trace.pre_state.state_root:
             logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.working_state.state_root)})')
         else:
-            logging.error("State root of pre-state doesn't match")
-
-        last_parent = block_file.parent
+            raise click.ClickException(f"Pre-state root mismatch in trace {block_file}")
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash={format_hash(trace.block.header.hash)} parent={format_hash(trace.block.header.parent)} parent_state_root={format_hash(trace.block.header.parent_state_root)})')
-
-        # Finalize parent
-        app.state_storage.finalize(trace.block.header.parent)
 
         try:
             # Import block
@@ -626,12 +657,13 @@ async def replay_traces(
 
         except (StateTransitionError, BlockValidationError) as e:
             logging.info(f"🛑 Block {format_hash(trace.block.header.hash)} raised error -> {e}")
-            app.state_storage.rollback()
+            # The application has already discarded the rejected candidate.
 
         # Validate new state root
         if app.working_state.state_root == trace.post_state.state_root:
             logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
         else:
+            mismatch_count += 1
             logging.error(f'State root mismatch in trace "{block_file.parent.name}/{block_file.name}": their={format_hash(trace.post_state.state_root)}  ours={format_hash(app.working_state.state_root)}')
 
             # Diffing DBs
@@ -644,6 +676,10 @@ async def replay_traces(
                     break
 
     logging.info(f'Traces finished in {time.time() - start_time} seconds')
+    if mismatch_count:
+        raise click.ClickException(
+            f"{mismatch_count} trace state-root mismatch{'es' if mismatch_count != 1 else ''}"
+        )
 
 @fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
 @click.argument('traces_dir', type=click.Path(exists=True))
