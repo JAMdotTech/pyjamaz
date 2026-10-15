@@ -123,6 +123,8 @@ class RefinePipeline:
                 self.app.get_core_assigment(),
                 self.app.working_state.services,
                 extrinsics,
+                # GP-0.8.0-eq:14.13: capture the assurer count before dispatch.
+                len(self.app.working_state.validator_pool.validators),
             )
 
             logging.info(f'👨‍💻Created work-report {format_hash(work_report.hash())}')

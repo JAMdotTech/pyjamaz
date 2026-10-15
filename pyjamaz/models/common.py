@@ -10,7 +10,8 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String, Bool, H512
 
 from pyjamaz.exceptions import BlockValidationError
-from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO, VALIDATOR_COUNT
+from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO, VALIDATOR_COUNT, \
+    valid_validator_count
 from pyjamaz.hashing import blake2b_256_hash
 # from pyjamaz.models.block import Credential, Guarantee
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
@@ -557,18 +558,24 @@ class WorkPackageSpec(Serializable):
     @classmethod
     def create_from_work_package(cls,
                                  work_package: WorkPackage, extrinsic_data: List[bytes], imported_segments: List[bytes],
-                                 justification_data: List[bytes], exported_segments: List[bytes], exports_root: bytes
+                                 justification_data: List[bytes], exported_segments: List[bytes], exports_root: bytes,
+                                 *, erasure_shards: int,
                                  ) -> "WorkPackageSpec":
         """
         GP-0.7.2-eq:14.17 function_A | creates an availability specifier from a workpackage
         # TODO finish implementation
         """
+        # GP-0.8.0-eq:14.17: the report carries its original assurer set size.
+        if not valid_validator_count(erasure_shards):
+            raise ValueError("invalid assurer count")
+
         # serialized_auditable_work_package = work_package.serialize_to_auditable()
 
         return WorkPackageSpec(
             hash=work_package.hash(),
             length=work_package.to_jam_bytes().length,
             erasure_root=bytes(32),
+            erasure_shards=erasure_shards,
             exports_root=exports_root,
             exports_count=len(exported_segments),
         )

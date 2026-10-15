@@ -924,10 +924,11 @@ class PyjamazApp:
         -------
         int
         """
-        if safrole_post_state is None:
-            safrole_post_state = self.working_state.safrole
-
-        for index, validator in enumerate(safrole_post_state.validators):
+        validators = (
+            self.working_state.validator_pool.validators
+            if safrole_post_state is None else safrole_post_state.validators
+        )
+        for index, validator in enumerate(validators):
             if validator.bandersnatch == self.config.keys.bandersnatch.public_key:
                 return index
         raise BlockValidationError(f"Bandersnatch {self.config.keys.bandersnatch.public_key} not found in current validator set")
@@ -946,9 +947,13 @@ class PyjamazApp:
             safrole_state: SafroleState, entropy_state: EntropyState,
     ) -> Block:
 
-        # GP-0.8.0-eq:6.6,6.30: derive entries from the pending era.
+        # GP-0.8.0-eq:6.30: ticket membership and entries use the pending set.
         validator_count = len(safrole_state.validators)
-        if not SOLO_MODE and timeslot % EPOCH_TIMESLOTS > 0:
+        ticket_author_index = next((
+            index for index, validator in enumerate(safrole_state.validators)
+            if validator.bandersnatch == self.config.keys.bandersnatch.public_key
+        ), None)
+        if not SOLO_MODE and timeslot % EPOCH_TIMESLOTS > 0 and ticket_author_index is not None:
             from pyjamaz.signing import jam_ring_context
             ring_context = jam_ring_context(
                 self.config.ring_data, [v.bandersnatch for v in safrole_state.validators],
@@ -956,7 +961,7 @@ class PyjamazApp:
             while self.block_extrinsic.can_add_own_ticket(timeslot, validator_count=validator_count):
                 self.block_extrinsic.add_own_ticket(
                     ring_context, entropy_state.entropy[2], self.config.keys.bandersnatch,
-                    self.get_author_index(), validator_count=validator_count,
+                    ticket_author_index, validator_count=validator_count,
                 )
 
         extrinsic = Extrinsic(
@@ -982,7 +987,10 @@ class PyjamazApp:
             # Placeholder
             offenders_marker=[],
             # Placeholder
-            author_index=self.get_author_index(safrole_state),
+            # GP-0.8.0-eq:6.13: the parent pending set becomes active on rotation.
+            author_index=self.get_author_index(
+                self.working_state.safrole if self.is_epoch_change(timeslot) else None
+            ),
             entropy_source=self.generate_entropy_source(timeslot, safrole_state, entropy_state),
             # Placeholder
             seal=bytes(96)
@@ -1256,7 +1264,8 @@ class PyjamazApp:
         work_package: WorkPackage,
         core_index: int,
         services_state: ServicesState,
-        extrinsics: List[List[bytes]]
+        extrinsics: List[List[bytes]],
+        erasure_shards: int,
 ) -> WorkReport:
         """
         GP-0.7.2-eq:14.12 (function Ξ) | the work result computation function.
@@ -1342,7 +1351,8 @@ class PyjamazApp:
 
 
         package_spec = WorkPackageSpec.create_from_work_package(
-            work_package, [], [], [], all_export_segments, exports_root
+            work_package, [], [], [], all_export_segments, exports_root,
+            erasure_shards=erasure_shards,
         )
 
         return WorkReport(
