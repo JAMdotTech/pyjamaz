@@ -2197,7 +2197,7 @@ class Services(StateComponent):
             post_state_entropy: EntropyState
     ) -> FullAccumulationOutput:
         """
-        GP-0.7.2-eq:12.18 ∆+ | full sequential accumulation function
+        GP-0.8.0-eq:12.17 ∆+ | full sequential accumulation function
 
         Parameters
         ----------
@@ -2215,12 +2215,16 @@ class Services(StateComponent):
         FullAccumulationOutput
         """
 
-        gas_used = 0
+        # Reserve transfer and always-accumulator allowances before reports.
+        gas_reserved = (
+            sum(t.gas_limit for t in deferred_transfers)
+            + sum(auto_accumulate_services.values())
+        )
         i = 0
 
         for i, work_report in enumerate(work_reports, start=1):
-            gas_used += sum([r.accumulate_gas for r in work_report.results])
-            if gas_used > gas_limit:
+            gas_reserved += sum(r.accumulate_gas for r in work_report.results)
+            if gas_reserved > gas_limit:
                 i -= 1
                 break
 
@@ -2243,10 +2247,14 @@ class Services(StateComponent):
             post_state_entropy=post_state_entropy
         )
 
-        gas_limit += sum([t.gas_limit for t in deferred_transfers])  # g*
+        # Forwarded gas was charged this round and is available to its recipients.
+        next_gas_limit = (
+            gas_limit + sum(t.gas_limit for t in output.deferred_transfers)
+            - sum(output.accumulation_gas_utilized.values())
+        )
 
         second_output = await self.full_sequential_accumulation(
-            gas_limit=gas_limit - sum([u for u in output.accumulation_gas_utilized.values()]),
+            gas_limit=next_gas_limit,
             deferred_transfers=output.deferred_transfers,
             work_reports=work_reports[i:],
             accumulation_state=output.accumulation_state,
