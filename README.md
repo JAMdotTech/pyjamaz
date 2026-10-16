@@ -28,6 +28,13 @@ docker buildx inspect --bootstrap
 docker buildx build --platform linux/amd64,linux/arm64 -t jamdottech/pyjamaz -t jamdottech/pyjamaz:vX.Y.Z-gpX.Y.Z --push .
 ```
 
+The Docker build warms the Numba cache from the interpreter's canonical
+signatures and stops on compilation errors. After removing Python sources, it
+runs `scripts/check_numba_cache.py` in a fresh process with project recompilation
+blocked by the cache-only guard. The check executes a small PVM program and verifies
+its registers, gas, program counter, exit status, and interpreter cache hit.
+Both target architectures must pass this check before an image is published.
+
 ## JAM prize M1 accounts
 * Polkadot: 146CmUoArEi1E2AogKCU5gkhBSN6BLDzxecFSCDAgVyEshra
 * Kusama: DBPAKp9B2gpBr9YmvqXyewYkR4ZwTn9uJDt64zGcVjZeiGi
