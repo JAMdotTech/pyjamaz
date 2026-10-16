@@ -5,8 +5,8 @@
   "initial-registers": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   "initial-page-map": [],
   "initial-memory": [],
-  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 18446744073709551605, 0, 0, 0, 0, 0],
+  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 18446744073709551567, 0, 0, 0, 0, 0],
   "expected-memory": [],
   "expected-exit-reason": "resume",
-  "expected-gas": 18446744073709551605
+  "expected-gas": 18446744073709551567
 }

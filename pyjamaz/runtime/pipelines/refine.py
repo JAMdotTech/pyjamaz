@@ -8,9 +8,8 @@ import anyio
 from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.runtime.extrinsics import WorkpackageExtrinsicCollector
-from pyjamaz.models.block import Credential, Guarantee
 from pyjamaz.models.common import WorkPackage, WorkPackageStatus, WorkPackageReportableStatus, \
-    WorkPackageReportedStatus, BlockDesc
+    WorkPackageReportedStatus, BlockDesc, Credential, Guarantee
 from pyjamaz.runtime.types import WorkPackageQueueItem
 from pyjamaz.settings import DEBUG, GUARANTEE_SIGNATURE_WAIT_PERIOD
 from pyjamaz.transport.pubsub import PubSubSignal
@@ -124,6 +123,8 @@ class RefinePipeline:
                 self.app.get_core_assigment(),
                 self.app.working_state.services,
                 extrinsics,
+                # GP-0.8.0-eq:14.13: capture the assurer count before dispatch.
+                len(self.app.working_state.validator_pool.validators),
             )
 
             logging.info(f'👨‍💻Created work-report {format_hash(work_report.hash())}')

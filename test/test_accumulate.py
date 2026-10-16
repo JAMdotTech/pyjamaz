@@ -2,13 +2,13 @@ import json
 import logging
 import os
 import unittest
-from os import path
 from typing import Optional
 
 from parameterized import parameterized
 
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.common import WorkReport
+from pyjamaz.models.common import ValidatorData, WorkReport
+from pyjamaz.graypaper_constants import CORE_COUNT, VALIDATOR_COUNT, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
@@ -18,12 +18,19 @@ from pyjamaz.models.block import Header
 from pyjamaz.models.state import TimeslotState, ServicesState, AccumulationHistoryState, EntropyState, \
     AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, AuthorizerQueuesState, \
     AccumulationQueueWorkPackage, ServiceAccount, StatisticsState, ValidatorPoolState, PendingChanges
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
+
+
+VECTOR_DIR = stf_vector_dir("accumulate", TEST_SUITE)
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'accumulate', TEST_SUITE)
+    abs_dir = VECTOR_DIR
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -55,9 +62,7 @@ class TestAccumulate(unittest.IsolatedAsyncioTestCase):
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
-        test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'accumulate', TEST_SUITE, test_vector_file
-        )
+        test_vector_file = VECTOR_DIR / test_vector_file
         with open(test_vector_file) as f:
             return json.load(f)
 
@@ -154,7 +159,7 @@ class TestAccumulate(unittest.IsolatedAsyncioTestCase):
             assigners=test_vector["pre_state"]["privileges"]["assign"],
             delegator=test_vector["pre_state"]["privileges"]["designate"],
             registrar=test_vector["pre_state"]["privileges"]["register"],
-            always_accumulators={s: g for s, g in test_vector["pre_state"]["privileges"]["always_acc"]}
+            always_accumulators={entry["id"]: entry["gas"] for entry in test_vector["pre_state"]["privileges"]["always_acc"]}
         )
 
         # Set up post-state
@@ -210,7 +215,7 @@ class TestAccumulate(unittest.IsolatedAsyncioTestCase):
             assigners=test_vector["post_state"]["privileges"]["assign"],
             delegator=test_vector["post_state"]["privileges"]["designate"],
             registrar=test_vector["post_state"]["privileges"]["register"],
-            always_accumulators={s: g for s, g in test_vector["post_state"]["privileges"]["always_acc"]}
+            always_accumulators={entry["id"]: entry["gas"] for entry in test_vector["post_state"]["privileges"]["always_acc"]}
         )
 
         # Prepare block context
@@ -234,7 +239,10 @@ class TestAccumulate(unittest.IsolatedAsyncioTestCase):
             pre_state_privileged_services=pre_privileged_services,
             post_state_timeslot=post_state_timeslot,
             pre_state_services=pre_services,
-            pre_state_authorizer_queues=AuthorizerQueuesState(authorizer_queues=[]),
+            # The vector omits authorizer queues; assign still needs one per core.
+            pre_state_authorizer_queues=AuthorizerQueuesState(
+                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS for _ in range(CORE_COUNT)]
+            ),
             pre_state_validator_queue=ValidatorQueueState(validators=[]),
             post_state_entropy=post_entropy,
         )
@@ -265,7 +273,11 @@ class TestAccumulate(unittest.IsolatedAsyncioTestCase):
             extrinsic_tickets=[],
             pre_state_timeslot=pre_state_timeslot,
             post_state_timeslot=post_state_timeslot,
-            post_state_validator_pool=ValidatorPoolState(validators=[]),
+            # The vector omits validators; epoch statistics need a valid profile-sized pool.
+            post_state_validator_pool=ValidatorPoolState(validators=[
+                ValidatorData(bytes(32), bytes(32), bytes(144), bytes(128))
+                for _ in range(VALIDATOR_COUNT)
+            ]),
             pre_state_statistics=StatisticsState.default(),
             header=header
         )

@@ -46,16 +46,16 @@ class DisputesErrorCode(Serializable, enum.Enum):
     judgements_not_sorted_unique = 3
     culprits_not_sorted_unique = 4
     faults_not_sorted_unique = 5
-    not_enough_culprits = 6
-    not_enough_faults = 7
-    culprits_verdict_not_bad = 8
-    fault_verdict_wrong = 9
-    offender_already_reported = 10
-    bad_judgement_age = 11
-    bad_validator_index = 12
-    bad_signature = 13
-    bad_guarantor_key = 14
-    bad_auditor_key = 15
+    not_enough_faults = 6
+    culprits_verdict_not_bad = 7
+    fault_verdict_wrong = 8
+    offender_already_reported = 9
+    bad_judgement_age = 10
+    bad_validator_index = 11
+    bad_signature = 12
+    bad_guarantor_key = 13
+    bad_auditor_key = 14
+    bad_votes_count = 15
 
 
 @dataclass
@@ -262,6 +262,8 @@ class GuaranteeErrorCode(Serializable, enum.Enum):
     banned_validator = 23,
     lookup_anchor_not_recent = 24,
     missing_work_results = 25
+    bad_anchor_slot = 26
+    bad_erasure_shards = 27
 
 
 @dataclass

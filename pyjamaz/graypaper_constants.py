@@ -15,6 +15,8 @@ HISTORY = 8 #H
 MAXIMUM_WORK_ITEMS = 16 #I
 MAXIMUM_DEPENDENCIES_WORK_REPORT = 8 #J
 MAXIMUM_EXTRINSIC_TICKETS = 16 #K
+MAXIMUM_EXTRINSIC_VERDICTS = 16 #NV
+MAXIMUM_EXTRINSIC_OFFENDERS = 16 #NO
 MAXIMUM_AGE_LOOKUP_ANCHOR = 14400 #L
 TRANSFER_MEMO_SIZE = 128 #M
 TICKET_ENTRIES = 2 #N
@@ -52,7 +54,7 @@ if TEST_SUITE == 'tiny':
     TICKET_SUBMISSION_END_SLOT = 10 #Y
     VALIDATOR_COUNT = 6 #V
     CORE_COUNT = 2 #C
-    TICKET_ENTRIES = 3 #N
+    TICKET_ENTRIES = 4 # ceil(2 * E / default validator count)
     MAXIMUM_EXTRINSIC_TICKETS = 3  # K
     ROTATION_PERIOD_CORE = 4  # R
     PREIMAGE_EXPUNGE_TIMESLOTS = 32 #D=
@@ -64,3 +66,17 @@ if TEST_SUITE == 'tiny':
     GAS_TOTAL = 20_000_000  # GT
     GAS_REFINE = 1_000_000_000  # GR
     MAXIMUM_AGE_LOOKUP_ANCHOR = 24 # L
+
+
+def valid_validator_count(count: int, *, core_count: int = CORE_COUNT) -> bool:
+    return (
+        isinstance(count, int) and not isinstance(count, bool)
+        and 6 <= count <= 3 * core_count and count % 3 == 0
+    )
+
+
+def ticket_entries(validator_count: int) -> int:
+    """GP-0.8.0-eq:6.6: ceiling of two epochs divided by pending set size."""
+    if not valid_validator_count(validator_count):
+        raise ValueError("invalid validator count")
+    return (2 * EPOCH_TIMESLOTS + validator_count - 1) // validator_count

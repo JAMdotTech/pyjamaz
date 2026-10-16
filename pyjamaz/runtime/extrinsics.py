@@ -1,16 +1,16 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 from bandersnatch_vrfs import RingContext, vrf_output
 
-from pyjamaz.graypaper_constants import TICKET_ENTRIES, EPOCH_TIMESLOTS, TICKET_SUBMISSION_END_SLOT, \
+from pyjamaz.graypaper_constants import ticket_entries, EPOCH_TIMESLOTS, TICKET_SUBMISSION_END_SLOT, \
     MAXIMUM_EXTRINSIC_TICKETS
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
-from pyjamaz.models.common import TicketBody, WorkPackage
+from pyjamaz.models.block import TicketEnvelope, Assurance, Preimage
+from pyjamaz.models.common import TicketBody, WorkPackage, Guarantee
 from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
-from pyjamaz.signing import BandersnatchKeypair
+from pyjamaz.signing import BandersnatchKeypair, jam_ring_context
 from pyjamaz.utils import vrf_input_ticket_seal, format_hash
 
 
@@ -25,8 +25,12 @@ class BlockExtrinsicCollector:
         self.preimage_queue: List[Preimage] = []
         self.ring_data = ring_data
 
-    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes) -> TicketBody:
-        if ticket_data.attempt >= TICKET_ENTRIES:
+    def create_ticket_body(
+            self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes,
+            *, validator_count: int,
+    ) -> TicketBody:
+        # GP-0.8.0-eq:6.30: use the pending set before ring padding.
+        if not 0 <= ticket_data.attempt < ticket_entries(validator_count):
             raise ValueError(SafroleErrorCode.bad_ticket_attempt)
 
         vrf_input_data = ticket_data.generate_vrf_input(entropy)
@@ -43,18 +47,24 @@ class BlockExtrinsicCollector:
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
     def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
-        ring_context = RingContext(self.ring_data, ring_public_keys)
-        ticket_body = self.create_ticket_body(ticket_data, ring_context, entropy)
+        ring_context = jam_ring_context(self.ring_data, ring_public_keys)
+        ticket_body = self.create_ticket_body(
+            ticket_data, ring_context, entropy, validator_count=len(ring_public_keys),
+        )
         self.tickets_queue[ticket_body.id] = ticket_data
 
-    def can_add_own_ticket(self, timeslot: int) -> bool:
-        return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
+    def can_add_own_ticket(self, timeslot: int, *, validator_count: int) -> bool:
+        return (
+            len(self.own_tickets_next) < ticket_entries(validator_count)
+            and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
+        )
 
     def add_own_ticket(
-            self, ring_context: RingContext, entropy: bytes, keypair: BandersnatchKeypair, author_index: int
+            self, ring_context: RingContext, entropy: bytes, keypair: BandersnatchKeypair, author_index: int,
+            *, validator_count: int,
     ):
 
-        if len(self.tickets_queue) > TICKET_ENTRIES:
+        if len(self.own_tickets_next) >= ticket_entries(validator_count):
             raise ValueError("Too many tickets")
 
         attempt = len(self.own_tickets_next)
@@ -78,7 +88,9 @@ class BlockExtrinsicCollector:
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)
 
-    def collect_tickets(self) -> List[TicketEnvelope]:
+    def collect_tickets(
+            self, ticket_accumulator: Sequence[TicketBody] = (), *, submission_allowed: bool = True,
+    ) -> List[TicketEnvelope]:
         """
         Collect tickets to include in a block
 
@@ -86,6 +98,17 @@ class BlockExtrinsicCollector:
         -------
         List[TicketEnvelope]
         """
+
+        # GP-0.8.0-eq:6.31,6.33-6.35: respect the cutoff and retain only
+        # new tickets which survive the lowest-E accumulator selection.
+        if not submission_allowed:
+            return []
+
+        accumulator_ids = {ticket.id for ticket in ticket_accumulator}
+        winning_ids = set(sorted(accumulator_ids | self.tickets_queue.keys())[:EPOCH_TIMESLOTS])
+        for ticket_id in list(self.tickets_queue):
+            if ticket_id in accumulator_ids or ticket_id not in winning_ids:
+                self.tickets_queue.pop(ticket_id)
 
         collected_tickets = sorted(self.tickets_queue.items())[:MAXIMUM_EXTRINSIC_TICKETS]
 

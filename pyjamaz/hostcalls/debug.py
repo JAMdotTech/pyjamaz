@@ -17,7 +17,7 @@ LEVELS = {
     4: (logging.DEBUG, "DEBUG", "🪡"),
 }
 
-@hostcall(10)
+@hostcall(1000)
 def hc_log(
         registers: List[int],
         memory: PVMMemory,

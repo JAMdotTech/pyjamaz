@@ -6,7 +6,7 @@ import typing
 from typing import Optional
 
 from pyjamaz.exceptions import BlockValidationError, StateTransitionError
-from pyjamaz.models.block import Header
+from pyjamaz.models.block import AncestorReference
 from pyjamaz.settings import APP_VERSION, GP_VERSION, FUZZER_VERSION, FUZZER_FEATURE_FORK, FUZZER_FEATURE_ANCESTRY, \
     TEST_SUITE
 from pyjamaz.fuzzer.v1.types import FuzzerMessage, PeerInfoMessage, Version, Features
@@ -31,9 +31,12 @@ class FuzzerTarget:
         self.server: Optional[asyncio.AbstractServer] = None
 
 
-    def msg_get_state(self) -> FuzzerMessage:
+    def msg_get_state(self, block_hash: Optional[bytes] = None) -> FuzzerMessage:
         return FuzzerMessage(
-            state=self.app.state_db.as_list()
+            # Read the requested posterior state without changing the selected
+            # branch. Unavailable states raise and close the protocol session.
+            state=(self.app.state_storage.as_list_at(block_hash)
+                   if block_hash is not None else self.app.state_storage.as_list())
         )
 
 
@@ -61,10 +64,12 @@ class FuzzerTarget:
         if len(req.initialize.ancestry) > 0:
             parent_hash = bytes(32)
             for ancestor in req.initialize.ancestry[::-1]:
-                # Create header
-                ancestor_header = Header.default()
-                ancestor_header.hash = ancestor.header_hash
-                ancestor_header.parent = parent_hash
+                # Hash/slot hints do not supply a header's state commitments.
+                ancestor_header = AncestorReference(
+                    hash=bytes(ancestor.header_hash),
+                    parent=parent_hash,
+                    timeslot=ancestor.slot,
+                )
 
                 # Add to ancestry
                 self.app.state_storage.add_ancestor(ancestor_header)
@@ -89,16 +94,16 @@ class FuzzerTarget:
 
     async def msg_import_block(self, req: FuzzerMessage):
         try:
-
-            # Finalize parent TODO figure out why state root deviates when not finalizing
-            self.app.state_storage.finalize(req.import_block.header.parent)
-
+            # SIMPLE_FORKING imports against any retained parent. Finalizing
+            # here would prune ancestry and competing branches before import.
             await self.app.import_block(req.import_block)
 
             logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.working_state.state_root)}")
             return FuzzerMessage(state_root=self.app.working_state.state_root)
 
         except (StateTransitionError, BlockValidationError) as e:
+            # The application already discarded the candidate and restored its
+            # selected state; another rollback could discard that retained state.
             logging.info(f"🛑 Block {format_hash(req.import_block.header.hash)} raised error -> {e}")
             return FuzzerMessage(error=str(e))
 
@@ -170,7 +175,7 @@ class FuzzerTarget:
             return self.msg_handshake()
 
         elif req.get_state is not None:
-            return self.msg_get_state()
+            return self.msg_get_state(req.get_state)
 
         elif req.initialize is not None:
             return await self.msg_initialize(req)

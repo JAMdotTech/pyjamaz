@@ -3,13 +3,28 @@ from typing import Type, TypeVar
 
 import ed25519_zebra
 import bandersnatch_vrfs
+from bandersnatch_vrfs import RingContext
 from bip39 import bip39_to_mini_secret
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256
 
+from pyjamaz.graypaper_constants import valid_validator_count, VALIDATOR_COUNT
 
 T = TypeVar('T')
+
+def jam_ring_context(ring_data: bytes, public_keys: list[bytes]) -> RingContext:
+    """GP-0.8.0-app:G, Bandersnatch spec 4.1: preserve the profile domain.
+
+    The native library pads to the profile capacity for dynamic validator sets;
+    only the supplied public keys are signing members.
+    """
+    keys = [bytes(key) for key in public_keys]
+    if not valid_validator_count(len(keys)) or any(len(key) != 32 for key in keys):
+        raise ValueError("invalid JAM validator ring")
+    return bandersnatch_vrfs.RingContext(
+        ring_data, keys, ring_capacity=VALIDATOR_COUNT,
+    )
 
 
 class Keypair:

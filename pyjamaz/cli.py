@@ -532,6 +532,30 @@ async def init(
 async def fuzzer():
     pass
 
+def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) -> List[Header]:
+    """Resolve input-header ancestry, oldest first (GP-0.8.0-5.3,11.38).
+
+    Use genesis and preceding block headers, not report claims or expected
+    post-state roots, to establish lookup-anchor membership and commitments.
+    """
+    headers = []
+    next_hash = bytes(block.header.parent)
+    seen = set()
+    while next_hash in known_headers:
+        if next_hash in seen:
+            raise ValueError("cycle in trace header ancestry")
+        seen.add(next_hash)
+        header = known_headers[next_hash]
+        if bytes(header.hash) != next_hash:
+            raise ValueError("trace header does not match its indexed hash")
+        child_slot = headers[-1].timeslot if headers else block.header.timeslot
+        if header.timeslot >= child_slot:
+            raise ValueError("trace ancestor timeslots are not strictly increasing")
+        headers.append(header)
+        next_hash = bytes(header.parent)
+    return list(reversed(headers))
+
+
 @main.command('traces', help='Run trace files in specified folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
@@ -563,9 +587,10 @@ async def replay_traces(
         lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
     )
 
-    last_parent = None
-
     start_time = time.time()
+    mismatch_count = 0
+    known_headers: dict[bytes, Header] = {}
+    trace_parent = None
 
     # Process files in traces folder
     for nr, block_file in enumerate(traces_files, start=1):
@@ -583,22 +608,33 @@ async def replay_traces(
 
         # Clear pending changesets
         app.state_storage.clear()
+        # Each trace supplies an independent pre-state; do not reuse a cached
+        # state merely because the next header claims the same parent root.
+        app.working_state = None
 
-        # Add stub parent as ancestor
-        stub_parent = Header.default()
-        stub_parent.hash = trace.block.header.parent
-        stub_parent.timeslot = max(0, trace.block.header.timeslot - 1)
-
-        # Set finalized head
-        app.state_storage.set_finalized_block_hash(stub_parent.hash)
+        if block_file.parent != trace_parent:
+            known_headers.clear()
+            genesis_file = block_file.parent / "genesis.bin"
+            if genesis_file.exists():
+                genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
+                known_headers[bytes(genesis.header.hash)] = genesis.header
+            trace_parent = block_file.parent
+        ancestor_headers = _trace_ancestor_headers(trace.block, known_headers)
+        if not ancestor_headers and trace.block.header.timeslot != 0:
+            raise click.ClickException(
+                f"trace {block_file} is missing its parent header; provide the "
+                "corpus genesis.bin and preceding trace inputs"
+            )
+        known_headers[bytes(trace.block.header.hash)] = trace.block.header
+        app.state_storage.set_finalized_block_hash(trace.block.header.parent)
 
         # Update state from trace pre-state
         for k, v in trace.pre_state.keyvals:
             app.state_db.put(bytes(k), bytes(v))
 
-        # Add stub
-        await app.store_block_header(stub_parent)
-        await app.add_ancestor_header(stub_parent)
+        for ancestor_header in ancestor_headers:
+            await app.store_block_header(ancestor_header)
+            await app.add_ancestor_header(ancestor_header)
 
         # Store block
         await app.store_block(trace.block)
@@ -609,14 +645,9 @@ async def replay_traces(
         if app.working_state.state_root == trace.pre_state.state_root:
             logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.working_state.state_root)})')
         else:
-            logging.error("State root of pre-state doesn't match")
-
-        last_parent = block_file.parent
+            raise click.ClickException(f"Pre-state root mismatch in trace {block_file}")
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash={format_hash(trace.block.header.hash)} parent={format_hash(trace.block.header.parent)} parent_state_root={format_hash(trace.block.header.parent_state_root)})')
-
-        # Finalize parent
-        app.state_storage.finalize(trace.block.header.parent)
 
         try:
             # Import block
@@ -626,12 +657,13 @@ async def replay_traces(
 
         except (StateTransitionError, BlockValidationError) as e:
             logging.info(f"🛑 Block {format_hash(trace.block.header.hash)} raised error -> {e}")
-            app.state_storage.rollback()
+            # The application has already discarded the rejected candidate.
 
         # Validate new state root
         if app.working_state.state_root == trace.post_state.state_root:
             logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
         else:
+            mismatch_count += 1
             logging.error(f'State root mismatch in trace "{block_file.parent.name}/{block_file.name}": their={format_hash(trace.post_state.state_root)}  ours={format_hash(app.working_state.state_root)}')
 
             # Diffing DBs
@@ -644,6 +676,10 @@ async def replay_traces(
                     break
 
     logging.info(f'Traces finished in {time.time() - start_time} seconds')
+    if mismatch_count:
+        raise click.ClickException(
+            f"{mismatch_count} trace state-root mismatch{'es' if mismatch_count != 1 else ''}"
+        )
 
 @fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
 @click.argument('traces_dir', type=click.Path(exists=True))
@@ -651,88 +687,108 @@ async def replay_traces(
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--prompt-on-diff', is_flag=True, help="Prompt on state diff ")
 async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt_on_diff: bool):
+    from pyjamaz.merkle import PatriciaMerkleTrie
+
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
     fuzzer_session = FuzzerSession(socket_path, app=None)
-    await fuzzer_session.connect()
-
-    logging.info(f'Fuzzer session started.')
-
-    traces_folder = Path(traces_dir)
-
-    traces_files = await anyio.to_thread.run_sync(
-        lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
-    )
-
     start_time = time.time()
-
+    connected = False
+    mismatch_count = 0
     last_parent = None
 
-    for nr, block_file in enumerate(traces_files, start=1):
-        logging.info(f'📂 Processing trace file {block_file}')
+    def require_response(response, field, operation):
+        if response.error is not None:
+            raise click.ClickException(f'Fuzzer {operation} failed: {response.error}')
+        value = getattr(response, field)
+        if value is None:
+            raise click.ClickException(f'Unexpected fuzzer response to {operation}: expected {field}')
+        return value
 
+    try:
+        await fuzzer_session.connect()
+        connected = True
+        logging.info('Fuzzer session started.')
 
-        trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
-
-        if block_file.parent != last_parent:
-            # Initialize
-            ancestry = []
-
-            # Check for genesis.bin
-            genesis_file = block_file.parent / "genesis.bin"
-
-            if genesis_file.exists():
-                genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
-                state = genesis.state
-                init_header = genesis.header
-
-            else:
-                # Unknown genesis; add stub parent as ancestor
-                init_header = Header.default()
-                state = trace.pre_state
-                if trace.block.header.timeslot > 0:
-                    ancestry = [
-                        AncestryItem(slot=trace.block.header.timeslot - 1, header_hash=trace.block.header.parent)
-                    ]
-
-            request = FuzzerMessage(
-                initialize=InitializeMessage(
-                    state=state.keyvals,
-                    header=init_header,
-                    ancestry=ancestry
-                ),
-            )
-            response = await fuzzer_session.send_request(request)
-
-            logging.info(f'💾 Fuzzer: Set state: {format_hash(response.state_root)}')
-
-            if response.state_root != state.state_root:
-                logging.error(f'Fuzzer state root mismatch: exp={format_hash(state.state_root)} got={format_hash(response.state_root)}')
-                exit(2)
-
-            last_parent = block_file.parent
-        verbose and logging.debug(f'Import block: h={format_hash(trace.block.header.hash)} p={format_hash(trace.block.header.parent)} ts={trace.block.header.timeslot}')
-        request = FuzzerMessage(
-            import_block=trace.block,
+        traces_folder = Path(traces_dir)
+        traces_files = await anyio.to_thread.run_sync(
+            lambda: sorted(f for f in traces_folder.rglob("*.bin") if f.name not in ['genesis.bin', 'report.bin']),
         )
-        response = await fuzzer_session.send_request(request)
 
-        if response.error:
-            logging.info(f'🛑 Target reported error for {format_hash(trace.block.header.hash)}:  {response.error}')
-            response.state_root = trace.pre_state.state_root
+        for block_file in traces_files:
+            logging.info(f'📂 Processing trace file {block_file}')
+            trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
-        if response.state_root == trace.post_state.state_root:
-            logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
-        else:
-            logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
-            if prompt_on_diff:
-                response = await click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
-                if response.lower() == 'q':
-                    logging.info('✋ User aborted.')
-                    break
+            if block_file.parent != last_parent:
+                # Initialize
+                ancestry = []
+                genesis_file = block_file.parent / "genesis.bin"
+
+                if genesis_file.exists():
+                    genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
+                    state = genesis.state
+                    init_header = genesis.header
+
+                else:
+                    # Unknown genesis; add stub parent as ancestor
+                    init_header = Header.default()
+                    state = trace.pre_state
+                    if trace.block.header.timeslot > 0:
+                        ancestry = [
+                            AncestryItem(slot=trace.block.header.timeslot - 1, header_hash=trace.block.header.parent)
+                        ]
+
+                request = FuzzerMessage(
+                    initialize=InitializeMessage(
+                        state=state.keyvals,
+                        header=init_header,
+                        ancestry=ancestry
+                    ),
+                )
+                response = await fuzzer_session.send_request(request)
+                state_root = require_response(response, 'state_root', 'Initialize')
+
+                logging.info(f'💾 Fuzzer: Set state: {format_hash(state_root)}')
+                if state_root != state.state_root:
+                    raise click.ClickException(
+                        f'Fuzzer initial state root mismatch: exp={format_hash(state.state_root)} got={format_hash(state_root)}'
+                    )
+
+                last_parent = block_file.parent
+
+            verbose and logging.debug(f'Import block: h={format_hash(trace.block.header.hash)} p={format_hash(trace.block.header.parent)} ts={trace.block.header.timeslot}')
+            response = await fuzzer_session.send_request(FuzzerMessage(import_block=trace.block))
+
+            if response.error is not None:
+                logging.info(f'🛑 Target reported error for {format_hash(trace.block.header.hash)}: {response.error}')
+                # A rejected block must leave its parent's state intact. Read
+                # that state from the target rather than trusting the fixture.
+                response = await fuzzer_session.send_request(FuzzerMessage(get_state=trace.block.header.parent))
+                state_root = PatriciaMerkleTrie(require_response(response, 'state', 'GetState')).root()
+            else:
+                state_root = require_response(response, 'state_root', 'ImportBlock')
+
+            if state_root == trace.post_state.state_root:
+                logging.info(f'✅ State root matches for block {format_hash(trace.block.header.hash)} ({format_hash(state_root)})')
+            else:
+                mismatch_count += 1
+                logging.error(f'Fuzzer state root mismatch in trace "{block_file.parent.name}/{block_file.name}": exp={format_hash(trace.post_state.state_root)} got={format_hash(state_root)}')
+                if prompt_on_diff:
+                    answer = await click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                    if answer.lower() == 'q':
+                        logging.info('✋ User aborted.')
+                        break
+    finally:
+        # connect() can fail during the handshake after opening the socket.
+        if connected or getattr(fuzzer_session, 'writer', None) is not None:
+            await fuzzer_session.close()
 
     logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
+    if mismatch_count:
+        raise click.ClickException(
+            f"{mismatch_count} fuzzer trace state-root mismatch{'es' if mismatch_count != 1 else ''}"
+        )
 
 
 @fuzzer.command('target', help='Start Fuzzer target over UNIX socket.')

@@ -1,12 +1,12 @@
 from pyjamaz.pvm.constants import (
-    op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
+    op_trap, op_fallthrough, op_unlikely, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
     op_store_imm_u32, op_store_imm_u64, op_jump, op_jump_ind, op_load_imm, op_load_u8,
     op_load_i8, op_load_u16, op_load_i16, op_load_u32, op_load_i32, op_load_u64,
     op_store_u8, op_store_u16, op_store_u32, op_store_u64, op_store_imm_ind_u8,
     op_store_imm_ind_u16, op_store_imm_ind_u32, op_store_imm_ind_u64, op_load_imm_jump,
     op_branch_eq_imm, op_branch_ne_imm, op_branch_lt_u_imm, op_branch_le_u_imm,
     op_branch_ge_u_imm, op_branch_gt_u_imm, op_branch_lt_s_imm, op_branch_le_s_imm,
-    op_branch_ge_s_imm, op_branch_gt_s_imm, op_move_reg, op_sbrk, op_count_set_bits_64,
+    op_branch_ge_s_imm, op_branch_gt_s_imm, op_move_reg, op_count_set_bits_64,
     op_count_set_bits_32, op_leading_zero_bits_64, op_leading_zero_bits_32,
     op_trailing_zero_bits_64, op_trailing_zero_bits_32, op_sign_extend_8, op_sign_extend_16,
     op_zero_extend_16, op_reverse_bytes, op_store_ind_u8, op_store_ind_u16,
@@ -31,7 +31,7 @@ from pyjamaz.pvm.constants import (
 
 from ..opcodes.imm import _op_ecalli
 from ..opcodes.imm_imm import _op_store_imm_u8, _op_store_imm_u16, _op_store_imm_u32, _op_store_imm_u64
-from ..opcodes.none import _op_fallthrough, _op_invalid, _op_trap
+from ..opcodes.none import _op_fallthrough, _op_invalid, _op_trap, _op_unlikely
 from ..opcodes.offset import _op_jump
 from ..opcodes.reg_ext_imm import _op_load_imm_64
 from ..opcodes.reg_imm import _op_jump_ind, _op_load_imm, _op_load_u8, _op_load_i8, _op_load_u16, _op_load_i16, \
@@ -41,7 +41,7 @@ from ..opcodes.reg_imm_imm import _op_store_imm_ind_u8, _op_store_imm_ind_u16, _
 from ..opcodes.reg_imm_offset import _op_load_imm_jump, _op_branch_eq_imm, _op_branch_ne_imm, _op_branch_lt_u_imm, \
     _op_branch_le_u_imm, _op_branch_ge_u_imm, _op_branch_gt_u_imm, _op_branch_lt_s_imm, _op_branch_le_s_imm, \
     _op_branch_ge_s_imm, _op_branch_gt_s_imm
-from ..opcodes.reg_reg import _op_move_reg, _op_sbrk, _op_count_set_bits_64, _op_count_set_bits_32, \
+from ..opcodes.reg_reg import _op_move_reg, _op_count_set_bits_64, _op_count_set_bits_32, \
     _op_leading_zero_bits_64, _op_leading_zero_bits_32, _op_trailing_zero_bits_64, _op_trailing_zero_bits_32, \
     _op_sign_extend_8, _op_sign_extend_16, _op_zero_extend_16, _op_reverse_bytes
 from ..opcodes.reg_reg_imm import _op_store_ind_u8, _op_store_ind_u16, _op_store_ind_u32, _op_store_ind_u64, \
@@ -69,6 +69,7 @@ def _opcode_lut():
     # None
     O[op_trap] = _op_trap
     O[op_fallthrough] = _op_fallthrough
+    O[op_unlikely] = _op_unlikely
 
     # imm
     O[op_ecalli] = _op_ecalli
@@ -109,7 +110,6 @@ def _opcode_lut():
 
     # reg_reg
     O[op_move_reg] = _op_move_reg
-    O[op_sbrk] = _op_sbrk
     O[op_count_set_bits_64] = _op_count_set_bits_64
     O[op_count_set_bits_32] = _op_count_set_bits_32
     O[op_leading_zero_bits_64] = _op_leading_zero_bits_64

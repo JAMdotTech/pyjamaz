@@ -13,7 +13,7 @@ from typing import Optional, List
 from parameterized import parameterized
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
+from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum, BoundedVec
 from pyjamaz.app import AppConfig
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.settings import TEST_SUITE
@@ -25,6 +25,10 @@ from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark
 from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, SlotSealerSeries
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
 
 
 @dataclass
@@ -34,16 +38,16 @@ class SafroleTestState(Serializable):
 
     eta: List[bytes] = field(metadata={'codec': Array(H256, 4)})
     lambda_: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
+        metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys and metadata which were active in the prior epoch.
     kappa: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
+        metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys and metadata currently active.
     gamma_k: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
+        metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys for the following epoch.
     iota: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
+        metadata={'codec': BoundedVec(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys and metadata to be drawn from next.
     gamma_a: List[TicketBody] = field(
         metadata={'codec': Vec(TicketBody.to_codec_def())}
@@ -96,7 +100,7 @@ class Testcase(Serializable):
 def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
     test_vectors = []
     for directory in directories:
-        abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'safrole', directory)
+        abs_dir = stf_vector_dir("safrole", directory)
         for filename in os.listdir(str(abs_dir)):
             if filename.endswith('.json'):
                 if file_filter is None or file_filter in filename:
@@ -121,9 +125,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
     @staticmethod
     def load_test_vector_data(directory, test_vector_file):
-        test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'safrole', directory, test_vector_file
-            )
+        test_vector_file = stf_vector_dir("safrole", directory) / test_vector_file
         with open(test_vector_file) as f:
             return json.load(f)
 

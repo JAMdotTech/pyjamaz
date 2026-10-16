@@ -5,7 +5,8 @@ from asyncio import TaskGroup
 import anyio
 
 from pyjamaz.app import PyjamazApp
-from pyjamaz.models.block import TicketEnvelope, Assurance, Guarantee, Preimage
+from pyjamaz.models.block import TicketEnvelope, Assurance, Preimage
+from pyjamaz.models.common import Guarantee
 from pyjamaz.runtime.pipelines.refine import RefinePipeline
 from pyjamaz.runtime.pipelines.accumulate import AccumulatePipeline
 from pyjamaz.settings import DEBUG

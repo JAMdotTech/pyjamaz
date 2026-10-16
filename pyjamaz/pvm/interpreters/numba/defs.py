@@ -380,72 +380,33 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays,
                   section_access) -> (I32, U64):
-    """
-    Returns (status:I32, fault_addr:U64) where status==0 on success, -1 on page fault, -2 on panic.
-    fault_addr is set to the first failing byte address (page aligned) on page fault.
-    GP-0.7.2-eq:A.7 - Addresses below 2^16 are invalid and cause panic.
-    """
-    PAGE_MASK = U64(0xFFFFFFFFFFFFF000)  # Mask for page alignment (4096 = 0x1000)
-
-    # GP-??: addresses must wrap around 32bit address space
+    """A.9: validate every byte before committing any memory mutation."""
     addr = addr & U32_MASK
-
-    # Check for invalid address (below 2^16)
-    if addr < U64(65536):
-        return I32(-2), U64(0)  # Panic - invalid address
-
-    idx = I32(-1)
-    for i in range(len(section_starts)):
-        if section_starts[i] <= addr <= section_ends[i]:
-            idx = I32(i)
-            break
-    if idx < 0:
-        return I32(-1), addr & PAGE_MASK
-
-    access = section_access[idx]
-    if access >= 0 and access < MEM_W:
-        return I32(-1), addr & PAGE_MASK
-
-    start = U64(section_starts[idx])
-    off = addr - start
-
-    a = section_arrays[idx]  # uint8[::1]
-    section_len = U64(len(a))
-    if off + U64(bytes_to_write) > section_len:
-        # First failing byte is at start + section_len
-        fault_addr = start + section_len
-        return I32(-1), fault_addr & PAGE_MASK
-
-    # Mask value for <8 byte writes
-    if bytes_to_write < U8(8):
-        shift = U64(bytes_to_write) * U64(8)
-        mask = (U64(1) << shift) - U64(1)
-        value = value & mask
-
-    base = int(off)
-
-    if bytes_to_write == U8(1):
-        a[base] = U8(value & U64(0xFF))
-    elif bytes_to_write == U8(2):
-        a[base] = U8(value & U64(0xFF))
-        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
-    elif bytes_to_write == U8(4):
-        a[base] = U8(value & U64(0xFF))
-        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
-        a[base + 2] = U8((value >> U64(16)) & U64(0xFF))
-        a[base + 3] = U8((value >> U64(24)) & U64(0xFF))
-    elif bytes_to_write == U8(8):
-        a[base] = U8(value & U64(0xFF))
-        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
-        a[base + 2] = U8((value >> U64(16)) & U64(0xFF))
-        a[base + 3] = U8((value >> U64(24)) & U64(0xFF))
-        a[base + 4] = U8((value >> U64(32)) & U64(0xFF))
-        a[base + 5] = U8((value >> U64(40)) & U64(0xFF))
-        a[base + 6] = U8((value >> U64(48)) & U64(0xFF))
-        a[base + 7] = U8((value >> U64(56)) & U64(0xFF))
-    else:
-        return I32(-1), addr & PAGE_MASK
-
+    if addr < U64(65536) or addr + U64(bytes_to_write) > U64(1 << 32):
+        return I32(-2), U64(0)
+    for index in range(len(section_starts)):
+        if section_starts[index] <= addr and addr + U64(bytes_to_write) <= section_ends[index]:
+            if section_access[index] < MEM_W:
+                return I32(-1), addr & U64(0xFFFFF000)
+            offset = int(addr - section_starts[index])
+            for byte in range(int(bytes_to_write)):
+                section_arrays[index][offset + byte] = U8(value >> U64(8 * byte))
+            return I32(0), U64(0)
+    locations = np.empty(int(bytes_to_write), dtype=np.int32)
+    for byte in range(int(bytes_to_write)):
+        address = addr + U64(byte)
+        found = I32(-1)
+        for index in range(len(section_starts)):
+            if section_starts[index] <= address < section_ends[index]:
+                found = I32(index)
+                break
+        if found < 0 or section_access[found] < MEM_W:
+            return I32(-1), address & U64(0xFFFFF000)
+        locations[byte] = found
+    for byte in range(int(bytes_to_write)):
+        index = locations[byte]
+        offset = int(addr + U64(byte) - section_starts[index])
+        section_arrays[index][offset] = U8(value >> U64(8 * byte))
     return I32(0), U64(0)
 
 
@@ -460,61 +421,30 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
 def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays,
                  section_access) -> (I32, U64):
-    """
-    Returns (status:I32, value_or_fault:U64) where status==0 on success, -1 on page-fault, -2 on panic.
-    On success, second element is the read value.
-    On page fault, second element is the page aligned fault address.
-    GP-0.7.2-eq:A.7 - Addresses below 2^16 are invalid and cause panic.
-    """
-    PAGE_MASK = U64(0xFFFFFFFFFFFFF000)  # Mask for page alignment (4096 = 0x1000)
-
-    # Check for invalid address (below 2^16)
-    if addr < U64(65536):
-        return I32(-2), U64(0)  # Panic - invalid address
-
-    # GP-??: addresses must wrap around 32bit address space
+    """A.9: validate every byte before committing any memory mutation."""
     addr = addr & U32_MASK
-
-    idx = I32(-1)
-    for i in range(len(section_starts)):
-        if section_starts[i] <= addr <= section_ends[i]:
-            idx = I32(i)
-            break
-    if idx < 0:
-        return I32(-1), addr & PAGE_MASK
-
-    access = section_access[idx]
-    if access >= 0 and access < MEM_R:
-        return I32(-1), addr & PAGE_MASK
-
-    start = U64(section_starts[idx])
-    off = addr - start
-
-    a = section_arrays[idx]  # uint8[::1] array
-    section_len = U64(len(a))
-    if off + U64(bytes_to_read) > section_len:
-        # First failing byte is at start + section_len
-        fault_addr = start + section_len
-        return I32(-1), fault_addr & PAGE_MASK
-    base = int(off)
-
-    if bytes_to_read == U8(1):
-        return I32(0), U64(a[base])
-    elif bytes_to_read == U8(2):
-        return I32(0), (U64(a[base]) | (U64(a[base + 1]) << U64(8)))
-    elif bytes_to_read == U8(4):
-        return I32(0), (U64(a[base]) |
-                        (U64(a[base + 1]) << U64(8)) |
-                        (U64(a[base + 2]) << U64(16)) |
-                        (U64(a[base + 3]) << U64(24)))
-    elif bytes_to_read == U8(8):
-        return I32(0), (U64(a[base]) |
-                        (U64(a[base + 1]) << U64(8)) |
-                        (U64(a[base + 2]) << U64(16)) |
-                        (U64(a[base + 3]) << U64(24)) |
-                        (U64(a[base + 4]) << U64(32)) |
-                        (U64(a[base + 5]) << U64(40)) |
-                        (U64(a[base + 6]) << U64(48)) |
-                        (U64(a[base + 7]) << U64(56)))
-    else:
-        return I32(-1), addr & PAGE_MASK
+    if addr < U64(65536) or addr + U64(bytes_to_read) > U64(1 << 32):
+        return I32(-2), U64(0)
+    for index in range(len(section_starts)):
+        if section_starts[index] <= addr and addr + U64(bytes_to_read) <= section_ends[index]:
+            if section_access[index] < MEM_R:
+                return I32(-1), addr & U64(0xFFFFF000)
+            offset = int(addr - section_starts[index])
+            return I32(0), read_uint_jit(section_arrays[index], offset, bytes_to_read)
+    locations = np.empty(int(bytes_to_read), dtype=np.int32)
+    for byte in range(int(bytes_to_read)):
+        address = addr + U64(byte)
+        found = I32(-1)
+        for index in range(len(section_starts)):
+            if section_starts[index] <= address < section_ends[index]:
+                found = I32(index)
+                break
+        if found < 0 or section_access[found] < MEM_R:
+            return I32(-1), address & U64(0xFFFFF000)
+        locations[byte] = found
+    value = U64(0)
+    for byte in range(int(bytes_to_read)):
+        index = locations[byte]
+        offset = int(addr + U64(byte) - section_starts[index])
+        value |= U64(section_arrays[index][offset]) << U64(8 * byte)
+    return I32(0), value

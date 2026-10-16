@@ -7,6 +7,26 @@ from typing import Dict, List, Set
 from pyjamaz.pvm.constants import TERMINATION_OPCODES, Opcode as op
 
 
+def decode_instructions(code, bitmask):
+    """Graypaper 0.8 A.2: validate the whole blob, including its final terminator."""
+    positions, lengths = {}, []
+    if len(code) == 0 or len(code) != len(bitmask):
+        return positions, lengths, False
+    valid_opcodes = {opcode.value for opcode in op}
+    pc = 0
+    while pc < len(code):
+        if not bitmask[pc] or code[pc] not in valid_opcodes:
+            return positions, lengths, False
+        length = 0
+        while length < 24 and pc + length + 1 < len(code) and not bitmask[pc + length + 1]:
+            length += 1
+        positions[pc] = len(lengths)
+        lengths.append(length)
+        last_opcode = code[pc]
+        pc += length + 1
+    return positions, lengths, last_opcode in TERMINATION_OPCODES
+
+
 def calculate_jump_offset(code: bytes, inst_arg_len: List[int], pc: int, inst_index: int) -> int:
     arg_len = inst_arg_len[inst_index]
     if arg_len == 0:
@@ -71,70 +91,14 @@ def detect_basic_blocks(
     inst_pos: Dict[int, int],
     inst_arg_len: List[int],
 ) -> Set[int]:
-    """
-    GP-0.7.2-section:A.3 - Basic Blocks and Termination Instructions
-
-    Detect all basic block start positions in the code.
-    A basic block starts at:
-    - PC 0 (always)
-    - Fallthrough position after any termination instruction
-    - Target of any branch/jump instruction
-    """
-    # GP-0.7.2-section:A.5 - ϖ (beginning of basic-blocks)
-    basic_block_starts = {0}
-
-    # GP-0.7.2-section:A.3 - U (all valid opcodes within original code)
-    opcode_positions = sorted(k for k in inst_pos.keys() if k < code_length)
-
-    for pc in opcode_positions:
-        opcode = code[pc]
-
-        if opcode in TERMINATION_OPCODES:
-            inst_index = inst_pos[pc]
-            skip = inst_arg_len[inst_index] + 1
-            fallthrough = pc + skip
-
-            # Add fallthrough if it's a valid instruction position
-            if fallthrough in inst_pos:
-                # Include synthetic trap only for 'fallthrough' opcode
-                if fallthrough < code_length or opcode == op.fallthrough.value:
-                    basic_block_starts.add(fallthrough)
-
-            # Add branch/jump targets
-            if opcode == op.jump.value:
-                target = calculate_jump_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
-
-            elif opcode in {
-                op.branch_eq.value, op.branch_ne.value,
-                op.branch_lt_u.value, op.branch_lt_s.value,
-                op.branch_ge_u.value, op.branch_ge_s.value,
-            }:
-                target = calculate_branch_reg_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
-
-            elif opcode == op.load_imm_jump.value:
-                target = calculate_branch_imm_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
-
-            elif opcode in {
-                op.branch_eq_imm.value, op.branch_ne_imm.value,
-                op.branch_lt_u_imm.value, op.branch_ge_u_imm.value,
-                op.branch_le_u_imm.value, op.branch_gt_u_imm.value,
-                op.branch_lt_s_imm.value, op.branch_ge_s_imm.value,
-                op.branch_le_s_imm.value, op.branch_gt_s_imm.value,
-            }:
-                target = calculate_branch_imm_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
-
-    # Make sure to be within code bounds (including synthetic trap position)
-    basic_block_starts = {pc for pc in basic_block_starts if 0 <= pc <= code_length}
-
-    return basic_block_starts
+    """A.3: only entry zero and instructions following a terminator start blocks."""
+    starts = {0} if 0 in inst_pos else set()
+    for pc, index in inst_pos.items():
+        if pc < code_length and code[pc] in TERMINATION_OPCODES:
+            following = pc + inst_arg_len[index] + 1
+            if following < code_length and following in inst_pos:
+                starts.add(following)
+    return starts
 
 
 def get_block_start(basic_block_starts_sorted: List[int], pc: int) -> int:

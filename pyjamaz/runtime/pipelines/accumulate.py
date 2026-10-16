@@ -105,6 +105,13 @@ class AccumulatePipeline:
                         pre_state_entropy=self.app.working_state.entropy
                     )
 
+                    validator_pool_output = self.app.components.validator_pool.state_transition(
+                        header=header,
+                        pre_state_timeslot=self.app.working_state.timeslot,
+                        pre_state_validator_pool=self.app.working_state.validator_pool,
+                        pre_state_safrole=self.app.working_state.safrole,
+                    )
+
                     safrole_output = self.app.components.safrole.state_transition(
                         header=header,
                         pre_state_timeslot=self.app.working_state.timeslot,
@@ -112,7 +119,7 @@ class AccumulatePipeline:
                         pre_state_validator_queue=self.app.working_state.validator_queue,
                         post_state_entropy=entropy_output.post_state,
                         post_state_disputes=self.app.working_state.disputes,
-                        post_state_validator_pool=self.app.working_state.validator_pool,
+                        post_state_validator_pool=validator_pool_output.post_state,
                         extrinsic_tickets=[]
                     )
 

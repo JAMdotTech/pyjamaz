@@ -152,7 +152,7 @@ class PVMInvocation:
             ]:
                 return PvMHostCallOutput(
                     exit_condition=exit_condition,
-                    instruction_counter=int(self.pvm.pc),
+                    instruction_counter=0 if exit_condition.reason in (ExitReason.halt, ExitReason.panic) else int(self.pvm.pc),
                     gas_limit=int(self.pvm.gas),
                     registers=self.pvm.get_registers(),
                     memory=self.pvm.mem,
@@ -192,7 +192,7 @@ class PVMInvocation:
                 ]:
                     return PvMHostCallOutput(
                         exit_condition=host_call_output.exit_condition,
-                        instruction_counter=int(self.pvm.pc),
+                        instruction_counter=0 if host_call_output.exit_condition.reason in (ExitReason.halt, ExitReason.panic) else int(self.pvm.pc),
                         gas_limit=host_call_output.gas_limit,
                         registers=host_call_output.registers,
                         memory=host_call_output.memory,

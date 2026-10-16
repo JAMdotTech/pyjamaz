@@ -3,8 +3,7 @@ from dataclasses import dataclass, field
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256
-from pyjamaz.models.block import Credential, Guarantee
-from pyjamaz.models.common import WorkPackage, WorkPackageStatus, WorkReport
+from pyjamaz.models.common import WorkPackage, WorkPackageStatus, WorkReport, Credential, Guarantee
 
 
 @dataclass

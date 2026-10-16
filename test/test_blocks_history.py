@@ -1,7 +1,6 @@
 import json
 import os
 import unittest
-from os import path
 from typing import Optional
 
 from parameterized import parameterized
@@ -10,15 +9,23 @@ from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import RecentHistory
 from pyjamaz.storage import InMemoryStorageEngine
-from pyjamaz.models.block import Header, Guarantee
-from pyjamaz.models.common import RefinementContext, WorkPackageSpec, WorkReport
+from pyjamaz.models.block import Header
+from pyjamaz.models.common import RefinementContext, WorkPackageSpec, WorkReport, Guarantee
 from pyjamaz.models.state import RecentHistoryState
+from pyjamaz.settings import TEST_SUITE
+try:
+    from test.vector_fixtures import stf_vector_dir
+except ModuleNotFoundError:  # Direct script execution.
+    from vector_fixtures import stf_vector_dir
+
+
+VECTOR_DIR = stf_vector_dir("history", TEST_SUITE, local_component="blocks-history", local_profiled=False)
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'blocks-history')
+    abs_dir = VECTOR_DIR
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -37,9 +44,7 @@ class TestBlockHistory(unittest.TestCase):
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
-        test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'blocks-history', test_vector_file
-            )
+        test_vector_file = VECTOR_DIR / test_vector_file
         with open(test_vector_file) as f:
             return json.load(f)
 
@@ -52,7 +57,7 @@ class TestBlockHistory(unittest.TestCase):
             parent=bytes(32),
             parent_state_root=bytes.fromhex(test_vector["input"]["parent_state_root"][2:]),
             extrinsic_hash=bytes(32),
-            timeslot=0,
+            timeslot=test_vector["input"]["slot"],
             epoch_marker=None,
             tickets_marker=None,
             offenders_marker=[],

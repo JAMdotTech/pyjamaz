@@ -9,5 +9,10 @@ def _op_trap(vm):
     raise PanicError("trap")
 
 def _op_fallthrough(vm):
+    vm.sjump(vm.skip_len)
+    vm.log and vm.log()
+    return
+
+def _op_unlikely(vm):
     vm.log and vm.log()
     return
