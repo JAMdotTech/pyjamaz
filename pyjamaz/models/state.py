@@ -1,7 +1,6 @@
 import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
-from math import ceil
 from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
@@ -10,12 +9,11 @@ from pyjamaz.exceptions import StateKeyNoResult, BlockValidationError
 from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64, BoundedVec
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE, MINIMUM_PUBLIC_SERVICE_ID
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.codec import BoundedVec
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage, DeferredTransfer
 from pyjamaz.pvm.invocation import InvocationContext
 from pyjamaz.settings import DEBUG

@@ -13,7 +13,7 @@ from typing import Optional, List
 from parameterized import parameterized
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
+from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum, BoundedVec
 from pyjamaz.app import AppConfig
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.settings import TEST_SUITE
@@ -21,7 +21,6 @@ from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Safrole, Entropy, ValidatorPool, ValidatorArchive, Timeslot
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.common import ValidatorData, TicketBody
-from pyjamaz.models.codec import BoundedVec
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark
 from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
