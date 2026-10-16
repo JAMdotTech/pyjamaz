@@ -49,4 +49,8 @@ RUN python -m compileall -b -d /app ./pyjamaz && \
  chmod -R 777 /app/numba-cache && \
  chmod -R 777 /app/pyjamaz/pvm/interpreters/numba
 
+# Verify a fresh process can execute the PVM from cache after source stripping.
+# This runs for each target architecture and must succeed before image export.
+RUN python ./scripts/check_numba_cache.py
+
 ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
