@@ -728,16 +728,20 @@ class PyjamazApp:
         await self.store_block_header(block.header)
 
     async def store_block_header(self, header: Header):
+        header_hash = header.hash
+        header_bytes = header.to_jam_bytes().to_bytes()
+        header_key = b'block_header:' + header_hash
+        if self.block_db.get(header_key) != header_bytes:
+            self.block_db.put(header_key, header_bytes)
 
+        # Ancestor replay can select an earlier same-slot sibling again. Keep
+        # restoring both indexes even when its canonical bytes are persisted.
+        slot_bytes = header.timeslot.to_bytes(length=4, byteorder='little')
         self.block_db.put(
-            b'block_header:' + header.hash, header.to_jam_bytes().to_bytes()
+            b'block_hash:' + slot_bytes, header_hash
         )
-
         self.block_db.put(
-            b'block_hash:' + header.timeslot.to_bytes(length=4, byteorder='little'), header.hash
-        )
-        self.block_db.put(
-            b'block_number:' + header.hash, header.timeslot.to_bytes(length=4, byteorder='little')
+            b'block_number:' + header_hash, slot_bytes
         )
 
     def retrieve_block(self, timeslot: int) -> Optional[Block]:
