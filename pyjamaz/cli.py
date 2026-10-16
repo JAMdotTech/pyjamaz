@@ -2,6 +2,7 @@ import bisect
 import logging
 import traceback
 from asyncio import CancelledError
+from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
 import json
 import os
@@ -24,6 +25,7 @@ from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockValidationError
 
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
@@ -532,6 +534,63 @@ async def init(
 async def fuzzer():
     pass
 
+
+def _trace_header_field_key(value):
+    """Snapshot codec values with exact types, including mutable containers."""
+    value_type = type(value)
+    if value is None or value_type in (bytes, int, str, bool, float):
+        return value_type, value
+    if value_type is bytearray:
+        return value_type, bytes(value)
+    if value_type in (list, tuple):
+        return value_type, tuple(_trace_header_field_key(item) for item in value)
+    if is_dataclass(value) and not isinstance(value, type):
+        return value_type, tuple(
+            _trace_header_field_key(getattr(value, field.name)) for field in fields(value)
+        )
+    # An unfamiliar codec input may be mutable. Do not reuse its encoding.
+    return object()
+
+
+class _TraceHeader(Header):
+    """Cache replay header bytes without changing mutable runtime headers.
+
+    Compare all codec fields with a type-sensitive snapshot before reusing bytes.
+    This also detects edits inside epoch markers, tickets and offender lists;
+    derived fields such as the author's key do not affect the encoding.
+    """
+
+    @classmethod
+    def from_header(cls, header: Header) -> "_TraceHeader":
+        return cls(**{field.name: getattr(header, field.name) for field in fields(Header)})
+
+    @classmethod
+    def to_codec_def(cls):
+        # Serializable otherwise changes the shared codec's deserialize type
+        # to this replay-only subclass.
+        return Header.to_codec_def()
+
+    def _encoded_bytes(self) -> bytes:
+        values = tuple(
+            _trace_header_field_key(getattr(self, field.name)) for field in fields(Header)
+        )
+        if values != getattr(self, '_cached_fields', None):
+            encoded = super().to_jam_bytes().to_bytes()
+            self._cached_fields = values
+            self._cached_bytes = encoded
+            self._cached_hash = blake2b_256_hash(encoded)
+        return self._cached_bytes
+
+    def to_jam_bytes(self) -> JamBytes:
+        # JamBytes has a mutable decode offset; callers need their own cursor.
+        return JamBytes(self._encoded_bytes())
+
+    @property
+    def hash(self) -> bytes:
+        self._encoded_bytes()
+        return self._cached_hash
+
+
 def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) -> List[Header]:
     """Resolve input-header ancestry, oldest first (GP-0.8.0-5.3,11.38).
 
@@ -602,6 +661,8 @@ async def replay_traces(
             # Skip genesis creation
             continue
 
+        trace.block.header = _TraceHeader.from_header(trace.block.header)
+
         # Flush DB
         for key, _ in app.state_db.as_list():
             app.state_db.delete(key)
@@ -617,6 +678,7 @@ async def replay_traces(
             genesis_file = block_file.parent / "genesis.bin"
             if genesis_file.exists():
                 genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
+                genesis.header = _TraceHeader.from_header(genesis.header)
                 known_headers[bytes(genesis.header.hash)] = genesis.header
             trace_parent = block_file.parent
         ancestor_headers = _trace_ancestor_headers(trace.block, known_headers)
