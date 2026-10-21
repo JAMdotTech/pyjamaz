@@ -67,6 +67,18 @@ if TEST_SUITE == 'tiny':
     GAS_REFINE = 1_000_000_000  # GR
     MAXIMUM_AGE_LOOKUP_ANCHOR = 24 # L
 
+elif TEST_SUITE == 'fuzz':
+    CORE_COUNT = 85 #C
+    EPOCH_TIMESLOTS = 60 #E
+    TICKET_SUBMISSION_END_SLOT = 50 #Y
+    ROTATION_PERIOD_CORE = 5  # R
+    MAXIMUM_EXTRINSIC_TICKETS = 4  # K
+    GAS_TOTAL = 875_000_000  # GT
+    GAS_REFINE = 1_250_000_000  # GR
+    PREIMAGE_EXPUNGE_TIMESLOTS = 900 #D=
+    MAXIMUM_AGE_LOOKUP_ANCHOR = 600 # L
+    VALIDATOR_COUNT = 255 #V
+
 
 def valid_validator_count(count: int, *, core_count: int = CORE_COUNT) -> bool:
     return (

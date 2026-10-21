@@ -1,8 +1,8 @@
 import os
 
-TEST_SUITE = 'tiny' # tiny or full
+TEST_SUITE = 'tiny' # tiny, full or fuzz
 GP_VERSION = '0.8.0'
-APP_VERSION = '0.3.2'
+APP_VERSION = '0.3.3'
 
 
 def _apply_jam_fuzz_spec_override():
@@ -12,8 +12,8 @@ def _apply_jam_fuzz_spec_override():
         return
 
     jam_fuzz_spec = os.getenv("JAM_FUZZ_SPEC")
-    if jam_fuzz_spec not in ("tiny", "full"):
-        raise RuntimeError("JAM_FUZZ_SPEC must be set to 'tiny' or 'full' when JAM_FUZZ is set")
+    if jam_fuzz_spec not in ("tiny", "full", "fuzz"):
+        raise RuntimeError("JAM_FUZZ_SPEC must be set to 'tiny', 'full' or 'fuzz' when JAM_FUZZ is set")
     TEST_SUITE = jam_fuzz_spec
 
 
