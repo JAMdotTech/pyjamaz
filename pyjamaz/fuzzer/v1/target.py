@@ -5,10 +5,15 @@ import logging
 import typing
 from typing import Optional
 
-from pyjamaz.exceptions import BlockValidationError, StateTransitionError
+from pyjamaz.availability import BundleData
+from pyjamaz.exceptions import BlockValidationError, ProcessWorkpackageError, StateTransitionError
 from pyjamaz.models.block import AncestorReference
+from pyjamaz.models.state import PendingChanges, ServicesState
+from pyjamaz.refinement import Refinement
+from pyjamaz.state.storage import StateStorage
+from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.settings import APP_VERSION, GP_VERSION, FUZZER_VERSION, FUZZER_FEATURE_FORK, FUZZER_FEATURE_ANCESTRY, \
-    TEST_SUITE
+    FUZZER_FEATURE_REFINE, TEST_SUITE
 from pyjamaz.fuzzer.v1.types import FuzzerMessage, PeerInfoMessage, Version, Features
 from pyjamaz.utils import format_hash
 
@@ -22,6 +27,7 @@ class FuzzerTarget:
     def __init__(self, path: str, app: 'PyjamazApp') -> None:
         self.path = path
         self.app = app
+        self._refine_head_hash: Optional[bytes] = None
 
         # Wipe any stale socket first
         try:
@@ -77,6 +83,7 @@ class FuzzerTarget:
 
         # Initialize working state to finalized
         await self.app.initialize()
+        self._refine_head_hash = req.initialize.header.hash
 
         logging.info(f"💾 Initialized state to {format_hash(self.app.working_state.state_root)}")
         return FuzzerMessage(state_root=self.app.working_state.state_root)
@@ -85,7 +92,8 @@ class FuzzerTarget:
         return FuzzerMessage(
             peer_info=PeerInfoMessage(
                 fuzz_version=FUZZER_VERSION,
-                features=Features(fork=FUZZER_FEATURE_FORK, ancestry=FUZZER_FEATURE_ANCESTRY),
+                features=Features(fork=FUZZER_FEATURE_FORK, ancestry=FUZZER_FEATURE_ANCESTRY,
+                                  refine=FUZZER_FEATURE_REFINE),
                 app_version=Version.from_str(APP_VERSION),
                 jam_version=Version.from_str(GP_VERSION),
                 name = "PyJAMaz"
@@ -97,6 +105,7 @@ class FuzzerTarget:
             # SIMPLE_FORKING imports against any retained parent. Finalizing
             # here would prune ancestry and competing branches before import.
             await self.app.import_block(req.import_block)
+            self._refine_head_hash = req.import_block.header.hash
 
             logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.working_state.state_root)}")
             return FuzzerMessage(state_root=self.app.working_state.state_root)
@@ -106,6 +115,34 @@ class FuzzerTarget:
             # selected state; another rollback could discard that retained state.
             logging.info(f"🛑 Block {format_hash(req.import_block.header.hash)} raised error -> {e}")
             return FuzzerMessage(error=str(e))
+
+    async def msg_refine_bundle(self, req: FuzzerMessage) -> FuzzerMessage:
+        if self._refine_head_hash is None:
+            raise RuntimeError("RefineBundle requires initialization")
+
+        # Detach historical lookups from mutable branch selection and PVM caches.
+        engine = InMemoryStorageEngine()
+        for key, value in self.app.state_storage.as_list_at(self._refine_head_hash):
+            engine.put(key, value)
+        services = ServicesState(services={})
+        services.set_state_storage(StateStorage(engine))
+        services.pending_changes = PendingChanges()
+        request = req.refine_bundle
+        bundle = request.bundle
+
+        def compute():
+            data = BundleData.from_parts(
+                bundle.work_package, bundle.extrinsics, bundle.import_segments, bundle.justifications,
+            )
+            return Refinement(services, data).compute_work_report(
+                bundle.work_package, request.core_index, request.segment_root_lookup, request.erasure_shards,
+            )
+
+        try:
+            return FuzzerMessage(work_report=await asyncio.to_thread(compute))
+        except ProcessWorkpackageError as exc:
+            # Consensus-defined bundle/Ξ failures leave the session available.
+            return FuzzerMessage(error=str(exc))
 
 
     async def start(self) -> None:
@@ -127,6 +164,13 @@ class FuzzerTarget:
             # Handshake: wait for their PeerInfo first.
             them = await FuzzerMessage.fuzzer_decode(reader)
             ours = self.msg_handshake()
+            if them.peer_info is None:
+                raise RuntimeError("Expected PeerInfo before requests")
+            if (them.peer_info.fuzz_version != ours.peer_info.fuzz_version
+                    or them.peer_info.jam_version != ours.peer_info.jam_version):
+                raise RuntimeError("PeerInfo protocol version mismatch")
+            features = ours.peer_info.features & them.peer_info.features
+            initialized = False
 
             writer.write(ours.fuzzer_encode())
             await writer.drain()
@@ -146,20 +190,31 @@ class FuzzerTarget:
                     break
 
                 try:
-                    rsp = await self._dispatch(req)
+                    if req.initialize is not None:
+                        if initialized:
+                            raise RuntimeError("Duplicate Initialize")
+                    elif not initialized:
+                        raise RuntimeError("Expected Initialize before requests")
+                    if req.peer_info is not None:
+                        raise RuntimeError("Unexpected PeerInfo after handshake")
+                    rsp = await self._dispatch(req, features=features)
+                    if req.initialize is not None:
+                        initialized = True
                 except Exception as e:
                     logging.error(f"[fuzzer] Handler error for {req}: {e}")
                     break  # blunt termination on malformed/unexpected messages
 
                 writer.write(rsp.fuzzer_encode())
                 await writer.drain()
+        except Exception as exc:
+            logging.error(f"[fuzzer] Session error: {exc}")
         finally:
             writer.close()
             await writer.wait_closed()
             logging.info("[fuzzer] Session finished")
 
 
-    async def _dispatch(self, req: FuzzerMessage) -> FuzzerMessage:
+    async def _dispatch(self, req: FuzzerMessage, *, features: Optional[Features] = None) -> FuzzerMessage:
         """
         Request - response pattern for fuzzer
 
@@ -182,6 +237,12 @@ class FuzzerTarget:
 
         elif req.import_block is not None:
             return await self.msg_import_block(req)
+
+        elif req.refine_bundle is not None:
+            negotiated = features if features is not None else self.msg_handshake().peer_info.features
+            if not negotiated.refine:
+                raise RuntimeError("Refinement was not negotiated")
+            return await self.msg_refine_bundle(req)
 
         else:
             raise RuntimeError(f"Unknown incoming message {req.to_json()}")

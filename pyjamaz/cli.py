@@ -783,6 +783,12 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
             trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
             if block_file.parent != last_parent:
+                if last_parent is not None:
+                    # Each trace chain has its own handshake and Initialize.
+                    await fuzzer_session.close()
+                    connected = False
+                    await fuzzer_session.connect()
+                    connected = True
                 # Initialize
                 ancestry = []
                 genesis_file = block_file.parent / "genesis.bin"

@@ -549,6 +549,17 @@ class ServicesState(State, Serializable):
     def set_state_storage(self, state: StateStorage):
         setattr(self, '_state_storage', state)
 
+    def snapshot(self) -> "ServicesState":
+        """Detach historical lookups and pending changes before dispatching Refine."""
+        from pyjamaz.storage import InMemoryStorageEngine
+
+        if self.state_storage is None:
+            raise ValueError("services state has no storage")
+        snapshot = ServicesState(services={})
+        snapshot.set_state_storage(StateStorage(InMemoryStorageEngine(dict(self.state_storage.as_list()))))
+        snapshot.pending_changes = deepcopy(self.pending_changes or PendingChanges())
+        return snapshot
+
     @property
     def state_storage(self) -> Optional[StateStorage]:
         return getattr(self, '_state_storage', None)

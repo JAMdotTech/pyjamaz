@@ -191,6 +191,35 @@ class WellBalancedMerkleTree(BinaryMerkleTree):
 
 
 class ConstantDepthMerkleTree(BinaryMerkleTree):
+    def trace(self, index: int) -> List[bytes]:
+        """Return the E.5 proof from root to leaf, excluding padding leaves."""
+        if not 0 <= index < len(self.data):
+            raise IndexError("segment index out of range")
+        nodes = self.constancy_preprocessor(self.data)
+        proof = []
+        while len(nodes) > 1:
+            split = len(nodes) // 2
+            if index < split:
+                proof.append(self.node(nodes[split:]))
+                nodes = nodes[:split]
+            else:
+                proof.append(self.node(nodes[:split]))
+                nodes = nodes[split:]
+                index -= split
+        return proof
+
+    @staticmethod
+    def verify(segment: bytes, index: int, proof: List[bytes], root: bytes) -> bool:
+        """Verify an E.5 proof, whose sibling hashes are in root-first order."""
+        if not 0 <= index < 1 << len(proof) or any(len(h) != 32 for h in proof):
+            return False
+        value = blake2b_256_hash(b'leaf' + segment)
+        for sibling in reversed(proof):
+            pair = sibling + value if index & 1 else value + sibling
+            value = blake2b_256_hash(b'node' + pair)
+            index >>= 1
+        return value == root
+
     def root(self) -> bytes:
         """
         GP-0.7.2-eq:E.4 | constant-depth merkle tree root hash
