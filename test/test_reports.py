@@ -1,23 +1,29 @@
 import json
 import os
 import unittest
+from copy import deepcopy
 from os import path
 from types import SimpleNamespace
 from typing import Optional
+from unittest.mock import patch
 
 from parameterized import parameterized
 
+import pyjamaz.settings as settings
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
+from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
     ServiceAccount, PendingChanges, AccumulationQueueState
-from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, MAXIMUM_AGE_LOOKUP_ANCHOR
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, MAXIMUM_AGE_LOOKUP_ANCHOR, GAS_INVOKE
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorageEngine
+from pyjamaz.signing import Ed25519Keypair
 try:
     from test.vector_fixtures import stf_vector_dir
 except ModuleNotFoundError:  # Direct script execution.
@@ -230,6 +236,45 @@ class TestReports(unittest.TestCase):
         self.assertListEqual(
             test_vector['post_state']['avail_assignments'], post_state['assurances'], f'{name} fails'
         )
+
+    def authorization_gas_vector(self, gas_amounts):
+        filename = 'multiple_reports-1.json' if len(gas_amounts) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        reporters = set()
+        for guarantee, gas_used in zip(vector['input']['guarantees'], gas_amounts, strict=True):
+            guarantee['report']['auth_gas_used'] = gas_used
+            report = WorkReport.from_json(reformat_work_report(deepcopy(guarantee['report'])))
+            message = b'jam_guarantee' + blake2b_256_hash(report.to_jam_bytes().to_bytes())
+            for credential in guarantee['signatures']:
+                index = credential['validator_index']
+                key = Ed25519Keypair.from_seed(blake2b_256_hash(b'auth-gas-test' + index.to_bytes(4, 'little')))
+                public_key = '0x' + key.public_key.hex()
+                vector['pre_state']['curr_validators'][index]['ed25519'] = public_key
+                credential['signature'] = '0x' + key.sign(message).hex()
+                reporters.add(public_key)
+            vector['post_state']['avail_assignments'][report.core_index]['guarantee'] = deepcopy(guarantee)
+        vector['output']['ok']['reporters'] = sorted(reporters)
+        return vector
+
+    @parameterized.expand([
+        ('zero', [0], True, '0.8.0', False),
+        ('below_budget', [GAS_INVOKE - 1], True, '0.8.0', False),
+        ('exact_budget', [GAS_INVOKE], True, '0.8.0', False),
+        ('above_budget', [GAS_INVOKE + 1], True, '0.8.0', True),
+        ('uint64_max', [2**64 - 1], True, '0.8.0', True),
+        ('independent_reports', [GAS_INVOKE, GAS_INVOKE], True, '0.8.0', False),
+        ('second_report_above_budget', [GAS_INVOKE, GAS_INVOKE + 1], True, '0.8.0', True),
+        ('compat_disabled', [2**64 - 1], False, '0.8.0', False),
+        ('other_gp_version', [GAS_INVOKE + 1], True, '0.7.2', False),
+    ])
+    def test_authorization_gas_limit(self, name, gas_amounts, compatibility, gp_version, rejected):
+        vector = self.authorization_gas_vector(gas_amounts)
+        if rejected:
+            vector['output'] = {'err': 'authorizer_gas_too_high'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        with patch.object(settings, 'GP080_AUTH_GAS_LIMIT_COMPAT', compatibility), \
+                patch.object(settings, 'GP_VERSION', gp_version):
+            self.check_vector(name, vector)
 
     def test_missing_lookup_ancestry_is_rejected_by_default(self):
         vector = self.load_test_vector_data('report_curr_rotation-1.json')

@@ -38,6 +38,9 @@ GP080_NON_MANAGER_BLESS_COMPAT = True
 GP080_GROW_HEAP_OOG_COMPAT = True
 # Final v0.8.0 vectors adopt GP #538's zone-rounded stack reservation.
 GP080_GROW_HEAP_STACK_COMPAT = True
+# Adopt PolkaJam's authorizer-gas report cap from GP B.1 and A.48.
+# Set False to retain printed GP 0.8.0 Chapter 11's broader report domain.
+GP080_AUTH_GAS_LIMIT_COMPAT = True
 
 DEBUG_PROGRAM_OVERRIDE = {}
 

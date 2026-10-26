@@ -9,6 +9,7 @@ from bandersnatch_vrfs import RingContext, ietf_vrf_verify
 from ed25519_zebra import ed_verify
 
 import pyjamaz.graypaper_constants as gp_const
+import pyjamaz.settings as settings
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, edit_queue)
 from pyjamaz.constants import MESSAGE_TYPES
@@ -1239,7 +1240,7 @@ class Assurances(StateComponent):
 
     def check_gas_requirements(self, work_report: WorkReport, services_state: ServicesState):
         """
-        GP-0.7.2-eq:11.30 | Work report respects gas requirements
+        GP-0.8.0-eq:11.33 | Work report respects accumulation gas requirements
 
         Parameters
         ----------
@@ -1250,6 +1251,13 @@ class Assurances(StateComponent):
         -------
 
         """
+        # Compatibility rule: B.1 supplies GI and A.48 caps consumed gas at
+        # that budget. Printed 0.8.0 Chapter 11 does not explicitly impose
+        # this bound on the reported authorization gas
+        if (settings.GP_VERSION == '0.8.0' and settings.GP080_AUTH_GAS_LIMIT_COMPAT
+                and work_report.auth_gas_used > gp_const.GAS_INVOKE):
+            raise StateTransitionError(GuaranteeErrorCode.authorizer_gas_too_high)
+
         total_gas = 0
 
         for result in work_report.results:
