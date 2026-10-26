@@ -1033,14 +1033,15 @@ class Assurances(StateComponent):
             if context.lookup_anchor_slot < header.timeslot - gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR:
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
 
-            # GP-0.7.2-eq:11.35 | The lookup anchor must identify a retained
-            # ancestor header at exactly the declared slot.
-            if not self.lookup_anchor_is_known(
-                context,
-                self.app_context.state_storage,
-                header,
-                self.app_context.header_lookup,
-            ):
+            # GP-0.8.0-eq:11.38 | The lookup anchor must identify a retained
+            # ancestor header at exactly the declared slot (if enabled).
+            if (not self.app_context.skip_lookup_anchor_ancestry.get()
+                    and not self.lookup_anchor_is_known(
+                        context,
+                        self.app_context.state_storage,
+                        header,
+                        self.app_context.header_lookup,
+                    )):
                 raise StateTransitionError(GuaranteeErrorCode.lookup_anchor_not_recent)
 
             # GP-0.7.2-eq:11.35 | Anchor must be in recent history
