@@ -1492,7 +1492,7 @@ class Disputes(StateComponent):
             pre_state_disputes: DisputesState
     ) -> DisputesOutput:
         """
-        GP-0.7.2-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
+        GP-0.8.0-eq:10.15--10.19 | State transition function for the state's disputes.
 
         Parameters
         ----------
@@ -1510,6 +1510,9 @@ class Disputes(StateComponent):
         self.output = DisputesOutput(
             post_state=deepcopy(pre_state_disputes), offenders_mark=[]
         )
+        # GP-0.8.0-eq:10.6--10.7: both evidence lists exclude the prior
+        # punish-set, including when the same key appears once in each list.
+        self._prior_offenders = frozenset(bytes(key) for key in pre_state_disputes.offenders)
 
         # GP-0.7.2-eq:10.2 | Check if all culprits have valid signatures
         if not all(c.has_valid_signature() for c in extrinsic_disputes.culprits):
@@ -1696,10 +1699,13 @@ class Disputes(StateComponent):
         return not any(f.vote for f in faults)
 
     def add_offender(self, offender_key: bytes):
-        if offender_key in self.output.post_state.offenders:
+        if offender_key in self._prior_offenders:
             raise StateTransitionError(DisputesErrorCode.offender_already_reported)
+        # GP-0.8.0-eq:10.19 concatenates the evidence sequences, preserving
+        # overlap; 10.18 unions the posterior punish-set without duplicates.
         self.output.offenders_mark.append(offender_key)
-        bisect.insort(self.output.post_state.offenders, offender_key)
+        if offender_key not in self.output.post_state.offenders:
+            bisect.insort(self.output.post_state.offenders, offender_key)
 
     def add_culprit(self, culprit: Culprit):
 
@@ -1709,7 +1715,7 @@ class Disputes(StateComponent):
             raise StateTransitionError(DisputesErrorCode.culprits_verdict_not_bad)
 
     def add_fault(self, fault: Fault):
-        # GP-0.8.0-eq:10.6: the proven judgment must contradict the
+        # GP-0.8.0-eq:10.7: the proven judgment must contradict the
         # established verdict. A false vote contradicts a good verdict, and a
         # true vote contradicts a bad verdict. Faults against wonky or unknown
         # reports are not evidence of an offence.
