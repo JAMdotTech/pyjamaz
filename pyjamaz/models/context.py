@@ -1,4 +1,5 @@
 import logging
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Callable
 
@@ -21,6 +22,11 @@ class AppContext:
     state_storage: Optional[StateStorage] = None
     header_lookup: Optional[Callable[[bytes], Optional[Header]]] = None
     post_commit_signals: List[PubSubSignal] = field(default_factory=list)
+    # Fuzzer omits historical headers when ancestry was not negotiated
+    skip_lookup_anchor_ancestry: ContextVar[bool] = field(
+        default_factory=lambda: ContextVar("skip_lookup_anchor_ancestry", default=False),
+        repr=False,
+    )
 
 @dataclass
 class BlockContext:

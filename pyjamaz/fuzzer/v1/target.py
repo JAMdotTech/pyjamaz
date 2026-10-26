@@ -41,6 +41,13 @@ class FuzzerTarget:
 
 
     async def msg_initialize(self, req: FuzzerMessage) -> FuzzerMessage:
+        initial_header = req.initialize.header
+        initial_hash = bytes(initial_header.hash)
+        if any(bytes(ancestor.header_hash) == initial_hash
+               and ancestor.slot != initial_header.timeslot
+               for ancestor in req.initialize.ancestry):
+            raise ValueError("initialization header ancestry slot mismatch")
+
         # Flush DB
         for key, _ in self.app.state_db.as_list():
             self.app.state_db.delete(key)
@@ -65,11 +72,16 @@ class FuzzerTarget:
             parent_hash = bytes(32)
             for ancestor in req.initialize.ancestry[::-1]:
                 # Hash/slot hints do not supply a header's state commitments.
-                ancestor_header = AncestorReference(
-                    hash=bytes(ancestor.header_hash),
-                    parent=parent_hash,
-                    timeslot=ancestor.slot,
-                )
+                if bytes(ancestor.header_hash) == initial_hash:
+                    # The protocol includes this hash in ancestry. Retain the
+                    # real header, including its prior-state commitment.
+                    ancestor_header = initial_header
+                else:
+                    ancestor_header = AncestorReference(
+                        hash=bytes(ancestor.header_hash),
+                        parent=parent_hash,
+                        timeslot=ancestor.slot,
+                    )
 
                 # Add to ancestry
                 self.app.state_storage.add_ancestor(ancestor_header)
@@ -92,7 +104,13 @@ class FuzzerTarget:
             )
         )
 
-    async def msg_import_block(self, req: FuzzerMessage):
+    async def msg_import_block(self, req: FuzzerMessage, *, ancestry_enabled: Optional[bool] = None):
+        if ancestry_enabled is None:
+            ancestry_enabled = self.msg_handshake().peer_info.features.block_ancestry
+        override = self.app.app_context.skip_lookup_anchor_ancestry
+        # Disable ancestry checks if fuzzer feature does not exist
+        token = override.set(not ancestry_enabled)
+
         try:
             # SIMPLE_FORKING imports against any retained parent. Finalizing
             # here would prune ancestry and competing branches before import.
@@ -106,6 +124,8 @@ class FuzzerTarget:
             # selected state; another rollback could discard that retained state.
             logging.info(f"🛑 Block {format_hash(req.import_block.header.hash)} raised error -> {e}")
             return FuzzerMessage(error=str(e))
+        finally:
+            override.reset(token)
 
 
     async def start(self) -> None:
@@ -126,7 +146,11 @@ class FuzzerTarget:
         try:
             # Handshake: wait for their PeerInfo first.
             them = await FuzzerMessage.fuzzer_decode(reader)
+            if them.peer_info is None:
+                raise RuntimeError("Expected PeerInfo before requests")
             ours = self.msg_handshake()
+            ancestry_enabled = (ours.peer_info.features.block_ancestry
+                                and them.peer_info.features.block_ancestry)
 
             writer.write(ours.fuzzer_encode())
             await writer.drain()
@@ -146,7 +170,7 @@ class FuzzerTarget:
                     break
 
                 try:
-                    rsp = await self._dispatch(req)
+                    rsp = await self._dispatch(req, ancestry_enabled=ancestry_enabled)
                 except Exception as e:
                     logging.error(f"[fuzzer] Handler error for {req}: {e}")
                     break  # blunt termination on malformed/unexpected messages
@@ -159,7 +183,7 @@ class FuzzerTarget:
             logging.info("[fuzzer] Session finished")
 
 
-    async def _dispatch(self, req: FuzzerMessage) -> FuzzerMessage:
+    async def _dispatch(self, req: FuzzerMessage, *, ancestry_enabled: Optional[bool] = None) -> FuzzerMessage:
         """
         Request - response pattern for fuzzer
 
@@ -181,7 +205,7 @@ class FuzzerTarget:
             return await self.msg_initialize(req)
 
         elif req.import_block is not None:
-            return await self.msg_import_block(req)
+            return await self.msg_import_block(req, ancestry_enabled=ancestry_enabled)
 
         else:
             raise RuntimeError(f"Unknown incoming message {req.to_json()}")

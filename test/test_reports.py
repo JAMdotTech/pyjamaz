@@ -12,7 +12,7 @@ from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
     ServiceAccount, PendingChanges, AccumulationQueueState
-from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
@@ -61,8 +61,10 @@ class TestReports(unittest.TestCase):
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
     def test_vector(self, name, test_file):
-
         test_vector = self.load_test_vector_data(test_file)
+        self.check_vector(name, test_vector)
+
+    def check_vector(self, name, test_vector, *, retain_ancestry=True):
 
         header = Header.default()
 
@@ -141,7 +143,7 @@ class TestReports(unittest.TestCase):
         # Equation 11.35 is an off-state check against the retained ancestor
         # header set. Populate that set from the vector's declared contexts.
         self.app_context.state_storage.ancestors.clear()
-        for guarantee in extrinsic_guarantees:
+        for guarantee in (extrinsic_guarantees if retain_ancestry else []):
             lookup_header = Header.default()
             lookup_header.timeslot = guarantee.report.context.lookup_anchor_slot
             setattr(lookup_header, "_hash", guarantee.report.context.lookup_anchor)
@@ -228,6 +230,41 @@ class TestReports(unittest.TestCase):
         self.assertListEqual(
             test_vector['post_state']['avail_assignments'], post_state['assurances'], f'{name} fails'
         )
+
+    def test_missing_lookup_ancestry_is_rejected_by_default(self):
+        vector = self.load_test_vector_data('report_curr_rotation-1.json')
+        vector['output'] = {'err': 'lookup_anchor_not_recent'}
+        vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        self.check_vector('missing lookup ancestry', vector, retain_ancestry=False)
+
+    def test_fuzzer_without_ancestry_still_rejects_expired_lookup(self):
+        vector = self.load_test_vector_data('report_curr_rotation-1.json')
+        lookup_slot = vector['input']['guarantees'][0]['report']['context']['lookup_anchor_slot']
+        vector['input']['slot'] = lookup_slot + MAXIMUM_AGE_LOOKUP_ANCHOR + 1
+        vector['output'] = {'err': 'anchor_not_recent'}
+        vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        override = self.app_context.skip_lookup_anchor_ancestry
+        token = override.set(True)
+        try:
+            self.check_vector('expired lookup ancestry', vector, retain_ancestry=False)
+        finally:
+            override.reset(token)
+
+    @parameterized.expand([
+        ('report_curr_rotation-1.json',),
+        ('anchor_not_recent-1.json',),
+        ('bad_anchor_slot-1.json',),
+        ('bad_state_root-1.json',),
+        ('bad_beefy_mmr-1.json',),
+    ])
+    def test_fuzzer_without_ancestry_keeps_other_report_checks(self, test_file):
+        vector = self.load_test_vector_data(test_file)
+        override = self.app_context.skip_lookup_anchor_ancestry
+        token = override.set(True)
+        try:
+            self.check_vector(test_file, vector, retain_ancestry=False)
+        finally:
+            override.reset(token)
 
 
 if __name__ == '__main__':
