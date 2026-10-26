@@ -80,6 +80,10 @@ elif TEST_SUITE == 'fuzz':
     VALIDATOR_COUNT = 255 #V
 
 
+# GP-0.8.0-eq:14.7 | Imported segment plus its maximum Merkle-proof footprint (WF).
+IMPORT_SEGMENT_FOOTPRINT = EC_SEGMENT_SIZE + 32 * (MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE - 1).bit_length()
+
+
 def valid_validator_count(count: int, *, core_count: int = CORE_COUNT) -> bool:
     return (
         isinstance(count, int) and not isinstance(count, bool)

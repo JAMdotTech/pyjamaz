@@ -265,6 +265,7 @@ class GuaranteeErrorCode(Serializable, enum.Enum):
     bad_anchor_slot = 26
     bad_erasure_shards = 27
     authorizer_gas_too_high = 28
+    refine_load_too_high = 29
 
 
 @dataclass

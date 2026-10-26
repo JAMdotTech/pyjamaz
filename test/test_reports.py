@@ -10,6 +10,7 @@ from unittest.mock import patch
 from parameterized import parameterized
 
 import pyjamaz.settings as settings
+import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
@@ -240,9 +241,14 @@ class TestReports(unittest.TestCase):
     def authorization_gas_vector(self, gas_amounts):
         filename = 'multiple_reports-1.json' if len(gas_amounts) > 1 else 'report_curr_rotation-1.json'
         vector = self.load_test_vector_data(filename)
-        reporters = set()
         for guarantee, gas_used in zip(vector['input']['guarantees'], gas_amounts, strict=True):
             guarantee['report']['auth_gas_used'] = gas_used
+        self.resign_guarantees(vector)
+        return vector
+
+    def resign_guarantees(self, vector):
+        reporters = set()
+        for guarantee in vector['input']['guarantees']:
             report = WorkReport.from_json(reformat_work_report(deepcopy(guarantee['report'])))
             message = b'jam_guarantee' + blake2b_256_hash(report.to_jam_bytes().to_bytes())
             for credential in guarantee['signatures']:
@@ -254,7 +260,6 @@ class TestReports(unittest.TestCase):
                 reporters.add(public_key)
             vector['post_state']['avail_assignments'][report.core_index]['guarantee'] = deepcopy(guarantee)
         vector['output']['ok']['reporters'] = sorted(reporters)
-        return vector
 
     @parameterized.expand([
         ('zero', [0], True, '0.8.0', False),
@@ -275,6 +280,73 @@ class TestReports(unittest.TestCase):
         with patch.object(settings, 'GP080_AUTH_GAS_LIMIT_COMPAT', compatibility), \
                 patch.object(settings, 'GP_VERSION', gp_version):
             self.check_vector(name, vector)
+
+    def check_refinement_load_vector(self, loads_by_report, rejected, *, compatibility=True,
+                                     gp_version='0.8.0', failed=False):
+        filename = 'multiple_reports-1.json' if len(loads_by_report) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        fields = ('gas_used', 'imports', 'exports', 'extrinsic_count', 'extrinsic_size')
+        for guarantee, loads in zip(vector['input']['guarantees'], loads_by_report, strict=True):
+            original = guarantee['report']['results'][0]
+            guarantee['report']['results'] = []
+            for load in loads:
+                digest = deepcopy(original)
+                digest['refine_load'] = {field: load.get(field, 0) for field in fields}
+                if failed:
+                    digest['result'] = {'out_of_gas': None}
+                guarantee['report']['results'].append(digest)
+        self.resign_guarantees(vector)
+        if rejected:
+            vector['output'] = {'err': 'refine_load_too_high'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        with patch.object(settings, 'GP080_REFINE_LOAD_LIMITS_COMPAT', compatibility), \
+                patch.object(settings, 'GP_VERSION', gp_version):
+            self.check_vector('refinement load', vector)
+
+    @parameterized.expand([
+        ('zero', [[{}]], False),
+        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], False),
+        ('gas_above_limit', [[{'gas_used': gp_const.GAS_REFINE + 1}]], True),
+        ('gas_split_above_limit', [[{'gas_used': gp_const.GAS_REFINE}, {'gas_used': 1}]], True),
+        ('imports_at_limit', [[{'imports': 3072}]], False),
+        ('imports_above_limit', [[{'imports': 3073}]], True),
+        ('imports_split_above_limit', [[{'imports': 1536}, {'imports': 1537}]], True),
+        ('exports_at_limit', [[{'exports': 3072}]], False),
+        ('exports_above_limit', [[{'exports': 3073}]], True),
+        ('exports_split_above_limit', [[{'exports': 1536}, {'exports': 1537}]], True),
+        ('extrinsic_count_at_limit', [[{'extrinsic_count': 128}]], False),
+        ('extrinsic_count_above_limit', [[{'extrinsic_count': 129}]], True),
+        ('extrinsic_count_split_above_limit', [[{'extrinsic_count': 64}, {'extrinsic_count': 65}]], True),
+        ('extrinsic_size_at_limit', [[{'extrinsic_size': 13791360}]], False),
+        ('extrinsic_size_above_limit', [[{'extrinsic_size': 13791361}]], True),
+        ('extrinsic_size_split_above_limit', [[{'extrinsic_size': 13791360}, {'extrinsic_size': 1}]], True),
+        ('footprint_at_limit', [[{'imports': 3072, 'extrinsic_size': 4224}]], False),
+        ('footprint_above_limit', [[{'imports': 3072, 'extrinsic_size': 4225}]], True),
+        ('footprint_split_above_limit', [[{'imports': 3072}, {'extrinsic_size': 4225}]], True),
+        ('independent_reports', [[{'gas_used': gp_const.GAS_REFINE, 'imports': 3072, 'exports': 3072,
+                                   'extrinsic_count': 128, 'extrinsic_size': 4224}]] * 2, False),
+        ('second_report_above_limit', [[{}], [{'imports': 3073}]], True),
+    ])
+    def test_refinement_load_limits(self, name, loads_by_report, rejected):
+        self.check_refinement_load_vector(loads_by_report, rejected)
+
+    @parameterized.expand([(field,) for field in
+                           ('gas_used', 'imports', 'exports', 'extrinsic_count', 'extrinsic_size')])
+    def test_refinement_load_sums_do_not_wrap_uint64(self, field):
+        self.check_refinement_load_vector([[{field: 2**64 - 1}, {field: 1}]], rejected=True)
+
+    @parameterized.expand([
+        ('compat_disabled', False, '0.8.0'),
+        ('other_gp_version', True, '0.7.2'),
+    ])
+    def test_refinement_load_policy_scope(self, name, compatibility, gp_version):
+        self.check_refinement_load_vector([[{'imports': 3073, 'gas_used': gp_const.GAS_REFINE + 1}]],
+                                         rejected=False, compatibility=compatibility, gp_version=gp_version)
+
+    @parameterized.expand([(False,), (True,)])
+    def test_refinement_load_includes_failed_results(self, rejected):
+        self.check_refinement_load_vector([[{'imports': 3073 if rejected else 1,
+                                            'gas_used': gp_const.GAS_REFINE}]], rejected, failed=True)
 
     def test_missing_lookup_ancestry_is_rejected_by_default(self):
         vector = self.load_test_vector_data('report_curr_rotation-1.json')

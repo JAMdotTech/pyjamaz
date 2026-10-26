@@ -41,6 +41,9 @@ GP080_GROW_HEAP_STACK_COMPAT = True
 # Adopt PolkaJam's authorizer-gas report cap from GP B.1 and A.48.
 # Set False to retain printed GP 0.8.0 Chapter 11's broader report domain.
 GP080_AUTH_GAS_LIMIT_COMPAT = True
+# Apply package-derived refinement-load sanity bounds to guaranteed reports.
+# Set False to retain printed GP 0.8.0 Chapter 11's broader load domains.
+GP080_REFINE_LOAD_LIMITS_COMPAT = True
 
 DEBUG_PROGRAM_OVERRIDE = {}
 

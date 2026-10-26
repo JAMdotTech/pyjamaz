@@ -989,6 +989,7 @@ class Assurances(StateComponent):
             self.check_size_limit(w)
             # GP-0.7.2-eq:11.30 | Work report respects gas requirements
             self.check_gas_requirements(w, pre_services_state)
+            self.check_refinement_load(w)
             # GP-0.7.2-eq:11.3 | Work report respects dependency limit
             if w.dependency_count() > gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT:
                 raise StateTransitionError(GuaranteeErrorCode.too_many_dependencies)
@@ -1279,6 +1280,32 @@ class Assurances(StateComponent):
             total_gas += result.accumulate_gas
             if total_gas > gp_const.GAS_ACCUMULATION:
                 raise StateTransitionError(GuaranteeErrorCode.work_report_gas_too_high)
+
+    @staticmethod
+    def check_refinement_load(work_report: WorkReport) -> None:
+        """Compatibility admission bounds derived from GP 0.8.0 14.5-14.10."""
+        if settings.GP_VERSION != '0.8.0' or not settings.GP080_REFINE_LOAD_LIMITS_COMPAT:
+            return
+
+        # Counts describe work-item manifests even when refinement failed.
+        loads = [result.refine_load for result in work_report.results]
+        gas_used = sum(load.gas_used for load in loads)
+        imports = sum(load.imports for load in loads)
+        exports = sum(load.exports for load in loads)
+        extrinsic_count = sum(load.extrinsic_count for load in loads)
+        extrinsic_size = sum(load.extrinsic_size for load in loads)
+
+        # Equation 14.6 also includes nonnegative payload/token/config bytes
+        # absent from the report, so this is a necessary footprint bound.
+        footprint = imports * gp_const.IMPORT_SEGMENT_FOOTPRINT + extrinsic_size
+        # Keep exact GR admissible: the traces establish only the excess case.
+        # Equation 14.9's stricter package-budget rule is documented separately.
+        if (gas_used > gp_const.GAS_REFINE
+                or imports > gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE
+                or exports > gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
+                or extrinsic_count > gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
+                or footprint > gp_const.MAXIMUM_SIZE_WORK_PACKAGE):
+            raise StateTransitionError(GuaranteeErrorCode.refine_load_too_high)
 
 
 
