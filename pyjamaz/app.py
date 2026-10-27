@@ -717,12 +717,13 @@ class PyjamazApp:
         return output
 
     async def store_block(self, block: Block):
+        block_bytes = block.to_jam_bytes().to_bytes()
         # Retain complete same-slot siblings by canonical identity (GP080 5.3).
-        self.block_db.put(b'block-by-hash:' + block.header.hash, block.to_jam_bytes().to_bytes())
+        self.block_db.put(b'block-by-hash:' + block.header.hash, block_bytes)
         # Keep the existing slot index for the main runtime's compatibility API.
         # Store block in DB
         self.block_db.put(
-            b'block:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.to_jam_bytes().to_bytes()
+            b'block:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block_bytes
         )
 
         await self.store_block_header(block.header)
