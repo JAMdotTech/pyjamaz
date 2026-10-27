@@ -374,7 +374,7 @@ class ServiceAccount(Serializable):
 
     @property
     def threshold_balance(self):
-        # GP-0.7.2-eq:9.8 (a_t)
+        # GP-0.8.0-eq:9.8 (a_t)
         return max(0,
             MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * self.footprint_storage_items +
             MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes - self.deposit_offset
@@ -1291,7 +1291,7 @@ class StatisticsState(State, Serializable):
 @dataclass
 class AccumulationQueueWorkPackage(Serializable):
     """
-    GP-0.8.0-eq:13.1 (ω) | A not yet accumulated work package.
+    GP-0.8.0-eq:12.3 (ω) | A not yet accumulated work package.
 
     Attributes
     ----------
@@ -1621,7 +1621,7 @@ class AccumulateContextItem:
 @dataclass
 class AccumulateInvocationContext(InvocationContext):
     """
-    GP-0.8.0-eq:B.8 (blackboard_L) | Invocation Result Context
+    GP-0.8.0-eq:B.4 (blackboard_L) | Invocation Result Context
     """
     context: AccumulateContextItem           # GP-0.8.0-eq:B.11 X_x
     savepoint_context: AccumulateContextItem # GP-0.8.0-eq:B.11 X_y

@@ -187,7 +187,7 @@ class AbstractMemory(ABC):
 
 @dataclass
 class PVMCode(Serializable):
-    # GP-0.8.0:eq:A.2 (deblob)
+    # GP-0.8.0-eq:A.2 (deblob)
     jump_table_entry_count: int = field(metadata={'codec': VarInt64})
     jump_table_entry_size: int = field(metadata={'codec': JU8})
     code_length: int = field(metadata={'codec': VarInt64})

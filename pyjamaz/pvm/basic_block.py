@@ -8,7 +8,7 @@ from pyjamaz.pvm.constants import TERMINATION_OPCODES, Opcode as op
 
 
 def decode_instructions(code, bitmask):
-    """GP-0.8.0:eq:A.2: validate the whole blob, including its final terminator."""
+    """GP-0.8.0-eq:A.2: validate the whole blob, including its final terminator."""
     positions, lengths = {}, []
     if len(code) == 0 or len(code) != len(bitmask):
         return positions, lengths, False

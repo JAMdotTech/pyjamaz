@@ -356,7 +356,7 @@ class Header(Serializable):
     @property
     def hash(self) -> bytes:
         """
-        Generates a hash of the header. GP-0.8.0-eq:5.2 E_U(H)
+        Generates a hash of the header. GP-0.8.0-eq:5.2 E(H)
 
         Returns
         -------

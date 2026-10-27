@@ -480,7 +480,7 @@ class PVMInterpreter:
     #     return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
 
-    #GP-0.8.0-section:A.22
+    #GP-0.8.0-eq:A.22
     def djump(self, a: int):
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitReason.halt.value

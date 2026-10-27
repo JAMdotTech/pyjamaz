@@ -407,7 +407,7 @@ class Safrole(StateComponent):
                 DEBUG and logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
                 DEBUG and logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
             else:
-                # When ticket accumulator is saturated and ticket mark is generated # GP-0.8.0-eq:6.24
+                # When ticket accumulator is saturated and ticket mark is generated # GP-0.8.0-eq:6.25
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
                     tickets=reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 )

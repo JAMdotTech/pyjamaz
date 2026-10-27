@@ -655,11 +655,11 @@ class Guarantee(Serializable):
     Attributes
     ----------
     report: pyjamaz.models.common.WorkReport
-        GP-0.8.0-eq:11.23 (bold_r) | A work report.
+        GP-0.8.0-eq:11.24 (bold_r) | A work report.
     slot: U32
-        GP-0.8.0-eq:11.23 (t) | A timeslot.
+        GP-0.8.0-eq:11.24 (t) | A timeslot.
     signatures: Vec(Credential)
-        GP-0.8.0-eq:11.23 (a) | A set of credentials.
+        GP-0.8.0-eq:11.24 (a) | A set of credentials.
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     slot: int = field(metadata={'codec': U32})

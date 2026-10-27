@@ -66,7 +66,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 hc_grow_heap(registers, memory, invocation_output, _pvm.log)
 
             case HostCallGeneral.gas.value:
-                #GP-0.8.0-eq:B.12 | G
+                #GP-0.8.0-eq:B.11 | G
                 hc_gas(registers, memory, invocation_output, _pvm.log)
 
             case HostCallGeneral.lookup.value:
@@ -314,7 +314,7 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
                 hc_gas(registers, memory, ctx_out, _pvm.log)
 
             case HostCallGeneral.fetch.value:
-                # GP-0.8.0-eq:B.2 | G
+                # GP-0.8.0-eq:B.2 | Ω_Y
                 hc_fetch(
                     registers=registers,
                     memory=memory,
@@ -447,7 +447,7 @@ class RefineInvocationMutator(InvocationMutator):
                 hc_gas(registers, memory, ctx_out, _pvm.log)
 
             case HostCallRefine.historical_lookup.value:
-                #GP-0.8.0-eq:B.6 | G
+                #GP-0.8.0-eq:B.6 | Ω_H
                 hc_historical_lookup(
                     registers=registers,
                     memory=memory,
