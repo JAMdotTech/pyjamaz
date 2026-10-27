@@ -67,9 +67,14 @@ class BlockValidation:
                 f'Validate ticket | Timeslot: {header.timeslot} | Ticket ID: {ticket.id.hex()} | Author: {author_key.hex()} | Entropy: {entropy.hex()} '
             )
             try:
-                self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+                seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
             except ValueError:
                 raise BlockValidationError("Invalid seal key")
+
+            # GP 6.16: a valid signature must identify the selected winning ticket.
+            if seal_vrf_output != ticket.id:
+                raise BlockValidationError("Seal does not match winning ticket")
+            self.block_context.seal_vrf_output = seal_vrf_output
 
         elif safrole_output.post_state.slot_sealer_series.keys is not None:
             # Fallback method

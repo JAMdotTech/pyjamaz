@@ -608,8 +608,8 @@ def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) ->
         header = known_headers[next_hash]
         if bytes(header.hash) != next_hash:
             raise ValueError("trace header does not match its indexed hash")
-        child_slot = headers[-1].timeslot if headers else block.header.timeslot
-        if header.timeslot >= child_slot:
+        # Check ancestry here; the candidate's slot is checked by block validation.
+        if headers and header.timeslot >= headers[-1].timeslot:
             raise ValueError("trace ancestor timeslots are not strictly increasing")
         headers.append(header)
         next_hash = bytes(header.parent)
