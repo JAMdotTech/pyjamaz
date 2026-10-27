@@ -2232,7 +2232,7 @@ class Services(StateComponent):
                 except StateKeyNoResult:
                     pass
 
-        # GP-0.6.0-eq:12.22
+        # GP-0.8.0-eq:12.24-12.26
         return ServicesAfterAccumulationOutput(
             intermediate_state_after_accumulation=output.post_accumulation_state.services,
             post_state_privileged_services=output.post_accumulation_state.privileged_services,

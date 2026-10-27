@@ -628,7 +628,7 @@ class PyjamazApp:
            beefy_commitment_map=services_after_accumulation_output.beefy_commitment_map
         )
 
-        # Accumulation History STF | GP-0.7.1-eq:???
+        # Accumulation History STF | GP-0.8.0-eq:12.31,12.32
         # TODO: general review of this section after 0.7.1
         accumulation_history_output = self.components.accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
@@ -636,7 +636,7 @@ class PyjamazApp:
             nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated
         )
 
-        # Accumulation Queue STF | GP-0.7.1-eq:???
+        # Accumulation Queue STF | GP-0.8.0-eq:12.33
         # TODO: general review of this section after 0.7.1
         accumulation_queue_output = self.components.accumulation_queue.state_transition(
             queued_work_reports=self.block_context.queued_work_reports,

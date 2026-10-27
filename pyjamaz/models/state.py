@@ -275,11 +275,6 @@ class RecentHistoryState(State, Serializable):
 
 
     def __post_init__(self):
-        # Todo: RecentHistory is allowed to have up to constant_H (HISTORY) items
-        # Todo: Arjan this is a Vec (variable size) since it contains less than 8 items for the first 8
-        #  blocks after genesis, so for the first 8 blocks it should have TAU entries and from block 9 and onwards it
-        #  should have exactly constant_H (8) entries.
-        #  GP-0.5.0-eq:D.2-C(3) states encoding is a Vec (i.e. has length definition)
         pass
 
     def get_recent_block(self, block_hash) -> Optional[RecentBlock]:
@@ -1185,7 +1180,7 @@ class CoreActivityRecord(Serializable):
 
     def update_from_incoming_work_reports(self, core_index: int, incoming_work_reports: List[WorkReport]):
         """
-        GP-0.8.0-eq:13.10 (R) | Updating core stats using incoming work-reports (bold_I) in extrinsic data (GP-0.7.0-eq:11.28)
+        GP-0.8.0-eq:13.10 (R) | Updating core stats using incoming work-reports (bold_I) in extrinsic data (GP-0.8.0-eq:11.30)
         """
         for w in incoming_work_reports:
             if w.core_index == core_index:
@@ -1199,7 +1194,7 @@ class CoreActivityRecord(Serializable):
 
     def update_from_available_work_reports(self, core_index: int, available_work_reports: List[WorkReport]):
         """
-        GP-0.8.0-eq:13.12 (D) | Updating core stats using available work-reports (bold_R) (GP-0.7.0-eq:11.16)
+        GP-0.8.0-eq:13.12 (D) | Updating core stats using available work-reports (bold_R) (GP-0.8.0-eq:11.17)
         """
         # GP-0.8.0-eq:13.12. Keep the ceiling operation in integer space:
         # protocol counts are integers and consensus arithmetic must not

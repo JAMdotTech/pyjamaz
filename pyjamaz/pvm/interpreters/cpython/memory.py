@@ -345,6 +345,6 @@ class PVMMemory(AbstractMemory):
     @staticmethod
     def zone_size(items: int) -> int:
         """
-        GP-0.6.2-eq:A.38 (Z)
+        GP-0.8.0-eq:A.44 (Z)
         """
         return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)

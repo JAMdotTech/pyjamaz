@@ -35,7 +35,7 @@ def validate_pvm_gas(gas: int) -> int:
 
 def page_size(bytes: int) -> int:
     """
-    GP-0.6.2-eq:A.38 (P)
+    GP-0.8.0-eq:A.44 (P)
     """
     return PVM_PAGE_SIZE * ceil(bytes / PVM_PAGE_SIZE)
 
@@ -147,7 +147,7 @@ class AbstractMemory(ABC):
     @staticmethod
     def zone_size(items: int) -> int:
         """
-        GP-0.6.2-eq:A.38 (Z)
+        GP-0.8.0-eq:A.44 (Z)
         """
         return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)
 
@@ -187,7 +187,7 @@ class AbstractMemory(ABC):
 
 @dataclass
 class PVMCode(Serializable):
-    # GP-6.4:eq:A.2 (deblob)
+    # GP-0.8.0:eq:A.2 (deblob)
     jump_table_entry_count: int = field(metadata={'codec': VarInt64})
     jump_table_entry_size: int = field(metadata={'codec': JU8})
     code_length: int = field(metadata={'codec': VarInt64})

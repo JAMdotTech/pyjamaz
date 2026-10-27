@@ -291,12 +291,12 @@ class ServicesErrorCode(Serializable, enum.Enum):
 @dataclass
 class ServicesAfterPreimagesOutput(Serializable):
     """
-    GP-0.5.0-eq:4.?? (δ') | Output of ServicesAfterPreimages STF.
+    GP-0.8.0-eq:4.18 (δ') | Output of ServicesAfterPreimages STF.
 
     Attributes
     ----------
     post_state:ServicesState
-        GP-0.5.0-eq:4.?? (δ') | Primary output of ServicesAfterPreimages STF.
+        GP-0.8.0-eq:4.18 (δ') | Primary output of ServicesAfterPreimages STF.
     """
     # TODO: deprecated?
     post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
@@ -305,24 +305,24 @@ class ServicesAfterPreimagesOutput(Serializable):
 @dataclass
 class ServicesAfterAccumulationOutput(Serializable):
     """
-    GP-0.5.0-eq:4.18 (δ†) | Output of Services STF.
+    GP-0.8.0-eq:4.16 (δ†) | Output of Services STF.
 
     Attributes
     ----------
     intermediate_state_after_accumulation: ServicesState
-        GP-0.6.1-eq:12.22 (δ†) | Primary output of Services STF.
+        GP-0.8.0-eq:12.26 (δ†) | Primary output of Services STF.
     post_state_privileged_services: PrivilegedServicesState
-        GP-0.6.1-eq:12.22 (χ') | Posterior state of privileged services
+        GP-0.8.0-eq:12.26 (χ') | Posterior state of privileged services
     post_state_validator_queue: ValidatorQueueState
-        GP-0.6.1-eq:12.22 (ι') | Posterior state of validator queue
+        GP-0.8.0-eq:12.26 (ι') | Posterior state of validator queue
     post_state_authorizer_queues: AuthorizerQueuesState
-        GP-0.6.1-eq:12.22 (𝜙') | Posterior state of authorizer queues
+        GP-0.8.0-eq:12.26 (𝜙') | Posterior state of authorizer queues
     beefy_commitment_map: BeefyCommitmentMap
-        GP-0.6.1-eq:12.21 (C) | Secondary output of Services STF, BeefyCommitmentMap.
+        GP-0.8.0-eq:12.25 (C) | Secondary output of Services STF, BeefyCommitmentMap.
     nr_work_results_accumulated: int
-        GP-0.6.1-eq:12.21 (n) | Number of work results accumulated
+        GP-0.8.0-eq:12.24 (n) | Number of work results accumulated
     accumulation_gas_utilized: Dict[int, int]
-        GP-0.6.4-eq:12.21 (bold_u) | accumulation gas utilized per service
+        GP-0.8.0-eq:12.24 (bold_u) | accumulation gas utilized per service
 
     """
     # TODO: deprecated?
