@@ -190,7 +190,7 @@ class PVMInterpreter:
         self.gas = i64(0)
 
         self.name = program.name
-        # GP-0.7.2:A.4 - Store original code and add synthetic trap
+        # GP-0.8.0-eq:A.4 - Store original code and add synthetic trap
         self.code = bytearray(program.code.code)
         self.code_length = len(self.code)  # Original length BEFORE synthetic trap
         self.code.extend(bytes(25))  # Zero padding for truncated operands (A.6)
@@ -224,7 +224,7 @@ class PVMInterpreter:
 
     def _calculate_basic_block_gas(self):
         """
-        GP-0.7.2-section:A.3 - Calculate gas costs for all basic blocks.
+        GP-0.8.0-section:A.9 - Calculate gas costs for all basic blocks.
         Uses the shared detect_basic_blocks function from basic_block module.
         """
         if not self.gas_model:
@@ -480,7 +480,7 @@ class PVMInterpreter:
     #     return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
 
-    #GP-0.7.2-section:A.18
+    #GP-0.8.0-section:A.22
     def djump(self, a: int):
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitReason.halt.value
@@ -521,7 +521,7 @@ class PVMInterpreter:
 
 
     def next_instruction(self):
-        # GP-0.7.2-eq:A.35 (hostcall mutator returns continue/resume)
+        # GP-0.8.0-eq:A.38 (hostcall mutator returns continue/resume)
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.mv_inst_arg_len[inst_index] + 1
         self.pc = u32(self.pc + self.skip_len)
@@ -587,7 +587,7 @@ class PVMInterpreter:
                 break
 
             # Gas model: find containing basic block and charge gas
-            # GP-0.7.2-section:A.3 - Charge when entering a block at its start
+            # GP-0.8.0-eq:A.8 - Charge when entering a block at its start
             if basic_block_starts_sorted:
                 block_start = get_block_start(basic_block_starts_sorted, pc_local)
 
@@ -625,7 +625,7 @@ class PVMInterpreter:
                 fault_addr = self._mem_addr
                 if fault_addr is not None and fault_addr >= 0:
                     # Note: extra safety check, should normally be handled by PVMMmemory, better safe than sorry ;)
-                    # GP-0.7.2:A.8 - memory accesses to < 2^16 panic immediately.
+                    # GP-0.8.0-eq:A.9 - memory accesses to < 2^16 panic immediately.
                     if 0 <= fault_addr < 2 ** 16:
                         status = exit_panic
                         self.exit_value = None

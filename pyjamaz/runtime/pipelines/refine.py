@@ -107,7 +107,7 @@ class RefinePipeline:
 
             work_package = wp_item.work_package
 
-            # Prepare extrinsic data (GP-0.7.2-eq:B.6 bold_x_flat)
+            # Prepare extrinsic data (GP-0.8.0-eq:B.6 bold_x_flat)
             extrinsics = [
                 [self._work_package_extrinsics.get(work_package, x.hash, x.len) for x in w.extrinsic]
                 for w in work_package.items

@@ -1,5 +1,5 @@
 """
-GP-0.7.2-section:A.3 - Basic Blocks and Termination Instructions
+GP-0.8.0-section:A.3 - Basic Blocks and Termination Instructions
 """
 import bisect
 from typing import Dict, List, Set
@@ -8,7 +8,7 @@ from pyjamaz.pvm.constants import TERMINATION_OPCODES, Opcode as op
 
 
 def decode_instructions(code, bitmask):
-    """Graypaper 0.8 A.2: validate the whole blob, including its final terminator."""
+    """GP-0.8.0:eq:A.2: validate the whole blob, including its final terminator."""
     positions, lengths = {}, []
     if len(code) == 0 or len(code) != len(bitmask):
         return positions, lengths, False
