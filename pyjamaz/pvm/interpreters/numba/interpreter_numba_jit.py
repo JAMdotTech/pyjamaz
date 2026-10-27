@@ -73,10 +73,9 @@ _CODE_METADATA_CACHE: dict[int, dict] = {}
 _CODE_METADATA_CACHE_LIMIT = 64
 
 
-# Note: since numba doesnt support fancy data structures, we implement
-#       a simple binary search to find which basic block contains the given PC
 @njit(int32(int32[::1], int32), cache=NUMBA_CACHE)
-def get_block_start_jit(block_starts_sorted: npt.NDArray[np.int32], pc: I32) -> I32:
+def get_block_index_jit(block_starts_sorted: npt.NDArray[np.int32], pc: I32) -> I32:
+    """Find the containing block's index for both its start and gas cost."""
     n = len(block_starts_sorted)
     if n == 0:
         return I32(-1)
@@ -91,12 +90,8 @@ def get_block_start_jit(block_starts_sorted: npt.NDArray[np.int32], pc: I32) -> 
         else:
             hi = mid
 
-    # lo - 1 is the index of the largest block_start <= pc
-    idx = lo - 1
-    if idx >= 0:
-        return block_starts_sorted[idx]
-
-    return I32(-1)
+    # -1 when no block starts at or before pc.
+    return I32(lo - 1)
 
 
 TERMINATORS = tuple(TERMINATION_OPCODES)
@@ -520,24 +515,15 @@ def invoke_native(
 
         # GP-0.7.2-section:A.3 - charge when entering a new basic block
         if n_blocks > 0:
-            block_start = get_block_start_jit(block_starts_sorted, I32(pc))
-            if block_start >= 0:
-                charge_block = current_block_start < 0
+            block_idx = get_block_index_jit(block_starts_sorted, I32(pc))
+            if block_idx >= 0:
+                if current_block_start < 0:
+                    block_cost = U64(block_gas_costs[block_idx])
+                    if gas < block_cost:
+                        return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE, current_block_start)
+                    gas = U64(gas - block_cost)
 
-                if charge_block:
-                    # Find block index for gas cost lookup
-                    block_idx = I32(-1)
-                    for i in range(n_blocks):
-                        if block_starts_sorted[i] == block_start:
-                            block_idx = I32(i)
-                            break
-                    if block_idx >= 0:
-                        block_cost = U64(block_gas_costs[block_idx])
-                        if gas < block_cost:
-                            return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE, current_block_start)
-                        gas = U64(gas - block_cost)
-
-                current_block_start = block_start
+                current_block_start = block_starts_sorted[block_idx]
 
         # Clear skip flag after first iteration (must be outside gas model check)
         skip_block_charge = False
