@@ -83,6 +83,19 @@ elif TEST_SUITE == 'fuzz':
 # GP-0.8.0-eq:14.7 | Imported segment plus its maximum Merkle-proof footprint (WF).
 IMPORT_SEGMENT_FOOTPRINT = EC_SEGMENT_SIZE + 32 * (MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE - 1).bit_length()
 
+# Conservative GP 0.8.0 serialized-bundle bound, rather than the 14.6 content
+# footprint alone. C.5 permits four-byte blob prefixes (WB < 2**28), two-byte
+# import/extrinsic counts, and one-byte item/prerequisite/proof counts.
+MAXIMUM_SIZE_AUDITABLE_BUNDLE = (
+    MAXIMUM_SIZE_WORK_PACKAGE
+    + 4 + 32  # C.31: authorization service and code hash.
+    + 5 * 32 + 2 * 4 + 1 + 32 * MAXIMUM_DEPENDENCIES_WORK_REPORT  # C.26: context.
+    + 2 * 4 + 1  # C.31: token/configuration prefixes and item count.
+    + MAXIMUM_WORK_ITEMS * (4 + 32 + 8 + 8 + 2 + 4 + 2 + 2)  # C.32: item metadata.
+    + MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE * (32 + 2 + 1)  # C.37/14.15: references, proof counts.
+    + MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE * (32 + 4)  # C.32: extrinsic manifests.
+)
+
 
 def valid_validator_count(count: int, *, core_count: int = CORE_COUNT) -> bool:
     return (

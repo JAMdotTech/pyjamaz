@@ -5,16 +5,14 @@ from copy import deepcopy
 from os import path
 from types import SimpleNamespace
 from typing import Optional
-from unittest.mock import patch
 
 from parameterized import parameterized
 
-import pyjamaz.settings as settings
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
-from pyjamaz.models.common import WorkReport
+from pyjamaz.models.common import WorkReport, WorkPackage, WorkItem, ImportSegment, WorkItemExtrinsic, RefinementContext
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
     ServiceAccount, PendingChanges, AccumulationQueueState
@@ -262,27 +260,22 @@ class TestReports(unittest.TestCase):
         vector['output']['ok']['reporters'] = sorted(reporters)
 
     @parameterized.expand([
-        ('zero', [0], True, '0.8.0', False),
-        ('below_budget', [GAS_INVOKE - 1], True, '0.8.0', False),
-        ('exact_budget', [GAS_INVOKE], True, '0.8.0', False),
-        ('above_budget', [GAS_INVOKE + 1], True, '0.8.0', True),
-        ('uint64_max', [2**64 - 1], True, '0.8.0', True),
-        ('independent_reports', [GAS_INVOKE, GAS_INVOKE], True, '0.8.0', False),
-        ('second_report_above_budget', [GAS_INVOKE, GAS_INVOKE + 1], True, '0.8.0', True),
-        ('compat_disabled', [2**64 - 1], False, '0.8.0', False),
-        ('other_gp_version', [GAS_INVOKE + 1], True, '0.7.2', False),
+        ('zero', [0], False),
+        ('below_budget', [GAS_INVOKE - 1], False),
+        ('exact_budget', [GAS_INVOKE], False),
+        ('above_budget', [GAS_INVOKE + 1], True),
+        ('uint64_max', [2**64 - 1], True),
+        ('independent_reports', [GAS_INVOKE, GAS_INVOKE], False),
+        ('second_report_above_budget', [GAS_INVOKE, GAS_INVOKE + 1], True),
     ])
-    def test_authorization_gas_limit(self, name, gas_amounts, compatibility, gp_version, rejected):
+    def test_authorization_gas_limit(self, name, gas_amounts, rejected):
         vector = self.authorization_gas_vector(gas_amounts)
         if rejected:
             vector['output'] = {'err': 'authorizer_gas_too_high'}
             vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
-        with patch.object(settings, 'GP080_AUTH_GAS_LIMIT_COMPAT', compatibility), \
-                patch.object(settings, 'GP_VERSION', gp_version):
-            self.check_vector(name, vector)
+        self.check_vector(name, vector)
 
-    def check_refinement_load_vector(self, loads_by_report, rejected, *, compatibility=True,
-                                     gp_version='0.8.0', failed=False):
+    def check_refinement_load_vector(self, loads_by_report, rejected, *, failed=False):
         filename = 'multiple_reports-1.json' if len(loads_by_report) > 1 else 'report_curr_rotation-1.json'
         vector = self.load_test_vector_data(filename)
         fields = ('gas_used', 'imports', 'exports', 'extrinsic_count', 'extrinsic_size')
@@ -299,15 +292,15 @@ class TestReports(unittest.TestCase):
         if rejected:
             vector['output'] = {'err': 'refine_load_too_high'}
             vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
-        with patch.object(settings, 'GP080_REFINE_LOAD_LIMITS_COMPAT', compatibility), \
-                patch.object(settings, 'GP_VERSION', gp_version):
-            self.check_vector('refinement load', vector)
+        self.check_vector('refinement load', vector)
 
     @parameterized.expand([
         ('zero', [[{}]], False),
-        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], False),
+        ('gas_below_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}]], False),
+        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], True),
         ('gas_above_limit', [[{'gas_used': gp_const.GAS_REFINE + 1}]], True),
-        ('gas_split_above_limit', [[{'gas_used': gp_const.GAS_REFINE}, {'gas_used': 1}]], True),
+        ('gas_split_at_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 1}]], True),
+        ('gas_split_above_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 2}]], True),
         ('imports_at_limit', [[{'imports': 3072}]], False),
         ('imports_above_limit', [[{'imports': 3073}]], True),
         ('imports_split_above_limit', [[{'imports': 1536}, {'imports': 1537}]], True),
@@ -323,7 +316,7 @@ class TestReports(unittest.TestCase):
         ('footprint_at_limit', [[{'imports': 3072, 'extrinsic_size': 4224}]], False),
         ('footprint_above_limit', [[{'imports': 3072, 'extrinsic_size': 4225}]], True),
         ('footprint_split_above_limit', [[{'imports': 3072}, {'extrinsic_size': 4225}]], True),
-        ('independent_reports', [[{'gas_used': gp_const.GAS_REFINE, 'imports': 3072, 'exports': 3072,
+        ('independent_reports', [[{'gas_used': gp_const.GAS_REFINE - 1, 'imports': 3072, 'exports': 3072,
                                    'extrinsic_count': 128, 'extrinsic_size': 4224}]] * 2, False),
         ('second_report_above_limit', [[{}], [{'imports': 3073}]], True),
     ])
@@ -335,18 +328,68 @@ class TestReports(unittest.TestCase):
     def test_refinement_load_sums_do_not_wrap_uint64(self, field):
         self.check_refinement_load_vector([[{field: 2**64 - 1}, {field: 1}]], rejected=True)
 
-    @parameterized.expand([
-        ('compat_disabled', False, '0.8.0'),
-        ('other_gp_version', True, '0.7.2'),
-    ])
-    def test_refinement_load_policy_scope(self, name, compatibility, gp_version):
-        self.check_refinement_load_vector([[{'imports': 3073, 'gas_used': gp_const.GAS_REFINE + 1}]],
-                                         rejected=False, compatibility=compatibility, gp_version=gp_version)
-
     @parameterized.expand([(False,), (True,)])
     def test_refinement_load_includes_failed_results(self, rejected):
         self.check_refinement_load_vector([[{'imports': 3073 if rejected else 1,
-                                            'gas_used': gp_const.GAS_REFINE}]], rejected, failed=True)
+                                            'gas_used': gp_const.GAS_REFINE - 1}]], rejected, failed=True)
+
+    def test_refinement_gas_at_limit_is_rejected_for_failed_results(self):
+        self.check_refinement_load_vector([[{'gas_used': gp_const.GAS_REFINE}]], rejected=True, failed=True)
+
+    def check_bundle_length_vector(self, lengths, rejected):
+        filename = 'multiple_reports-1.json' if len(lengths) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        for guarantee, length in zip(vector['input']['guarantees'], lengths, strict=True):
+            guarantee['report']['package_spec']['length'] = length
+        self.resign_guarantees(vector)
+        if rejected:
+            vector['output'] = {'err': 'bundle_length_too_high'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        self.check_vector('auditable bundle length', vector)
+
+    @parameterized.expand([
+        ('zero', [0], False),
+        ('footprint_limit', [13791360], False),
+        ('serialized_limit', [13904950], False),
+        ('above_limit', [13904951], True),
+        ('uint32_max', [2**32 - 1], True),
+        ('independent_reports', [13904950, 13904950], False),
+        ('second_report_above_limit', [17180, 13904951], True),
+    ])
+    def test_bundle_length_limit(self, name, lengths, rejected):
+        self.check_bundle_length_vector(lengths, rejected)
+
+    def bundle_length_test_package(self, items, *, authorization=b'', config=b'', prerequisites=()):
+        vector = self.load_test_vector_data('report_curr_rotation-1.json')
+        context = RefinementContext.from_json(vector['input']['guarantees'][0]['report']['context'])
+        context.prerequisites = list(prerequisites)
+        return WorkPackage(auth_code_host=42, auth_code_hash=bytes(32), context=context,
+                           authorization=authorization, authorizer_config=config, items=items)
+
+    def test_bundle_length_allows_serialization_above_footprint_limit(self):
+        item = WorkItem(service=42, code_hash=bytes(32), refine_gas_limit=1, accumulate_gas_limit=1,
+                        export_count=0, payload=bytes(gp_const.MAXIMUM_SIZE_WORK_PACKAGE),
+                        import_segments=[], extrinsic=[])
+        package = self.bundle_length_test_package([item])
+        # With no imported/extrinsic content, GP 14.16 is just E(package).
+        length = package.to_jam_bytes().length
+        self.assertEqual(length, gp_const.MAXIMUM_SIZE_WORK_PACKAGE + 268)
+        self.check_bundle_length_vector([length], rejected=False)
+
+    def test_bundle_length_allows_maximal_manifest_overhead(self):
+        items = [WorkItem(service=42, code_hash=bytes(32), refine_gas_limit=1, accumulate_gas_limit=1,
+                          export_count=0, payload=bytes(248),
+                          import_segments=[ImportSegment.from_segment_root(bytes(32), 0)] * 192,
+                          extrinsic=[]) for _ in range(16)]
+        items[0].extrinsic = [WorkItemExtrinsic.from_blob(b'')] * 128
+        package = self.bundle_length_test_package(items, authorization=bytes(128), config=bytes(128),
+                                                 prerequisites=[bytes([i]) * 32 for i in range(8)])
+        self.assertEqual(16 * 248 + 128 + 128 + 3072 * 4488, gp_const.MAXIMUM_SIZE_WORK_PACKAGE)
+        # GP 14.16 appends raw segments and 12-hash paths, each with one
+        # length byte. Empty extrinsic bodies add no bytes to the bundle.
+        length = package.to_jam_bytes().length + 3072 * (4104 + 1 + 12 * 32)
+        self.assertEqual(length, 13904899)
+        self.check_bundle_length_vector([length], rejected=False)
 
     def test_missing_lookup_ancestry_is_rejected_by_default(self):
         vector = self.load_test_vector_data('report_curr_rotation-1.json')

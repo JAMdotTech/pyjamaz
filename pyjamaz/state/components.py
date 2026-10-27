@@ -9,7 +9,6 @@ from bandersnatch_vrfs import RingContext, ietf_vrf_verify
 from ed25519_zebra import ed_verify
 
 import pyjamaz.graypaper_constants as gp_const
-import pyjamaz.settings as settings
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, edit_queue)
 from pyjamaz.constants import MESSAGE_TYPES
@@ -990,6 +989,7 @@ class Assurances(StateComponent):
             # GP-0.7.2-eq:11.30 | Work report respects gas requirements
             self.check_gas_requirements(w, pre_services_state)
             self.check_refinement_load(w)
+            self.check_bundle_length(w)
             # GP-0.7.2-eq:11.3 | Work report respects dependency limit
             if w.dependency_count() > gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT:
                 raise StateTransitionError(GuaranteeErrorCode.too_many_dependencies)
@@ -1252,11 +1252,9 @@ class Assurances(StateComponent):
         -------
 
         """
-        # Compatibility rule: B.1 supplies GI and A.48 caps consumed gas at
-        # that budget. Printed 0.8.0 Chapter 11 does not explicitly impose
-        # this bound on the reported authorization gas
-        if (settings.GP_VERSION == '0.8.0' and settings.GP080_AUTH_GAS_LIMIT_COMPAT
-                and work_report.auth_gas_used > gp_const.GAS_INVOKE):
+        # GP B.1/A.48 cap consumed authorization gas at GI; 14.13 copies it
+        # into the report. Exactly the supplied budget is permitted.
+        if work_report.auth_gas_used > gp_const.GAS_INVOKE:
             raise StateTransitionError(GuaranteeErrorCode.authorizer_gas_too_high)
 
         total_gas = 0
@@ -1283,10 +1281,7 @@ class Assurances(StateComponent):
 
     @staticmethod
     def check_refinement_load(work_report: WorkReport) -> None:
-        """Compatibility admission bounds derived from GP 0.8.0 14.5-14.10."""
-        if settings.GP_VERSION != '0.8.0' or not settings.GP080_REFINE_LOAD_LIMITS_COMPAT:
-            return
-
+        """Validate per-report refinement-load bounds from GP 14.5-14.10."""
         # Counts describe work-item manifests even when refinement failed.
         loads = [result.refine_load for result in work_report.results]
         gas_used = sum(load.gas_used for load in loads)
@@ -1298,9 +1293,9 @@ class Assurances(StateComponent):
         # Equation 14.6 also includes nonnegative payload/token/config bytes
         # absent from the report, so this is a necessary footprint bound.
         footprint = imports * gp_const.IMPORT_SEGMENT_FOOTPRINT + extrinsic_size
-        # Keep exact GR admissible: the traces establish only the excess case.
-        # Equation 14.9's stricter package-budget rule is documented separately.
-        if (gas_used > gp_const.GAS_REFINE
+        # GP 14.9 strictly bounds total budgets below GR; B.5/A.48 ensure
+        # each invocation's consumption is no greater than its budget.
+        if (gas_used >= gp_const.GAS_REFINE
                 or imports > gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE
                 or exports > gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
                 or extrinsic_count > gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
@@ -1308,6 +1303,12 @@ class Assurances(StateComponent):
             raise StateTransitionError(GuaranteeErrorCode.refine_load_too_high)
 
 
+
+    @staticmethod
+    def check_bundle_length(work_report: WorkReport) -> None:
+        """Validate the derived serialized-bundle bound from GP 14.16/14.18."""
+        if work_report.package_spec.length > gp_const.MAXIMUM_SIZE_AUDITABLE_BUNDLE:
+            raise StateTransitionError(GuaranteeErrorCode.bundle_length_too_high)
 
     @staticmethod
     def work_packages_exists_in_pipeline(

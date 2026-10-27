@@ -266,6 +266,7 @@ class GuaranteeErrorCode(Serializable, enum.Enum):
     bad_erasure_shards = 27
     authorizer_gas_too_high = 28
     refine_load_too_high = 29
+    bundle_length_too_high = 30
 
 
 @dataclass
