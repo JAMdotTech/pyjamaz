@@ -1885,6 +1885,14 @@ class PVMInterpreter:
         self.current_block_start = -1
 
     def _link_memory(self, memory):
+        # Views share the mmap contents. Rebuild only when the backing memory
+        # or page permissions change, including direct edits to the ACL sets.
+        pages_r = memory.pages_r
+        pages_w = memory.pages_w
+        signature = (memory, id(memory._mm), frozenset(pages_r), frozenset(pages_w))
+        if signature == self._linked_memory_signature:
+            return
+
         # Store memory sections as numpy arrays with their boundaries
         mem_section_starts = []
         mem_section_ends = []  # This will use paged_tail, not size
@@ -1904,10 +1912,7 @@ class PVMInterpreter:
 
         # Note: CPYTHON memory tracks accessibility in page ACL sets (pages_r/pages_w). For inner PVM pages
         # allocated via hc_pages this can be the only source of truth, so synthesize JIT-visible sections from it.
-        pages_r = getattr(memory, "pages_r", None)
         if pages_r:
-            pages_w = getattr(memory, "pages_w", set())
-
             def addr_is_covered(addr: int) -> bool:
                 for start, end in zip(mem_section_starts, mem_section_ends):
                     s = int(start)
@@ -1973,6 +1978,7 @@ class PVMInterpreter:
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
         self._jit_acl_bitmaps_cache = None
+        self._linked_memory_signature = signature
 
 
     def _prepare_jit_data(self):
@@ -2180,16 +2186,16 @@ class PVMInterpreter:
         # to execute from the specified PC. Otherwise use the saved skip_len.
         initial_skip_len = 0 if skip_first_block_charge else int(self.skip_len)
 
-        # Re-link memory to pick up any sections added via map_section() after init
-        self._link_memory(self.mem)
-
         # Prepare memory arrays for JIT
         mem_section_starts, mem_section_ends, section_arrays, section_access, acl_bitmaps = self._prepare_memory_for_jit()
 
-        registers_out = np.zeros(13, dtype=np.uint64)
+        registers_out = self._registers_out
         # state_out holds: [status, pc, gas, inst_nr, exit_value, skip_len, error_code, current_block_start]
-        state_out = np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.int64)
-        heap_grew_out = np.array([0], dtype=np.int64)
+        state_out = self._state_out
+        heap_grew_out = self._heap_grew_out
+        # The kernel overwrites registers/state on every exit. Reset the
+        # optional growth output so a previous invocation cannot leak through.
+        heap_grew_out[0] = 0
 
         # Call the Numba compiled invoke function
         error_code = invoke_native(
@@ -2274,13 +2280,8 @@ class PVMInterpreter:
         if len(self.mem_section_ends) > 1:
             self.mem_section_ends[1] = self.heap_info[0]
 
-        # Always sync the heap buffer reference from the JIT to avoid losing writes.
-        if section_arrays is not None and len(section_arrays) > 1:
-            self.mem_sections[1] = section_arrays[1]
-            self._jit_mem_cache_dirty = True
-        if acl_bitmaps is not None and len(acl_bitmaps) > 1:
-            self.mem_section_acl[1] = acl_bitmaps[1]
-            self._jit_mem_cache_dirty = True
+        # Native writes already update the shared mmap views. Keep the typed
+        # lists cached; _link_memory detects layout changes before the next run.
 
         growth_bytes = int(heap_grew_out[0])
         if growth_bytes > 0 and hasattr(self.mem, "change_acl"):
