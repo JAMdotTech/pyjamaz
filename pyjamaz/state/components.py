@@ -988,6 +988,8 @@ class Assurances(StateComponent):
             self.check_size_limit(w)
             # GP-0.7.2-eq:11.30 | Work report respects gas requirements
             self.check_gas_requirements(w, pre_services_state)
+            self.check_refinement_load(w)
+            self.check_bundle_length(w)
             # GP-0.7.2-eq:11.3 | Work report respects dependency limit
             if w.dependency_count() > gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT:
                 raise StateTransitionError(GuaranteeErrorCode.too_many_dependencies)
@@ -1125,6 +1127,11 @@ class Assurances(StateComponent):
                 ):
                     raise StateTransitionError(GuaranteeErrorCode.dependency_missing)
 
+        # Preserve the preceding validation errors, then require each report's
+        # availability count to agree with its digests before installation.
+        for work_report in work_reports:
+            self.check_export_count(work_report)
+
 
     def get_guarantor_assignments(
             self, guarantee: Guarantee, post_state_timeslot: TimeslotState
@@ -1239,7 +1246,7 @@ class Assurances(StateComponent):
 
     def check_gas_requirements(self, work_report: WorkReport, services_state: ServicesState):
         """
-        GP-0.7.2-eq:11.30 | Work report respects gas requirements
+        GP-0.8.0-eq:11.33 | Work report respects accumulation gas requirements
 
         Parameters
         ----------
@@ -1250,6 +1257,11 @@ class Assurances(StateComponent):
         -------
 
         """
+        # GP B.1/A.48 cap consumed authorization gas at GI; 14.13 copies it
+        # into the report. Exactly the supplied budget is permitted.
+        if work_report.auth_gas_used > gp_const.GAS_INVOKE:
+            raise StateTransitionError(GuaranteeErrorCode.authorizer_gas_too_high)
+
         total_gas = 0
 
         for result in work_report.results:
@@ -1272,7 +1284,45 @@ class Assurances(StateComponent):
             if total_gas > gp_const.GAS_ACCUMULATION:
                 raise StateTransitionError(GuaranteeErrorCode.work_report_gas_too_high)
 
+    @staticmethod
+    def check_refinement_load(work_report: WorkReport) -> None:
+        """Validate per-report refinement-load bounds from GP 14.5-14.10."""
+        # Counts describe work-item manifests even when refinement failed.
+        loads = [result.refine_load for result in work_report.results]
+        gas_used = sum(load.gas_used for load in loads)
+        imports = sum(load.imports for load in loads)
+        exports = sum(load.exports for load in loads)
+        extrinsic_count = sum(load.extrinsic_count for load in loads)
+        extrinsic_size = sum(load.extrinsic_size for load in loads)
 
+        # Equation 14.6 also includes nonnegative payload/token/config bytes
+        # absent from the report, so this is a necessary footprint bound.
+        footprint = imports * gp_const.IMPORT_SEGMENT_FOOTPRINT + extrinsic_size
+        # GP 14.9 strictly bounds total budgets below GR; B.5/A.48 ensure
+        # each invocation's consumption is no greater than its budget.
+        if (gas_used >= gp_const.GAS_REFINE
+                or imports > gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE
+                or exports > gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
+                or extrinsic_count > gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
+                or footprint > gp_const.MAXIMUM_SIZE_WORK_PACKAGE):
+            raise StateTransitionError(GuaranteeErrorCode.refine_load_too_high)
+
+
+
+    @staticmethod
+    def check_bundle_length(work_report: WorkReport) -> None:
+        """Validate the derived serialized-bundle bound from GP 14.16/14.18."""
+        if work_report.package_spec.length > gp_const.MAXIMUM_SIZE_AUDITABLE_BUNDLE:
+            raise StateTransitionError(GuaranteeErrorCode.bundle_length_too_high)
+
+    @staticmethod
+    def check_export_count(work_report: WorkReport) -> None:
+        """GP 14.10/14.13/14.18: availability counts all digest exports."""
+        # Failed results retain their manifest count: report construction
+        # supplies that many zero segments under GP 14.13.
+        exports = sum(result.refine_load.exports for result in work_report.results)
+        if work_report.package_spec.exports_count != exports:
+            raise StateTransitionError(GuaranteeErrorCode.exports_count_mismatch)
 
     @staticmethod
     def work_packages_exists_in_pipeline(
@@ -1492,7 +1542,7 @@ class Disputes(StateComponent):
             pre_state_disputes: DisputesState
     ) -> DisputesOutput:
         """
-        GP-0.7.2-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
+        GP-0.8.0-eq:10.15--10.19 | State transition function for the state's disputes.
 
         Parameters
         ----------
@@ -1510,6 +1560,9 @@ class Disputes(StateComponent):
         self.output = DisputesOutput(
             post_state=deepcopy(pre_state_disputes), offenders_mark=[]
         )
+        # GP-0.8.0-eq:10.6--10.7: both evidence lists exclude the prior
+        # punish-set, including when the same key appears once in each list.
+        self._prior_offenders = frozenset(bytes(key) for key in pre_state_disputes.offenders)
 
         # GP-0.7.2-eq:10.2 | Check if all culprits have valid signatures
         if not all(c.has_valid_signature() for c in extrinsic_disputes.culprits):
@@ -1696,10 +1749,13 @@ class Disputes(StateComponent):
         return not any(f.vote for f in faults)
 
     def add_offender(self, offender_key: bytes):
-        if offender_key in self.output.post_state.offenders:
+        if offender_key in self._prior_offenders:
             raise StateTransitionError(DisputesErrorCode.offender_already_reported)
+        # GP-0.8.0-eq:10.19 concatenates the evidence sequences, preserving
+        # overlap; 10.18 unions the posterior punish-set without duplicates.
         self.output.offenders_mark.append(offender_key)
-        bisect.insort(self.output.post_state.offenders, offender_key)
+        if offender_key not in self.output.post_state.offenders:
+            bisect.insort(self.output.post_state.offenders, offender_key)
 
     def add_culprit(self, culprit: Culprit):
 
@@ -1709,7 +1765,7 @@ class Disputes(StateComponent):
             raise StateTransitionError(DisputesErrorCode.culprits_verdict_not_bad)
 
     def add_fault(self, fault: Fault):
-        # GP-0.8.0-eq:10.6: the proven judgment must contradict the
+        # GP-0.8.0-eq:10.7: the proven judgment must contradict the
         # established verdict. A false vote contradicts a good verdict, and a
         # true vote contradicts a bad verdict. Faults against wonky or unknown
         # reports are not evidence of an offence.

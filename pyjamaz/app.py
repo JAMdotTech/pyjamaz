@@ -1311,17 +1311,19 @@ class PyjamazApp:
                 extrinsics=extrinsics
             )
 
+            # GP 14.13 replaces every failed item's exports with exactly its
+            # declared number of zero segments, preserving subsequent indices.
             if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
                 work_exec_result = WorkExecResult(digest_oversize=True)
-                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+                export_segments = [bytes(EC_SEGMENT_SIZE)] * work_item.export_count
 
             elif len(refine_output.export_segments) != work_item.export_count:
                 work_exec_result = WorkExecResult(bad_exports=True)
-                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+                export_segments = [bytes(EC_SEGMENT_SIZE)] * work_item.export_count
 
             elif refine_output.work_exec_result.ok is None:
                 work_exec_result = refine_output.work_exec_result
-                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+                export_segments = [bytes(EC_SEGMENT_SIZE)] * work_item.export_count
 
             else:
                 work_exec_result = refine_output.work_exec_result

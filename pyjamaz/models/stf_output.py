@@ -264,6 +264,10 @@ class GuaranteeErrorCode(Serializable, enum.Enum):
     missing_work_results = 25
     bad_anchor_slot = 26
     bad_erasure_shards = 27
+    authorizer_gas_too_high = 28
+    refine_load_too_high = 29
+    bundle_length_too_high = 30
+    exports_count_mismatch = 31
 
 
 @dataclass

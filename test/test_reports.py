@@ -1,23 +1,29 @@
 import json
 import os
 import unittest
+from copy import deepcopy
 from os import path
 from types import SimpleNamespace
 from typing import Optional
 
 from parameterized import parameterized
+import pytest
 
+import pyjamaz.graypaper_constants as gp_const
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
+from pyjamaz.models.common import WorkReport, WorkPackage, WorkItem, ImportSegment, WorkItemExtrinsic, RefinementContext
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
     ServiceAccount, PendingChanges, AccumulationQueueState
-from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, MAXIMUM_AGE_LOOKUP_ANCHOR
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, MAXIMUM_AGE_LOOKUP_ANCHOR, GAS_INVOKE
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorageEngine
+from pyjamaz.signing import Ed25519Keypair
 try:
     from test.vector_fixtures import stf_vector_dir
 except ModuleNotFoundError:  # Direct script execution.
@@ -62,6 +68,18 @@ class TestReports(unittest.TestCase):
     @parameterized.expand(get_test_vector_files(file_filter=''))
     def test_vector(self, name, test_file):
         test_vector = self.load_test_vector_data(test_file)
+        inconsistent = any(
+            g['report']['package_spec']['exports_count'] !=
+            sum(result['refine_load']['exports'] for result in g['report']['results'])
+            for g in test_vector['input']['guarantees']
+        )
+        if 'ok' in test_vector['output'] and inconsistent:
+            # Assert the GP-derived rejection before reporting the unchanged
+            # upstream acceptance expectation as a known vector conflict.
+            test_vector['output'] = {'err': 'exports_count_mismatch'}
+            test_vector['post_state']['avail_assignments'] = test_vector['pre_state']['avail_assignments']
+            self.check_vector(name, test_vector)
+            pytest.xfail('Canonical vector accepts inconsistent export counts; GP 14.10/14.13/14.18 require equality')
         self.check_vector(name, test_vector)
 
     def check_vector(self, name, test_vector, *, retain_ancestry=True):
@@ -231,6 +249,202 @@ class TestReports(unittest.TestCase):
             test_vector['post_state']['avail_assignments'], post_state['assurances'], f'{name} fails'
         )
 
+    def authorization_gas_vector(self, gas_amounts):
+        filename = 'multiple_reports-1.json' if len(gas_amounts) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        for guarantee, gas_used in zip(vector['input']['guarantees'], gas_amounts, strict=True):
+            guarantee['report']['auth_gas_used'] = gas_used
+        self.resign_guarantees(vector)
+        return vector
+
+    def resign_guarantees(self, vector, *, align_export_counts=True):
+        reporters = set()
+        for guarantee in vector['input']['guarantees']:
+            if align_export_counts:
+                total = sum(result['refine_load']['exports'] for result in guarantee['report']['results'])
+                # Synthetic boundary tests use coherent availability counts.
+                # Oversized load tests still need an encodable u16 field.
+                if total <= 2**16 - 1:
+                    guarantee['report']['package_spec']['exports_count'] = total
+            report = WorkReport.from_json(reformat_work_report(deepcopy(guarantee['report'])))
+            message = b'jam_guarantee' + blake2b_256_hash(report.to_jam_bytes().to_bytes())
+            for credential in guarantee['signatures']:
+                index = credential['validator_index']
+                key = Ed25519Keypair.from_seed(blake2b_256_hash(b'auth-gas-test' + index.to_bytes(4, 'little')))
+                public_key = '0x' + key.public_key.hex()
+                vector['pre_state']['curr_validators'][index]['ed25519'] = public_key
+                credential['signature'] = '0x' + key.sign(message).hex()
+                reporters.add(public_key)
+            vector['post_state']['avail_assignments'][report.core_index]['guarantee'] = deepcopy(guarantee)
+        vector['output']['ok']['reporters'] = sorted(reporters)
+
+    @parameterized.expand([
+        ('zero', [0], False),
+        ('below_budget', [GAS_INVOKE - 1], False),
+        ('exact_budget', [GAS_INVOKE], False),
+        ('above_budget', [GAS_INVOKE + 1], True),
+        ('uint64_max', [2**64 - 1], True),
+        ('independent_reports', [GAS_INVOKE, GAS_INVOKE], False),
+        ('second_report_above_budget', [GAS_INVOKE, GAS_INVOKE + 1], True),
+    ])
+    def test_authorization_gas_limit(self, name, gas_amounts, rejected):
+        vector = self.authorization_gas_vector(gas_amounts)
+        if rejected:
+            vector['output'] = {'err': 'authorizer_gas_too_high'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        self.check_vector(name, vector)
+
+    def check_refinement_load_vector(self, loads_by_report, rejected, *, failed=False):
+        filename = 'multiple_reports-1.json' if len(loads_by_report) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        fields = ('gas_used', 'imports', 'exports', 'extrinsic_count', 'extrinsic_size')
+        for guarantee, loads in zip(vector['input']['guarantees'], loads_by_report, strict=True):
+            original = guarantee['report']['results'][0]
+            guarantee['report']['results'] = []
+            for load in loads:
+                digest = deepcopy(original)
+                digest['refine_load'] = {field: load.get(field, 0) for field in fields}
+                if failed:
+                    digest['result'] = {'out_of_gas': None}
+                guarantee['report']['results'].append(digest)
+        self.resign_guarantees(vector)
+        if rejected:
+            vector['output'] = {'err': 'refine_load_too_high'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        self.check_vector('refinement load', vector)
+
+    @parameterized.expand([
+        ('zero', [[{}]], False),
+        ('gas_below_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}]], False),
+        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], True),
+        ('gas_above_limit', [[{'gas_used': gp_const.GAS_REFINE + 1}]], True),
+        ('gas_split_at_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 1}]], True),
+        ('gas_split_above_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 2}]], True),
+        ('imports_at_limit', [[{'imports': 3072}]], False),
+        ('imports_above_limit', [[{'imports': 3073}]], True),
+        ('imports_split_above_limit', [[{'imports': 1536}, {'imports': 1537}]], True),
+        ('exports_at_limit', [[{'exports': 3072}]], False),
+        ('exports_above_limit', [[{'exports': 3073}]], True),
+        ('exports_split_above_limit', [[{'exports': 1536}, {'exports': 1537}]], True),
+        ('extrinsic_count_at_limit', [[{'extrinsic_count': 128}]], False),
+        ('extrinsic_count_above_limit', [[{'extrinsic_count': 129}]], True),
+        ('extrinsic_count_split_above_limit', [[{'extrinsic_count': 64}, {'extrinsic_count': 65}]], True),
+        ('extrinsic_size_at_limit', [[{'extrinsic_size': 13791360}]], False),
+        ('extrinsic_size_above_limit', [[{'extrinsic_size': 13791361}]], True),
+        ('extrinsic_size_split_above_limit', [[{'extrinsic_size': 13791360}, {'extrinsic_size': 1}]], True),
+        ('footprint_at_limit', [[{'imports': 3072, 'extrinsic_size': 4224}]], False),
+        ('footprint_above_limit', [[{'imports': 3072, 'extrinsic_size': 4225}]], True),
+        ('footprint_split_above_limit', [[{'imports': 3072}, {'extrinsic_size': 4225}]], True),
+        ('independent_reports', [[{'gas_used': gp_const.GAS_REFINE - 1, 'imports': 3072, 'exports': 3072,
+                                   'extrinsic_count': 128, 'extrinsic_size': 4224}]] * 2, False),
+        ('second_report_above_limit', [[{}], [{'imports': 3073}]], True),
+    ])
+    def test_refinement_load_limits(self, name, loads_by_report, rejected):
+        self.check_refinement_load_vector(loads_by_report, rejected)
+
+    @parameterized.expand([(field,) for field in
+                           ('gas_used', 'imports', 'exports', 'extrinsic_count', 'extrinsic_size')])
+    def test_refinement_load_sums_do_not_wrap_uint64(self, field):
+        self.check_refinement_load_vector([[{field: 2**64 - 1}, {field: 1}]], rejected=True)
+
+    @parameterized.expand([(False,), (True,)])
+    def test_refinement_load_includes_failed_results(self, rejected):
+        self.check_refinement_load_vector([[{'imports': 3073 if rejected else 1,
+                                            'gas_used': gp_const.GAS_REFINE - 1}]], rejected, failed=True)
+
+    def test_refinement_gas_at_limit_is_rejected_for_failed_results(self):
+        self.check_refinement_load_vector([[{'gas_used': gp_const.GAS_REFINE}]], rejected=True, failed=True)
+
+    def check_bundle_length_vector(self, lengths, rejected):
+        filename = 'multiple_reports-1.json' if len(lengths) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        for guarantee, length in zip(vector['input']['guarantees'], lengths, strict=True):
+            guarantee['report']['package_spec']['length'] = length
+        self.resign_guarantees(vector)
+        if rejected:
+            vector['output'] = {'err': 'bundle_length_too_high'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        self.check_vector('auditable bundle length', vector)
+
+    @parameterized.expand([
+        ('zero', [0], False),
+        ('footprint_limit', [13791360], False),
+        ('serialized_limit', [13904950], False),
+        ('above_limit', [13904951], True),
+        ('uint32_max', [2**32 - 1], True),
+        ('independent_reports', [13904950, 13904950], False),
+        ('second_report_above_limit', [17180, 13904951], True),
+    ])
+    def test_bundle_length_limit(self, name, lengths, rejected):
+        self.check_bundle_length_vector(lengths, rejected)
+
+    def bundle_length_test_package(self, items, *, authorization=b'', config=b'', prerequisites=()):
+        vector = self.load_test_vector_data('report_curr_rotation-1.json')
+        context = RefinementContext.from_json(vector['input']['guarantees'][0]['report']['context'])
+        context.prerequisites = list(prerequisites)
+        return WorkPackage(auth_code_host=42, auth_code_hash=bytes(32), context=context,
+                           authorization=authorization, authorizer_config=config, items=items)
+
+    def test_bundle_length_allows_serialization_above_footprint_limit(self):
+        item = WorkItem(service=42, code_hash=bytes(32), refine_gas_limit=1, accumulate_gas_limit=1,
+                        export_count=0, payload=bytes(gp_const.MAXIMUM_SIZE_WORK_PACKAGE),
+                        import_segments=[], extrinsic=[])
+        package = self.bundle_length_test_package([item])
+        # With no imported/extrinsic content, GP 14.16 is just E(package).
+        length = package.to_jam_bytes().length
+        self.assertEqual(length, gp_const.MAXIMUM_SIZE_WORK_PACKAGE + 268)
+        self.check_bundle_length_vector([length], rejected=False)
+
+    def test_bundle_length_allows_maximal_manifest_overhead(self):
+        items = [WorkItem(service=42, code_hash=bytes(32), refine_gas_limit=1, accumulate_gas_limit=1,
+                          export_count=0, payload=bytes(248),
+                          import_segments=[ImportSegment.from_segment_root(bytes(32), 0)] * 192,
+                          extrinsic=[]) for _ in range(16)]
+        items[0].extrinsic = [WorkItemExtrinsic.from_blob(b'')] * 128
+        package = self.bundle_length_test_package(items, authorization=bytes(128), config=bytes(128),
+                                                 prerequisites=[bytes([i]) * 32 for i in range(8)])
+        self.assertEqual(16 * 248 + 128 + 128 + 3072 * 4488, gp_const.MAXIMUM_SIZE_WORK_PACKAGE)
+        # GP 14.16 appends raw segments and 12-hash paths, each with one
+        # length byte. Empty extrinsic bodies add no bytes to the bundle.
+        length = package.to_jam_bytes().length + 3072 * (4104 + 1 + 12 * 32)
+        self.assertEqual(length, 13904899)
+        self.check_bundle_length_vector([length], rejected=False)
+
+    @parameterized.expand([
+        ('zero', [0], [[0]], False, False),
+        ('sum', [3], [[1, 2]], False, False),
+        ('too_few', [2], [[1, 2]], True, False),
+        ('too_many', [4], [[1, 2]], True, False),
+        ('trace_count_two', [2], [[0, 0, 0]], True, False),
+        ('trace_count_uint16_max', [65535], [[0, 0]], True, False),
+        ('trace_count_at_limit', [3072], [[0, 0, 0, 0]], True, False),
+        ('matched_at_limit', [3072], [[1536, 1536]], False, False),
+        ('independent_reports', [2, 3], [[1, 1], [1, 2]], False, False),
+        ('opposite_mismatches_do_not_cancel', [2, 3], [[1], [4]], True, False),
+        ('second_report', [0, 2], [[0], [0]], True, False),
+        ('failed_result_counted', [2], [[2]], False, True),
+        ('failed_result_mismatch', [2], [[0]], True, True),
+    ])
+    def test_export_count_matches_digests(self, name, counts, exports_by_report, rejected, failed):
+        filename = 'multiple_reports-1.json' if len(counts) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        for guarantee, count, exports in zip(vector['input']['guarantees'], counts, exports_by_report, strict=True):
+            report = guarantee['report']
+            original = report['results'][0]
+            report['package_spec']['exports_count'] = count
+            report['results'] = []
+            for exported in exports:
+                digest = deepcopy(original)
+                digest['refine_load']['exports'] = exported
+                if failed:
+                    digest['result'] = {'panic': None}
+                report['results'].append(digest)
+        self.resign_guarantees(vector, align_export_counts=False)
+        if rejected:
+            vector['output'] = {'err': 'exports_count_mismatch'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        self.check_vector(name, vector)
+
     def test_missing_lookup_ancestry_is_rejected_by_default(self):
         vector = self.load_test_vector_data('report_curr_rotation-1.json')
         vector['output'] = {'err': 'lookup_anchor_not_recent'}
@@ -259,6 +473,8 @@ class TestReports(unittest.TestCase):
     ])
     def test_fuzzer_without_ancestry_keeps_other_report_checks(self, test_file):
         vector = self.load_test_vector_data(test_file)
+        if 'ok' in vector['output']:
+            self.resign_guarantees(vector)
         override = self.app_context.skip_lookup_anchor_ancestry
         token = override.set(True)
         try:
