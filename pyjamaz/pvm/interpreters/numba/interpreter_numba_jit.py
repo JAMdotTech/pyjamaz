@@ -73,10 +73,9 @@ _CODE_METADATA_CACHE: dict[int, dict] = {}
 _CODE_METADATA_CACHE_LIMIT = 64
 
 
-# Note: since numba doesnt support fancy data structures, we implement
-#       a simple binary search to find which basic block contains the given PC
 @njit(int32(int32[::1], int32), cache=NUMBA_CACHE)
-def get_block_start_jit(block_starts_sorted: npt.NDArray[np.int32], pc: I32) -> I32:
+def get_block_index_jit(block_starts_sorted: npt.NDArray[np.int32], pc: I32) -> I32:
+    """Find the containing block's index for both its start and gas cost."""
     n = len(block_starts_sorted)
     if n == 0:
         return I32(-1)
@@ -91,12 +90,8 @@ def get_block_start_jit(block_starts_sorted: npt.NDArray[np.int32], pc: I32) -> 
         else:
             hi = mid
 
-    # lo - 1 is the index of the largest block_start <= pc
-    idx = lo - 1
-    if idx >= 0:
-        return block_starts_sorted[idx]
-
-    return I32(-1)
+    # -1 when no block starts at or before pc.
+    return I32(lo - 1)
 
 
 TERMINATORS = tuple(TERMINATION_OPCODES)
@@ -520,24 +515,15 @@ def invoke_native(
 
         # GP-0.7.2-section:A.3 - charge when entering a new basic block
         if n_blocks > 0:
-            block_start = get_block_start_jit(block_starts_sorted, I32(pc))
-            if block_start >= 0:
-                charge_block = current_block_start < 0
+            block_idx = get_block_index_jit(block_starts_sorted, I32(pc))
+            if block_idx >= 0:
+                if current_block_start < 0:
+                    block_cost = U64(block_gas_costs[block_idx])
+                    if gas < block_cost:
+                        return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE, current_block_start)
+                    gas = U64(gas - block_cost)
 
-                if charge_block:
-                    # Find block index for gas cost lookup
-                    block_idx = I32(-1)
-                    for i in range(n_blocks):
-                        if block_starts_sorted[i] == block_start:
-                            block_idx = I32(i)
-                            break
-                    if block_idx >= 0:
-                        block_cost = U64(block_gas_costs[block_idx])
-                        if gas < block_cost:
-                            return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE, current_block_start)
-                        gas = U64(gas - block_cost)
-
-                current_block_start = block_start
+                current_block_start = block_starts_sorted[block_idx]
 
         # Clear skip flag after first iteration (must be outside gas model check)
         skip_block_charge = False
@@ -1885,6 +1871,14 @@ class PVMInterpreter:
         self.current_block_start = -1
 
     def _link_memory(self, memory):
+        # Views share the mmap contents. Rebuild only when the backing memory
+        # or page permissions change, including direct edits to the ACL sets.
+        pages_r = memory.pages_r
+        pages_w = memory.pages_w
+        signature = (memory, id(memory._mm), frozenset(pages_r), frozenset(pages_w))
+        if signature == self._linked_memory_signature:
+            return
+
         # Store memory sections as numpy arrays with their boundaries
         mem_section_starts = []
         mem_section_ends = []  # This will use paged_tail, not size
@@ -1904,10 +1898,7 @@ class PVMInterpreter:
 
         # Note: CPYTHON memory tracks accessibility in page ACL sets (pages_r/pages_w). For inner PVM pages
         # allocated via hc_pages this can be the only source of truth, so synthesize JIT-visible sections from it.
-        pages_r = getattr(memory, "pages_r", None)
         if pages_r:
-            pages_w = getattr(memory, "pages_w", set())
-
             def addr_is_covered(addr: int) -> bool:
                 for start, end in zip(mem_section_starts, mem_section_ends):
                     s = int(start)
@@ -1973,6 +1964,7 @@ class PVMInterpreter:
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
         self._jit_acl_bitmaps_cache = None
+        self._linked_memory_signature = signature
 
 
     def _prepare_jit_data(self):
@@ -2180,16 +2172,16 @@ class PVMInterpreter:
         # to execute from the specified PC. Otherwise use the saved skip_len.
         initial_skip_len = 0 if skip_first_block_charge else int(self.skip_len)
 
-        # Re-link memory to pick up any sections added via map_section() after init
-        self._link_memory(self.mem)
-
         # Prepare memory arrays for JIT
         mem_section_starts, mem_section_ends, section_arrays, section_access, acl_bitmaps = self._prepare_memory_for_jit()
 
-        registers_out = np.zeros(13, dtype=np.uint64)
+        registers_out = self._registers_out
         # state_out holds: [status, pc, gas, inst_nr, exit_value, skip_len, error_code, current_block_start]
-        state_out = np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.int64)
-        heap_grew_out = np.array([0], dtype=np.int64)
+        state_out = self._state_out
+        heap_grew_out = self._heap_grew_out
+        # The kernel overwrites registers/state on every exit. Reset the
+        # optional growth output so a previous invocation cannot leak through.
+        heap_grew_out[0] = 0
 
         # Call the Numba compiled invoke function
         error_code = invoke_native(
@@ -2274,13 +2266,8 @@ class PVMInterpreter:
         if len(self.mem_section_ends) > 1:
             self.mem_section_ends[1] = self.heap_info[0]
 
-        # Always sync the heap buffer reference from the JIT to avoid losing writes.
-        if section_arrays is not None and len(section_arrays) > 1:
-            self.mem_sections[1] = section_arrays[1]
-            self._jit_mem_cache_dirty = True
-        if acl_bitmaps is not None and len(acl_bitmaps) > 1:
-            self.mem_section_acl[1] = acl_bitmaps[1]
-            self._jit_mem_cache_dirty = True
+        # Native writes already update the shared mmap views. Keep the typed
+        # lists cached; _link_memory detects layout changes before the next run.
 
         growth_bytes = int(heap_grew_out[0])
         if growth_bytes > 0 and hasattr(self.mem, "change_acl"):

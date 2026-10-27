@@ -652,6 +652,7 @@ async def replay_traces(
     start_time = time.time()
     mismatch_count = 0
     known_headers: dict[bytes, Header] = {}
+    previous_header_hash = None
     trace_parent = None
     checkpoint_replay = False
 
@@ -663,18 +664,27 @@ async def replay_traces(
 
         trace.block.header = _TraceHeader.from_header(trace.block.header)
 
+        parent_header = known_headers.get(bytes(trace.block.header.parent))
+        reuse_ancestry = (
+            block_file.parent == trace_parent
+            and trace.block.header.parent == previous_header_hash
+            and parent_header is not None
+            and app.state_storage.ancestors.get(previous_header_hash) is parent_header
+        )
+
         # Flush DB
         for key, _ in app.state_db.as_list():
             app.state_db.delete(key)
 
         # Clear pending changesets
-        app.state_storage.clear()
+        app.state_storage.clear(keep_ancestors=reuse_ancestry)
         # Each trace supplies an independent pre-state; do not reuse a cached
         # state merely because the next header claims the same parent root.
         app.working_state = None
 
         if block_file.parent != trace_parent:
             known_headers.clear()
+            previous_header_hash = None
             checkpoint_replay = False
             genesis_file = block_file.parent / "genesis.bin"
             if genesis_file.exists():
@@ -707,13 +717,19 @@ async def replay_traces(
             # Skip genesis creation
             continue
 
-        ancestor_headers = _trace_ancestor_headers(trace.block, known_headers)
+        # A straight extension only needs its new parent link checked; the
+        # earlier active ancestry was already validated. Forks rebuild it.
+        ancestor_headers = _trace_ancestor_headers(
+            trace.block,
+            {previous_header_hash: parent_header} if reuse_ancestry else known_headers,
+        )
         if not ancestor_headers and trace.block.header.timeslot != 0:
             raise click.ClickException(
                 f"trace {block_file} is missing its parent header; provide the "
                 "corpus genesis.bin and preceding trace inputs"
             )
-        known_headers[bytes(trace.block.header.hash)] = trace.block.header
+        previous_header_hash = bytes(trace.block.header.hash)
+        known_headers[previous_header_hash] = trace.block.header
         app.state_storage.set_finalized_block_hash(trace.block.header.parent)
 
         # Update state from trace pre-state
