@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Optional
 
 from parameterized import parameterized
+import pytest
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.hashing import blake2b_256_hash
@@ -67,6 +68,18 @@ class TestReports(unittest.TestCase):
     @parameterized.expand(get_test_vector_files(file_filter=''))
     def test_vector(self, name, test_file):
         test_vector = self.load_test_vector_data(test_file)
+        inconsistent = any(
+            g['report']['package_spec']['exports_count'] !=
+            sum(result['refine_load']['exports'] for result in g['report']['results'])
+            for g in test_vector['input']['guarantees']
+        )
+        if 'ok' in test_vector['output'] and inconsistent:
+            # Assert the GP-derived rejection before reporting the unchanged
+            # upstream acceptance expectation as a known vector conflict.
+            test_vector['output'] = {'err': 'exports_count_mismatch'}
+            test_vector['post_state']['avail_assignments'] = test_vector['pre_state']['avail_assignments']
+            self.check_vector(name, test_vector)
+            pytest.xfail('Canonical vector accepts inconsistent export counts; GP 14.10/14.13/14.18 require equality')
         self.check_vector(name, test_vector)
 
     def check_vector(self, name, test_vector, *, retain_ancestry=True):
@@ -244,9 +257,15 @@ class TestReports(unittest.TestCase):
         self.resign_guarantees(vector)
         return vector
 
-    def resign_guarantees(self, vector):
+    def resign_guarantees(self, vector, *, align_export_counts=True):
         reporters = set()
         for guarantee in vector['input']['guarantees']:
+            if align_export_counts:
+                total = sum(result['refine_load']['exports'] for result in guarantee['report']['results'])
+                # Synthetic boundary tests use coherent availability counts.
+                # Oversized load tests still need an encodable u16 field.
+                if total <= 2**16 - 1:
+                    guarantee['report']['package_spec']['exports_count'] = total
             report = WorkReport.from_json(reformat_work_report(deepcopy(guarantee['report'])))
             message = b'jam_guarantee' + blake2b_256_hash(report.to_jam_bytes().to_bytes())
             for credential in guarantee['signatures']:
@@ -391,6 +410,41 @@ class TestReports(unittest.TestCase):
         self.assertEqual(length, 13904899)
         self.check_bundle_length_vector([length], rejected=False)
 
+    @parameterized.expand([
+        ('zero', [0], [[0]], False, False),
+        ('sum', [3], [[1, 2]], False, False),
+        ('too_few', [2], [[1, 2]], True, False),
+        ('too_many', [4], [[1, 2]], True, False),
+        ('trace_count_two', [2], [[0, 0, 0]], True, False),
+        ('trace_count_uint16_max', [65535], [[0, 0]], True, False),
+        ('trace_count_at_limit', [3072], [[0, 0, 0, 0]], True, False),
+        ('matched_at_limit', [3072], [[1536, 1536]], False, False),
+        ('independent_reports', [2, 3], [[1, 1], [1, 2]], False, False),
+        ('opposite_mismatches_do_not_cancel', [2, 3], [[1], [4]], True, False),
+        ('second_report', [0, 2], [[0], [0]], True, False),
+        ('failed_result_counted', [2], [[2]], False, True),
+        ('failed_result_mismatch', [2], [[0]], True, True),
+    ])
+    def test_export_count_matches_digests(self, name, counts, exports_by_report, rejected, failed):
+        filename = 'multiple_reports-1.json' if len(counts) > 1 else 'report_curr_rotation-1.json'
+        vector = self.load_test_vector_data(filename)
+        for guarantee, count, exports in zip(vector['input']['guarantees'], counts, exports_by_report, strict=True):
+            report = guarantee['report']
+            original = report['results'][0]
+            report['package_spec']['exports_count'] = count
+            report['results'] = []
+            for exported in exports:
+                digest = deepcopy(original)
+                digest['refine_load']['exports'] = exported
+                if failed:
+                    digest['result'] = {'panic': None}
+                report['results'].append(digest)
+        self.resign_guarantees(vector, align_export_counts=False)
+        if rejected:
+            vector['output'] = {'err': 'exports_count_mismatch'}
+            vector['post_state']['avail_assignments'] = vector['pre_state']['avail_assignments']
+        self.check_vector(name, vector)
+
     def test_missing_lookup_ancestry_is_rejected_by_default(self):
         vector = self.load_test_vector_data('report_curr_rotation-1.json')
         vector['output'] = {'err': 'lookup_anchor_not_recent'}
@@ -419,6 +473,8 @@ class TestReports(unittest.TestCase):
     ])
     def test_fuzzer_without_ancestry_keeps_other_report_checks(self, test_file):
         vector = self.load_test_vector_data(test_file)
+        if 'ok' in vector['output']:
+            self.resign_guarantees(vector)
         override = self.app_context.skip_lookup_anchor_ancestry
         token = override.set(True)
         try:

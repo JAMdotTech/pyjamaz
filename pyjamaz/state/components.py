@@ -1127,6 +1127,11 @@ class Assurances(StateComponent):
                 ):
                     raise StateTransitionError(GuaranteeErrorCode.dependency_missing)
 
+        # Preserve the preceding validation errors, then require each report's
+        # availability count to agree with its digests before installation.
+        for work_report in work_reports:
+            self.check_export_count(work_report)
+
 
     def get_guarantor_assignments(
             self, guarantee: Guarantee, post_state_timeslot: TimeslotState
@@ -1309,6 +1314,15 @@ class Assurances(StateComponent):
         """Validate the derived serialized-bundle bound from GP 14.16/14.18."""
         if work_report.package_spec.length > gp_const.MAXIMUM_SIZE_AUDITABLE_BUNDLE:
             raise StateTransitionError(GuaranteeErrorCode.bundle_length_too_high)
+
+    @staticmethod
+    def check_export_count(work_report: WorkReport) -> None:
+        """GP 14.10/14.13/14.18: availability counts all digest exports."""
+        # Failed results retain their manifest count: report construction
+        # supplies that many zero segments under GP 14.13.
+        exports = sum(result.refine_load.exports for result in work_report.results)
+        if work_report.package_spec.exports_count != exports:
+            raise StateTransitionError(GuaranteeErrorCode.exports_count_mismatch)
 
     @staticmethod
     def work_packages_exists_in_pipeline(
