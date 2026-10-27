@@ -323,9 +323,11 @@ class StateStorage:
             self.block_hash = block_hash
         DEBUG and logging.debug(f"Finalized block hash={format_hash(block_hash)}")
 
-    def clear(self):
+    def clear(self, *, keep_ancestors=False):
+        """Reset overlays and state selection, optionally retaining ancestor headers."""
         self.change_sets = {}
-        self.ancestors = {}
+        if not keep_ancestors:
+            self.ancestors = {}
         self.parents = {}
         self.block_hash = None
         self.finalized_block_hash = None
