@@ -149,7 +149,7 @@ class PVMMemory(AbstractMemory):
 
 
     def _page_fault(self, page_idx: int, addr: int, access: str) -> None:
-        # GP-0.7.2-eq:A.7 (lowest inaccessible page address to be read)
+        # GP-0.8.0-eq:A.9 (lowest inaccessible page address to be read)
         self._mem_addr = page_idx * PAGE_SIZE
         raise PVMMemoryError(f"Memory address {addr} ACL {access} check failed")
 
@@ -370,6 +370,6 @@ class PVMMemory(AbstractMemory):
     @staticmethod
     def zone_size(items: int) -> int:
         """
-        GP-0.6.2-eq:A.38 (Z)
+        GP-0.8.0-eq:A.44 (Z)
         """
         return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)

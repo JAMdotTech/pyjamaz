@@ -21,11 +21,11 @@ MEM_RW = 3  # explicit read/write memory (since we have that bit available anywa
 
 class ExitReason(Enum):
     resume:int          = 0 #GP:     ▸: continue PVM
-    halt:int            = 1 #GP-A.2: ∎: regular halt: halt
-    panic:int           = 2 #GP-A.2: ☇: unexpected program termination: panic
-    out_of_gas:int      = 3 #GP-A.2: ∞: out-of-gas
-    page_fault:int      = 4 #GP-A.2: F: page-fault
-    host_halt:int       = 5 #GP-A.2: h: host-call
+    halt:int            = 1 #GP-0.8.0-section:A.1: ∎: regular halt: halt
+    panic:int           = 2 #GP-0.8.0-section:A.1: ☇: unexpected program termination: panic
+    out_of_gas:int      = 3 #GP-0.8.0-section:A.1: ∞: out-of-gas
+    page_fault:int      = 4 #GP-0.8.0-section:A.1: F: page-fault
+    host_halt:int       = 5 #GP-0.8.0-section:A.1: h: host-call
 
 
 @dataclass

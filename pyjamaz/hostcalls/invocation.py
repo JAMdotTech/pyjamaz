@@ -26,7 +26,7 @@ from pyjamaz.settings import DEBUG
 from pyjamaz.utils import format_hash
 
 
-# GP-0.7.2-section:B.4 | Accumulate Invocations
+# GP-0.8.0-section:B.4 | Accumulate Invocations
 class AccumulateInvocationMutator(InvocationMutator):
 
     def __init__(self, post_entropy: EntropyState, accumulation_inputs: List[AccumulationInput]):
@@ -43,7 +43,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             _pvm: PVMInterpreter
     ) -> InvocationMutationOutput:
         """
-        GP-0.7.2-eq:B.11 | F ∈ Ω⟨(X,X)⟩∶(n,ρ,ω,μ,(x,y))
+        GP-0.8.0-eq:B.11 | F ∈ Ω⟨(L,L)⟩∶(n,ϱ,φ,μ,(x,y))
         """
         DEBUG and logging.debug(f'PVM Accumulate host-call #{host_call_instr_nr}')
 
@@ -66,31 +66,31 @@ class AccumulateInvocationMutator(InvocationMutator):
                 hc_grow_heap(registers, memory, invocation_output, _pvm.log)
 
             case HostCallGeneral.gas.value:
-                #GP-0.7.2-eq:B.12 | G
+                #GP-0.8.0-eq:B.11 | G
                 hc_gas(registers, memory, invocation_output, _pvm.log)
 
             case HostCallGeneral.lookup.value:
-                # GP-0.7.2-eq:B.12 | G
+                # GP-0.8.0-eq:B.12 | G
                 service = services.retrieve_service_account(service_id)
                 hc_lookup(registers, memory, service, service_id, services, invocation_output, _pvm.log)
 
             case HostCallGeneral.read.value:
-                # GP-0.7.2-eq:B.12 | G
+                # GP-0.8.0-eq:B.12 | G
                 service = services.retrieve_service_account(service_id)
                 hc_read(registers, memory, service, service_id, services, invocation_output, _pvm.log)
 
             case HostCallGeneral.write.value:
-                # GP-0.7.2-eq:B.12 | G
+                # GP-0.8.0-eq:B.12 | G
                 service = services.retrieve_service_account(service_id)
                 hc_write(registers, memory, service, service_id, services, invocation_output, _pvm.log)
 
             case HostCallGeneral.info.value:
-                # GP-0.7.2-eq:B.12 | G
+                # GP-0.8.0-eq:B.12 | G
                 service = services.retrieve_service_account(service_id)
                 hc_info(registers, memory, service, service_id, services, invocation_output, _pvm.log)
 
             case HostCallGeneral.fetch.value:
-                # GP-0.7.2-eq:B.11 | Y
+                # GP-0.8.0-eq:B.11 | Y
                 DEBUG and logging.debug(f'[ACCUM MUTATOR] hc_fetch: accumulation_inputs count={len(self.accumulation_inputs) if self.accumulation_inputs else 0}')
                 hc_fetch(
                     registers=registers,
@@ -160,7 +160,7 @@ def pvm_invoke_accumulate(
         post_entropy: EntropyState
 ) -> PvmAccumulateOutput:
     """
-    GP-0.7.2-eq:B.9 (Ψ_A) | Accumulation invocation function
+    GP-0.8.0-eq:B.9 (Ψ_A) | Accumulation invocation function
 
     Parameters
     ----------
@@ -243,7 +243,7 @@ def pvm_invoke_accumulate(
         program_name=program_metadata
     )
 
-    # GP-0.7.2-eq:B.13 (C)
+    # GP-0.8.0-eq:B.13 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
         output = PvmAccumulateOutput(
@@ -276,7 +276,7 @@ def pvm_invoke_accumulate(
     return output
 
 
-# GP-0.7.2-section:B.2 | Is-Authorized Invocations
+# GP-0.8.0-section:B.2 | Is-Authorized Invocations
 class IsAuthorizedInvocationMutator(InvocationMutator):
 
     def __init__(self, work_package: WorkPackage):
@@ -310,11 +310,11 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
                 hc_grow_heap(registers, memory, ctx_out, _pvm.log)
 
             case HostCallGeneral.gas.value:
-                #GP-0.7.2-eq:B.12 | G
+                #GP-0.8.0-eq:B.2 | G
                 hc_gas(registers, memory, ctx_out, _pvm.log)
 
             case HostCallGeneral.fetch.value:
-                # GP-0.7.2-eq:B.12 | G
+                # GP-0.8.0-eq:B.2 | Ω_Y
                 hc_fetch(
                     registers=registers,
                     memory=memory,
@@ -340,7 +340,7 @@ def pvm_invoke_is_authorized(
         core_index: int
 ) -> PvmIsAuthorizedOutput:
     """
-    GP-0.7.2-eq:B.1 (Ψ_I) | the is-authorized invocation function
+    GP-0.8.0-eq:B.1 (Ψ_I) | the is-authorized invocation function
 
     Parameters
     ----------
@@ -391,7 +391,7 @@ def pvm_invoke_is_authorized(
 
 
 
-# GP-0.7.2-section:B.5 | Refine Invocations
+# GP-0.8.0-section:B.3 | Refine Invocations
 class RefineInvocationMutator(InvocationMutator):
     def __init__(
         self,
@@ -443,11 +443,11 @@ class RefineInvocationMutator(InvocationMutator):
                 hc_grow_heap(registers, memory, ctx_out, _pvm.log)
 
             case HostCallGeneral.gas.value:
-                #GP-0.7.2-eq:B.12 | G
+                #GP-0.8.0-eq:B.6 | G
                 hc_gas(registers, memory, ctx_out, _pvm.log)
 
             case HostCallRefine.historical_lookup.value:
-                #GP-0.7.2-eq:B.12 | G
+                #GP-0.8.0-eq:B.6 | Ω_H
                 hc_historical_lookup(
                     registers=registers,
                     memory=memory,
@@ -557,25 +557,25 @@ def pvm_invoke_refine(
     extrinsics: List[List[bytes]]
 ) -> PvmRefineOutput:
     """
-    GP-0.7.2-eq:B.5 (Ψ_R) | the refine service-account invocation function
+    GP-0.8.0-eq:B.5 (Ψ_R) | the refine service-account invocation function
 
     Parameters
     ----------
     core_index: int
-        GP-0.7.2-eq:B.5: italic_c core index
+        GP-0.8.0-eq:B.5: italic_c core index
     work_item_index: int
-        GP-0.7.2-eq:B.5: italic_i index of workitem
+        GP-0.8.0-eq:B.5: italic_i index of workitem
     work_package: WorkPackage
-        GP-0.7.2-eq:B.5: italic_p workpackage
+        GP-0.8.0-eq:B.5: italic_p workpackage
     authorizer_output: bytes
-        GP-0.7.2-eq:B.5: bold_r is_authorized output
+        GP-0.8.0-eq:B.5: bold_r is_authorized output
     work_items_import_segments: List[List[bytes]]
-        GP-0.7.2-eq:B.5: bold_i_flat list of import segments per workitem
+        GP-0.8.0-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int
-        GP-0.7.2-eq:B.5: c_cedie export segment offset
+        GP-0.8.0-eq:B.5: c_cedie export segment offset
     services_state: ServicesState
     extrinsics: List[List[bytes]]
-        GP-0.7.2-eq:B.6: x_flat list of extrinsics per workitem
+        GP-0.8.0-eq:B.6: x_flat list of extrinsics per workitem
 
     Returns
     -------
@@ -585,7 +585,7 @@ def pvm_invoke_refine(
     work_item = work_package.items[work_item_index]
     service_account_id = work_item.service
 
-    # GP-0.7.2-eq:B.5 (extract preimage data)
+    # GP-0.8.0-eq:B.5 (extract preimage data)
     preimage_data = services_state.historical_preimage_lookup(
         service_account_id,
         work_package.context.lookup_anchor_slot,

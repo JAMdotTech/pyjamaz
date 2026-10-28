@@ -31,7 +31,7 @@ class AppContext:
 @dataclass
 class BlockContext:
     """
-    GP-0.7.2-section:I.4.1 | Block context terms.
+    GP-0.8.0-section:I.4.1 | Block context terms.
     TODO parameter docstring
     """
     # M
@@ -86,7 +86,7 @@ class BlockContext:
                        post_validator_pool: ValidatorPoolState
                        ):
         """
-        GP-0.7.2-eq:11.21 (M) | Sets guarantor assignments for current rotation
+        GP-0.8.0-eq:11.22 (M) | Sets guarantor assignments for current rotation
 
         Parameters
         ----------
@@ -120,7 +120,7 @@ class BlockContext:
             post_validator_archive: ValidatorArchiveState
     ):
         """
-        GP-0.7.2-eq:11.22 (M*) | Sets guarantor assignments for previous rotation
+        GP-0.8.0-eq:11.23 (M*) | Sets guarantor assignments for previous rotation
 
         Parameters
         ----------
@@ -154,7 +154,7 @@ class BlockContext:
 
     def set_ready_work_reports(self):
         """
-        GP-0.7.2-eq:12.4 (R^!) | Calculates and sets ready work reports
+        GP-0.8.0-eq:12.4 (R^!) | Calculates and sets ready work reports
 
         Returns
         -------
@@ -170,7 +170,7 @@ class BlockContext:
 
     def set_queued_work_reports(self, accumulation_history: AccumulationHistoryState):
         """
-        GP-0.7.2-eq:12.5 (R^Q) | Calculates and sets queued work reports
+        GP-0.8.0-eq:12.5 (R^Q) | Calculates and sets queued work reports
 
         Returns
         -------
@@ -186,7 +186,7 @@ class BlockContext:
 
     def set_accumulatable_work_reports(self, header: Header, accumulation_queue: AccumulationQueueState):
         """
-        GP-0.7.2-eq:12.10-12.12 (R^*) | Sets accumulatable work reports
+        GP-0.8.0-eq:12.10-12.12 (R^*) | Sets accumulatable work reports
 
         Parameters
         ----------
@@ -204,30 +204,30 @@ class BlockContext:
         if self.queued_work_reports is None:
             raise ValueError("No queued reports set")
 
-        # GP-0.7.2-eq:12.10
+        # GP-0.8.0-eq:12.10
         m = header.timeslot % EPOCH_TIMESLOTS
 
-        # GP-0.7.2-eq:12.12
+        # GP-0.8.0-eq:12.12
         q = edit_queue(
             work_report_queue=flatten_list(accumulation_queue.accumulation_queue[m:]) +
                               flatten_list(accumulation_queue.accumulation_queue[:m]) +
                               self.queued_work_reports,
             accumulated_packages=work_report_mapping(self.ready_work_reports)
         )
-        # GP-0.7.2-eq:12.11
+        # GP-0.8.0-eq:12.11
         self.accumulatable_work_reports = self.ready_work_reports + priority_queue(q)
 
     def set_accumulation_statistics(
             self, accumulation_gas_utilized: Dict[int, int],
             nr_work_results_accumulated: int, processed_transfers=()):
         """
-        GP-0.7.2-eq:12.26,12.27 | Compose accumulation statistics (S)
+        GP-0.8.0-eq:12.27,12.28 | Compose accumulation statistics (S)
         """
         if self.accumulatable_work_reports is None:
             raise ValueError("No accumulatable reports set")
         self.accumulation_statistics = {}
 
-        # GP-0.7.2-eq:12.29 (function_N)
+        # GP-0.8.0-eq:12.28 (function_N)
         digests_per_service = {}
         for w in self.accumulatable_work_reports[:nr_work_results_accumulated]:
             for d in w.results:
