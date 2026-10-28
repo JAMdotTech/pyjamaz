@@ -1312,7 +1312,7 @@ class PyjamazApp:
                 extrinsics=extrinsics
             )
 
-            # GP 14.13 replaces every failed item's exports with exactly its
+            # GP-0.8.0-eq:14.13 replaces every failed item's exports with exactly its
             # declared number of zero segments, preserving subsequent indices.
             if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
                 work_exec_result = WorkExecResult(digest_oversize=True)

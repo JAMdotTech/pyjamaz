@@ -593,7 +593,7 @@ class _TraceHeader(Header):
 
 
 def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) -> List[Header]:
-    """Resolve input-header ancestry, oldest first (GP-0.8.0-5.3,11.38).
+    """Resolve input-header ancestry, oldest first (GP-0.8.0-eq:5.3, GP-0.8.0-eq:11.38).
 
     Use genesis and preceding block headers, not report claims or expected
     post-state roots, to establish lookup-anchor membership and commitments.

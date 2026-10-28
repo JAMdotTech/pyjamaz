@@ -22,7 +22,7 @@ from pyjamaz.pvm.exceptions import PVMMemoryError, PVMGasError
 
 
 def validate_pvm_gas(gas: int) -> int:
-    """GP 4.23/A.1: validate unsigned 64-bit gas before changing VM state
+    """GP-0.8.0-eq:4.23 / GP-0.8.0-eq:A.1: validate unsigned 64-bit gas before changing VM state
 
     Hostcall costs can return a negative counter on OOG; that result is
     terminal and cannot be supplied as a new PVM execution budget
