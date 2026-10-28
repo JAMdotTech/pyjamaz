@@ -51,6 +51,12 @@ class BlockValidation:
         if header.tickets_marker != safrole_output.tickets_mark:
             raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 
+        if header.epoch_marker is not None:
+            # GP-0.8.0-eq:6.7, GP-0.8.0-eq:6.8: validator sets contain at least six, in multiples of three.
+            validator_count = len(header.epoch_marker.validators)
+            if validator_count < 6 or validator_count % 3 != 0:
+                raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
+
         if header.epoch_marker != safrole_output.epoch_mark:
             raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
 
@@ -71,7 +77,7 @@ class BlockValidation:
             except ValueError:
                 raise BlockValidationError("Invalid seal key")
 
-            # GP 6.16: a valid signature must identify the selected winning ticket.
+            # GP-0.8.0-eq:6.16: a valid signature must identify the selected winning ticket.
             if seal_vrf_output != ticket.id:
                 raise BlockValidationError("Seal does not match winning ticket")
             self.block_context.seal_vrf_output = seal_vrf_output
