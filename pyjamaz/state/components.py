@@ -2469,10 +2469,12 @@ class Services(StateComponent):
             if service_id == pre_state_delegator:
                 accumulation_state.validator_queue = output.state_context.validator_queue
 
-            # Process authorizer queue (q')
+            # GP 12.18: merge each core's queue from its prior assigner's result.
             for c in range(CORE_COUNT):
                 if service_id == pre_state_assigners[c]:
-                    accumulation_state.authorizer_queues = output.state_context.authorizer_queues
+                    accumulation_state.authorizer_queues.authorizer_queues[c] = (
+                        output.state_context.authorizer_queues.authorizer_queues[c]
+                    )
 
         # GP 0.8.0: commit (d union n) minus m as one merge. Retain the
         # deletion markers for later reads and detached-state materialization.
