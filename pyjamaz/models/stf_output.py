@@ -135,6 +135,7 @@ class SafroleErrorCode(Serializable, enum.Enum):
     reserved = 5  # Reserved
     duplicate_ticket = 6  # Found a ticket duplicate.
     too_many_tickets = 7  # Found amount of tickets > K
+    ticket_not_retained = 8  # A submitted ticket was discarded by accumulator truncation.
 
 
 @dataclass

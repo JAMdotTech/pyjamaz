@@ -508,6 +508,10 @@ class Safrole(StateComponent):
             self.post_state_safrole.ticket_accumulator, key=lambda t: t.id
         )[:gp_const.EPOCH_TIMESLOTS]
 
+        # GP-0.8.0-eq:6.36: every submitted ticket must survive accumulator truncation.
+        if any(ticket not in self.post_state_safrole.ticket_accumulator for ticket in input_tickets):
+            raise StateTransitionError(SafroleErrorCode.ticket_not_retained)
+
         return SafroleOutput(
             post_state=self.post_state_safrole,
             epoch_mark=epoch_mark,
