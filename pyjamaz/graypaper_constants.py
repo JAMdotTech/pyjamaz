@@ -29,7 +29,7 @@ MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE = 128 #T
 UNAVAILABLE_WORK_REPLACEMENT_PERIOD = 5 #U
 VALIDATOR_COUNT = 1023 #V
 MAXIMUM_SIZE_IS_AUTH_CODE = 64_000 #WA
-MAXIMUM_SIZE_WORK_PACKAGE = 13_791_360 #WB
+MAXIMUM_SIZE_WORK_PACKAGE = 13_791_360 #WI (input footprint; graypaper PR #563)
 MAXIMUM_SIZE_SERVICE_CODE = 4_000_000 #WC
 SIZE_ERASURE_CODED_PIECES = 684 #WE
 MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE = 3072 #WM
@@ -83,9 +83,9 @@ elif TEST_SUITE == 'fuzz':
 # GP-0.8.0-eq:14.7 | Imported segment plus its maximum Merkle-proof footprint (WF).
 IMPORT_SEGMENT_FOOTPRINT = EC_SEGMENT_SIZE + 32 * (MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE - 1).bit_length()
 
-# Conservative GP 0.8.0 serialized-bundle bound, rather than the 14.6 content
-# footprint alone. C.5 permits four-byte blob prefixes (WB < 2**28), two-byte
-# import/extrinsic counts, and one-byte item/prerequisite/proof counts.
+# WB in graypaper PR #563 includes metadata beyond the WI input footprint
+# from GP-0.8.0-eq:14.6. C.5 permits four-byte blob prefixes (WI < 2**28),
+# two-byte import/extrinsic counts, and one-byte item/prerequisite/proof counts.
 MAXIMUM_SIZE_AUDITABLE_BUNDLE = (
     MAXIMUM_SIZE_WORK_PACKAGE
     + 4 + 32  # C.31: authorization service and code hash.

@@ -1302,8 +1302,8 @@ class Assurances(StateComponent):
         # Equation 14.6 also includes nonnegative payload/token/config bytes
         # absent from the report, so this is a necessary footprint bound.
         footprint = imports * gp_const.IMPORT_SEGMENT_FOOTPRINT + extrinsic_size
-        # GP-0.8.0-eq:14.9 strictly bounds total budgets below GR; B.5/A.48 ensure
-        # each invocation's consumption is no greater than its budget.
+        # GP-0.8.0-eq:14.9 with PR #563's inclusive limits; GP-0.8.0-eq:B.5 /
+        # GP-0.8.0-eq:A.48 bound each invocation's consumption by its budget.
         if (gas_used > gp_const.GAS_REFINE
                 or imports > gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE
                 or exports > gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE

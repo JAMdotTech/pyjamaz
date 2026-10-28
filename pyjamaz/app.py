@@ -23,7 +23,8 @@ from pyjamaz.exceptions import PyjamazAppError, ProcessWorkpackageError, StateTr
     BlockValidationErrorCode, BlockValidationError
 from pyjamaz.runtime.extrinsics import BlockExtrinsicCollector, WorkpackageExtrinsicCollector
 from pyjamaz.graypaper_constants import CORE_COUNT, EPOCH_TIMESLOTS, \
-    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR, MAXIMUM_SIZE_ENCODED_WORK_REPORT, EC_SEGMENT_SIZE
+    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR, MAXIMUM_SIZE_ENCODED_WORK_REPORT, EC_SEGMENT_SIZE, \
+    GAS_REFINE, GAS_ACCUMULATION
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.hostcalls.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
 from pyjamaz.merkle import ConstantDepthMerkleTree
@@ -1277,6 +1278,12 @@ class PyjamazApp:
 
         TODO finish
         """
+
+        # GP-0.8.0-eq:14.9, with inclusive limits from graypaper PR #563.
+        if sum(item.refine_gas_limit for item in work_package.items) > GAS_REFINE:
+            raise ProcessWorkpackageError("Work package refinement gas exceeds limit")
+        if sum(item.accumulate_gas_limit for item in work_package.items) > GAS_ACCUMULATION:
+            raise ProcessWorkpackageError("Work package accumulation gas exceeds limit")
 
         segment_root_lookup_keys = {h for w in work_package.items for (h, n) in w.import_segments}
 

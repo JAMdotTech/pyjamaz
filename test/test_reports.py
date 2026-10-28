@@ -316,9 +316,9 @@ class TestReports(unittest.TestCase):
     @parameterized.expand([
         ('zero', [[{}]], False),
         ('gas_below_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}]], False),
-        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], True),
+        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], False),
         ('gas_above_limit', [[{'gas_used': gp_const.GAS_REFINE + 1}]], True),
-        ('gas_split_at_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 1}]], True),
+        ('gas_split_at_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 1}]], False),
         ('gas_split_above_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 2}]], True),
         ('imports_at_limit', [[{'imports': 3072}]], False),
         ('imports_above_limit', [[{'imports': 3073}]], True),
@@ -352,8 +352,8 @@ class TestReports(unittest.TestCase):
         self.check_refinement_load_vector([[{'imports': 3073 if rejected else 1,
                                             'gas_used': gp_const.GAS_REFINE - 1}]], rejected, failed=True)
 
-    def test_refinement_gas_at_limit_is_rejected_for_failed_results(self):
-        self.check_refinement_load_vector([[{'gas_used': gp_const.GAS_REFINE}]], rejected=True, failed=True)
+    def test_refinement_gas_at_limit_is_accepted_for_failed_results(self):
+        self.check_refinement_load_vector([[{'gas_used': gp_const.GAS_REFINE}]], rejected=False, failed=True)
 
     def check_bundle_length_vector(self, lengths, rejected):
         filename = 'multiple_reports-1.json' if len(lengths) > 1 else 'report_curr_rotation-1.json'
