@@ -508,6 +508,10 @@ class Safrole(StateComponent):
             self.post_state_safrole.ticket_accumulator, key=lambda t: t.id
         )[:gp_const.EPOCH_TIMESLOTS]
 
+        # GP-0.8.0-eq:6.36: every submitted ticket must survive accumulator truncation.
+        if any(ticket not in self.post_state_safrole.ticket_accumulator for ticket in input_tickets):
+            raise StateTransitionError(SafroleErrorCode.ticket_not_retained)
+
         return SafroleOutput(
             post_state=self.post_state_safrole,
             epoch_mark=epoch_mark,
@@ -1257,7 +1261,7 @@ class Assurances(StateComponent):
         -------
 
         """
-        # GP B.1/A.48 cap consumed authorization gas at GI; 14.13 copies it
+        # GP-0.8.0-eq:B.1 / GP-0.8.0-eq:A.48 cap consumed authorization gas at GI; 14.13 copies it
         # into the report. Exactly the supplied budget is permitted.
         if work_report.auth_gas_used > gp_const.GAS_INVOKE:
             raise StateTransitionError(GuaranteeErrorCode.authorizer_gas_too_high)
@@ -1286,7 +1290,7 @@ class Assurances(StateComponent):
 
     @staticmethod
     def check_refinement_load(work_report: WorkReport) -> None:
-        """Validate per-report refinement-load bounds from GP 14.5-14.10."""
+        """Validate per-report refinement-load bounds from GP-0.8.0-eq:14.5 through GP-0.8.0-eq:14.10."""
         # Counts describe work-item manifests even when refinement failed.
         loads = [result.refine_load for result in work_report.results]
         gas_used = sum(load.gas_used for load in loads)
@@ -1298,9 +1302,9 @@ class Assurances(StateComponent):
         # Equation 14.6 also includes nonnegative payload/token/config bytes
         # absent from the report, so this is a necessary footprint bound.
         footprint = imports * gp_const.IMPORT_SEGMENT_FOOTPRINT + extrinsic_size
-        # GP 14.9 strictly bounds total budgets below GR; B.5/A.48 ensure
-        # each invocation's consumption is no greater than its budget.
-        if (gas_used >= gp_const.GAS_REFINE
+        # GP-0.8.0-eq:14.9 with PR #563's inclusive limits; GP-0.8.0-eq:B.5 /
+        # GP-0.8.0-eq:A.48 bound each invocation's consumption by its budget.
+        if (gas_used > gp_const.GAS_REFINE
                 or imports > gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE
                 or exports > gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
                 or extrinsic_count > gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
@@ -1311,15 +1315,15 @@ class Assurances(StateComponent):
 
     @staticmethod
     def check_bundle_length(work_report: WorkReport) -> None:
-        """Validate the derived serialized-bundle bound from GP 14.16/14.18."""
+        """Validate the derived serialized-bundle bound from GP-0.8.0-eq:14.16 / GP-0.8.0-eq:14.18."""
         if work_report.package_spec.length > gp_const.MAXIMUM_SIZE_AUDITABLE_BUNDLE:
             raise StateTransitionError(GuaranteeErrorCode.bundle_length_too_high)
 
     @staticmethod
     def check_export_count(work_report: WorkReport) -> None:
-        """GP 14.10/14.13/14.18: availability counts all digest exports."""
+        """GP-0.8.0-eq:14.10 / GP-0.8.0-eq:14.13 / GP-0.8.0-eq:14.18: availability counts all digest exports."""
         # Failed results retain their manifest count: report construction
-        # supplies that many zero segments under GP 14.13.
+        # supplies that many zero segments under GP-0.8.0-eq:14.13.
         exports = sum(result.refine_load.exports for result in work_report.results)
         if work_report.package_spec.exports_count != exports:
             raise StateTransitionError(GuaranteeErrorCode.exports_count_mismatch)
@@ -2469,10 +2473,12 @@ class Services(StateComponent):
             if service_id == pre_state_delegator:
                 accumulation_state.validator_queue = output.state_context.validator_queue
 
-            # Process authorizer queue (q')
+            # GP-0.8.0-eq:12.18: merge each core's queue from its prior assigner's result.
             for c in range(CORE_COUNT):
                 if service_id == pre_state_assigners[c]:
-                    accumulation_state.authorizer_queues = output.state_context.authorizer_queues
+                    accumulation_state.authorizer_queues.authorizer_queues[c] = (
+                        output.state_context.authorizer_queues.authorizer_queues[c]
+                    )
 
         # GP 0.8.0: commit (d union n) minus m as one merge. Retain the
         # deletion markers for later reads and detached-state materialization.

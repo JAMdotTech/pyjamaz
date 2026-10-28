@@ -1,4 +1,4 @@
-"""GP-0.8.0 equation 12.17: report admission and gas across accumulation rounds."""
+"""GP-0.8.0-eq:12.17: report admission and gas across accumulation rounds."""
 
 import asyncio
 from types import SimpleNamespace

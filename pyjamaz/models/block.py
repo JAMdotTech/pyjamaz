@@ -32,7 +32,8 @@ class EpochMark(Serializable):
     entropy: bytes = field(metadata={'codec': H256})
     tickets_entropy: bytes = field(metadata={'codec': H256})
     validators: List[EpochMarkValidatorKeys] = field(metadata={
-        'codec': BoundedVec(EpochMarkValidatorKeys.to_codec_def(), 3 * CORE_COUNT, 6, 3)
+        # Minimum size and divisibility are checked during header validation.
+        'codec': BoundedVec(EpochMarkValidatorKeys.to_codec_def(), 3 * CORE_COUNT)
     })
 
 

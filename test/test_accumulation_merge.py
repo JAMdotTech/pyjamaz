@@ -130,6 +130,46 @@ def persisted(services):
     return view
 
 
+@pytest.mark.parametrize("assigners", [(1, 2), (2, 1), (1, 1)])
+def test_authorizer_queues_merge_independently_per_core(monkeypatch, assigners):
+    services, _ = setup_round(monkeypatch, {1: account(), 2: account(), 3: account()})
+    state = AccumulationStateComponents(
+        services=services,
+        validator_queue=ValidatorQueueState(validators=[]),
+        authorizer_queues=AuthorizerQueuesState(
+            authorizer_queues=[
+                [bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS for _ in range(CORE_COUNT)
+            ],
+        ),
+        privileged_services=PrivilegedServicesState(
+            manager=99, assigners=list(assigners) + [99] * (CORE_COUNT - 2),
+            delegator=99, registrar=99, always_accumulators={},
+        ),
+    )
+    component = Services(BlockContext(), AppContext(state_storage=services.state_storage))
+    updates = [[bytes([c + 1]) * 32] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS for c in range(2)]
+
+    def invoke(*, accumulation_state, service_id, **kwargs):
+        # Each service starts with its own snapshot of the same prior queues.
+        snapshot = deepcopy(accumulation_state)
+        snapshot.services.pending_changes = PendingChanges()
+        for c, assigner in enumerate(assigners):
+            if service_id == assigner:
+                snapshot.authorizer_queues.authorizer_queues[c] = updates[c]
+        return PvmAccumulateOutput(snapshot, [], None, 0, [])
+
+    monkeypatch.setattr(component, "single_step_accumulation", invoke)
+    output = asyncio.run(component.parallel_accumulation(
+        accumulation_state=state, deferred_transfers=[], work_reports=[],
+        auto_accumulate_services={1: 1, 2: 1, 3: 1},
+        post_state_timeslot=TimeslotState(number=SLOT),
+        post_state_entropy=EntropyState(entropy=[bytes(32)] * 4),
+    ))
+
+    expected = updates + [[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS for _ in range(CORE_COUNT - 2)]
+    assert output.accumulation_state.authorizer_queues.authorizer_queues == expected
+
+
 @pytest.mark.parametrize("registrar", [1, 3])
 @pytest.mark.parametrize("accumulates", [False, True])
 @pytest.mark.parametrize("backing_only", [False, True])

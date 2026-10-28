@@ -254,7 +254,8 @@ def pvm_invoke_accumulate(
             preimages=marshalling_output.context.savepoint_context.preimages
         )
         logging.info(f'😱 PVM accumulate failed (s={service_id}): {marshalling_output.exit_condition.reason}')
-    elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
+    elif (marshalling_output.exit_condition.reason == ExitReason.halt
+          and len(marshalling_output.exit_condition.value) == 32):
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,

@@ -79,7 +79,7 @@ class TestReports(unittest.TestCase):
             test_vector['output'] = {'err': 'exports_count_mismatch'}
             test_vector['post_state']['avail_assignments'] = test_vector['pre_state']['avail_assignments']
             self.check_vector(name, test_vector)
-            pytest.xfail('Canonical vector accepts inconsistent export counts; GP 14.10/14.13/14.18 require equality')
+            pytest.xfail('Canonical vector accepts inconsistent export counts; GP-0.8.0-eq:14.10 / GP-0.8.0-eq:14.13 / GP-0.8.0-eq:14.18 require equality')
         self.check_vector(name, test_vector)
 
     def check_vector(self, name, test_vector, *, retain_ancestry=True):
@@ -316,9 +316,9 @@ class TestReports(unittest.TestCase):
     @parameterized.expand([
         ('zero', [[{}]], False),
         ('gas_below_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}]], False),
-        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], True),
+        ('gas_at_limit', [[{'gas_used': gp_const.GAS_REFINE}]], False),
         ('gas_above_limit', [[{'gas_used': gp_const.GAS_REFINE + 1}]], True),
-        ('gas_split_at_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 1}]], True),
+        ('gas_split_at_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 1}]], False),
         ('gas_split_above_limit', [[{'gas_used': gp_const.GAS_REFINE - 1}, {'gas_used': 2}]], True),
         ('imports_at_limit', [[{'imports': 3072}]], False),
         ('imports_above_limit', [[{'imports': 3073}]], True),
@@ -352,8 +352,8 @@ class TestReports(unittest.TestCase):
         self.check_refinement_load_vector([[{'imports': 3073 if rejected else 1,
                                             'gas_used': gp_const.GAS_REFINE - 1}]], rejected, failed=True)
 
-    def test_refinement_gas_at_limit_is_rejected_for_failed_results(self):
-        self.check_refinement_load_vector([[{'gas_used': gp_const.GAS_REFINE}]], rejected=True, failed=True)
+    def test_refinement_gas_at_limit_is_accepted_for_failed_results(self):
+        self.check_refinement_load_vector([[{'gas_used': gp_const.GAS_REFINE}]], rejected=False, failed=True)
 
     def check_bundle_length_vector(self, lengths, rejected):
         filename = 'multiple_reports-1.json' if len(lengths) > 1 else 'report_curr_rotation-1.json'
@@ -390,7 +390,7 @@ class TestReports(unittest.TestCase):
                         export_count=0, payload=bytes(gp_const.MAXIMUM_SIZE_WORK_PACKAGE),
                         import_segments=[], extrinsic=[])
         package = self.bundle_length_test_package([item])
-        # With no imported/extrinsic content, GP 14.16 is just E(package).
+        # With no imported/extrinsic content, GP-0.8.0-eq:14.16 is just E(package).
         length = package.to_jam_bytes().length
         self.assertEqual(length, gp_const.MAXIMUM_SIZE_WORK_PACKAGE + 268)
         self.check_bundle_length_vector([length], rejected=False)
@@ -404,7 +404,7 @@ class TestReports(unittest.TestCase):
         package = self.bundle_length_test_package(items, authorization=bytes(128), config=bytes(128),
                                                  prerequisites=[bytes([i]) * 32 for i in range(8)])
         self.assertEqual(16 * 248 + 128 + 128 + 3072 * 4488, gp_const.MAXIMUM_SIZE_WORK_PACKAGE)
-        # GP 14.16 appends raw segments and 12-hash paths, each with one
+        # GP-0.8.0-eq:14.16 appends raw segments and 12-hash paths, each with one
         # length byte. Empty extrinsic bodies add no bytes to the bundle.
         length = package.to_jam_bytes().length + 3072 * (4104 + 1 + 12 * 32)
         self.assertEqual(length, 13904899)
