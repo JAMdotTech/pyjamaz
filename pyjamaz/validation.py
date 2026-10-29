@@ -22,7 +22,7 @@ class BlockValidation:
     @staticmethod
     def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
         """
-        GP-0.7.2-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+        GP-0.8.0-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
 
         Returns
         -------
@@ -51,6 +51,12 @@ class BlockValidation:
         if header.tickets_marker != safrole_output.tickets_mark:
             raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 
+        if header.epoch_marker is not None:
+            # GP-0.8.0-eq:6.7, GP-0.8.0-eq:6.8: validator sets contain at least six, in multiples of three.
+            validator_count = len(header.epoch_marker.validators)
+            if validator_count < 6 or validator_count % 3 != 0:
+                raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
+
         if header.epoch_marker != safrole_output.epoch_mark:
             raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
 
@@ -67,9 +73,14 @@ class BlockValidation:
                 f'Validate ticket | Timeslot: {header.timeslot} | Ticket ID: {ticket.id.hex()} | Author: {author_key.hex()} | Entropy: {entropy.hex()} '
             )
             try:
-                self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+                seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
             except ValueError:
                 raise BlockValidationError("Invalid seal key")
+
+            # GP-0.8.0-eq:6.16: a valid signature must identify the selected winning ticket.
+            if seal_vrf_output != ticket.id:
+                raise BlockValidationError("Seal does not match winning ticket")
+            self.block_context.seal_vrf_output = seal_vrf_output
 
         elif safrole_output.post_state.slot_sealer_series.keys is not None:
             # Fallback method

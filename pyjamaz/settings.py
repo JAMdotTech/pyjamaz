@@ -2,7 +2,7 @@ import os
 
 TEST_SUITE = 'tiny' # tiny, full or fuzz
 GP_VERSION = '0.8.0'
-APP_VERSION = '0.3.3'
+APP_VERSION = '0.3.6'
 
 
 def _apply_jam_fuzz_spec_override():
@@ -35,7 +35,7 @@ SKIP_VALIDATE_GUARANTEES = False
 # Opt in to the final v0.8.0 vectors' documented non-manager bless deviation.
 GP080_NON_MANAGER_BLESS_COMPAT = True
 # Final v0.8.0 vectors adopt GP #533's grow_heap pricing and OOG gas drain.
-# Set False to use the printed GP 0.8.0 B.15-B.16 gas rules instead.
+# Set False to use the printed GP-0.8.0-eq:B.15 through GP-0.8.0-eq:B.16 gas rules instead.
 GP080_GROW_HEAP_OOG_COMPAT = True
 # Final v0.8.0 vectors adopt GP #538's zone-rounded stack reservation.
 GP080_GROW_HEAP_STACK_COMPAT = True

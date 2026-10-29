@@ -27,6 +27,7 @@ from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockVali
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
+from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
@@ -592,7 +593,7 @@ class _TraceHeader(Header):
 
 
 def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) -> List[Header]:
-    """Resolve input-header ancestry, oldest first (GP-0.8.0-5.3,11.38).
+    """Resolve input-header ancestry, oldest first (GP-0.8.0-eq:5.3, GP-0.8.0-eq:11.38).
 
     Use genesis and preceding block headers, not report claims or expected
     post-state roots, to establish lookup-anchor membership and commitments.
@@ -607,8 +608,8 @@ def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) ->
         header = known_headers[next_hash]
         if bytes(header.hash) != next_hash:
             raise ValueError("trace header does not match its indexed hash")
-        child_slot = headers[-1].timeslot if headers else block.header.timeslot
-        if header.timeslot >= child_slot:
+        # Check ancestry here; the candidate's slot is checked by block validation.
+        if headers and header.timeslot >= headers[-1].timeslot:
             raise ValueError("trace ancestor timeslots are not strictly increasing")
         headers.append(header)
         next_hash = bytes(header.parent)
@@ -619,8 +620,10 @@ def _trace_ancestor_headers(block: Block, known_headers: dict[bytes, Header]) ->
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--prompt', is_flag=True, help="Prompt on state diff ")
+@click.option('--strict-ancestry', is_flag=True,
+              help="Keep historical lookup-anchor validation for shortened fuzzer traces.")
 async def replay_traces(
-        traces_dir, verbose, prompt,
+        traces_dir, verbose, prompt, strict_ancestry,
 ):
 
     log_level = logging.DEBUG if verbose or settings.DEBUG else logging.INFO
@@ -649,7 +652,9 @@ async def replay_traces(
     start_time = time.time()
     mismatch_count = 0
     known_headers: dict[bytes, Header] = {}
+    previous_header_hash = None
     trace_parent = None
+    checkpoint_replay = False
 
     # Process files in traces folder
     for nr, block_file in enumerate(traces_files, start=1):
@@ -657,37 +662,74 @@ async def replay_traces(
 
         trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
-        if trace.pre_state.state_root == bytes(32):
-            # Skip genesis creation
-            continue
-
         trace.block.header = _TraceHeader.from_header(trace.block.header)
+
+        parent_header = known_headers.get(bytes(trace.block.header.parent))
+        reuse_ancestry = (
+            block_file.parent == trace_parent
+            and trace.block.header.parent == previous_header_hash
+            and parent_header is not None
+            and app.state_storage.ancestors.get(previous_header_hash) is parent_header
+        )
 
         # Flush DB
         for key, _ in app.state_db.as_list():
             app.state_db.delete(key)
 
         # Clear pending changesets
-        app.state_storage.clear()
+        app.state_storage.clear(keep_ancestors=reuse_ancestry)
         # Each trace supplies an independent pre-state; do not reuse a cached
         # state merely because the next header claims the same parent root.
         app.working_state = None
 
         if block_file.parent != trace_parent:
             known_headers.clear()
+            previous_header_hash = None
+            checkpoint_replay = False
             genesis_file = block_file.parent / "genesis.bin"
             if genesis_file.exists():
                 genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
                 genesis.header = _TraceHeader.from_header(genesis.header)
                 known_headers[bytes(genesis.header.hash)] = genesis.header
+            else:
+                # Shortened conformance traces start with an initialization
+                # checkpoint, followed by the candidate blocks under test.
+                if not any(candidate.parent == block_file.parent
+                           for candidate in traces_files[nr:]):
+                    raise click.ClickException(
+                        f"trace {block_file} is missing its parent header and has no "
+                        "subsequent block to replay from an initialization checkpoint"
+                    )
+                if PatriciaMerkleTrie(trace.post_state.keyvals).root() != trace.post_state.state_root:
+                    raise click.ClickException(f"Checkpoint state root mismatch in trace {block_file}")
+                known_headers[bytes(trace.block.header.hash)] = trace.block.header
+                checkpoint_replay = not strict_ancestry
+                trace_parent = block_file.parent
+                logging.info(
+                    f"📌 Using {block_file.name} as initialization checkpoint "
+                    f"at slot {trace.block.header.timeslot}; historical lookup-anchor "
+                    f"validation {'disabled for shortened fuzzer replay' if checkpoint_replay else 'enabled'}"
+                )
+                continue
             trace_parent = block_file.parent
-        ancestor_headers = _trace_ancestor_headers(trace.block, known_headers)
+
+        if trace.pre_state.state_root == bytes(32):
+            # Skip genesis creation
+            continue
+
+        # A straight extension only needs its new parent link checked; the
+        # earlier active ancestry was already validated. Forks rebuild it.
+        ancestor_headers = _trace_ancestor_headers(
+            trace.block,
+            {previous_header_hash: parent_header} if reuse_ancestry else known_headers,
+        )
         if not ancestor_headers and trace.block.header.timeslot != 0:
             raise click.ClickException(
                 f"trace {block_file} is missing its parent header; provide the "
                 "corpus genesis.bin and preceding trace inputs"
             )
-        known_headers[bytes(trace.block.header.hash)] = trace.block.header
+        previous_header_hash = bytes(trace.block.header.hash)
+        known_headers[previous_header_hash] = trace.block.header
         app.state_storage.set_finalized_block_hash(trace.block.header.parent)
 
         # Update state from trace pre-state
@@ -711,6 +753,8 @@ async def replay_traces(
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash={format_hash(trace.block.header.hash)} parent={format_hash(trace.block.header.parent)} parent_state_root={format_hash(trace.block.header.parent_state_root)})')
 
+        override = app.app_context.skip_lookup_anchor_ancestry
+        token = override.set(checkpoint_replay)
         try:
             # Import block
             await app.import_block(trace.block)
@@ -720,6 +764,8 @@ async def replay_traces(
         except (StateTransitionError, BlockValidationError) as e:
             logging.info(f"🛑 Block {format_hash(trace.block.header.hash)} raised error -> {e}")
             # The application has already discarded the rejected candidate.
+        finally:
+            override.reset(token)
 
         # Validate new state root
         if app.working_state.state_root == trace.post_state.state_root:
@@ -778,7 +824,7 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
             lambda: sorted(f for f in traces_folder.rglob("*.bin") if f.name not in ['genesis.bin', 'report.bin']),
         )
 
-        for block_file in traces_files:
+        for nr, block_file in enumerate(traces_files, start=1):
             logging.info(f'📂 Processing trace file {block_file}')
             trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
@@ -792,20 +838,26 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
                 # Initialize
                 ancestry = []
                 genesis_file = block_file.parent / "genesis.bin"
+                checkpoint = not genesis_file.exists()
 
-                if genesis_file.exists():
+                if not checkpoint:
                     genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
                     state = genesis.state
                     init_header = genesis.header
 
                 else:
-                    # Unknown genesis; add stub parent as ancestor
-                    init_header = Header.default()
-                    state = trace.pre_state
-                    if trace.block.header.timeslot > 0:
-                        ancestry = [
-                            AncestryItem(slot=trace.block.header.timeslot - 1, header_hash=trace.block.header.parent)
-                        ]
+                    if not any(candidate.parent == block_file.parent
+                               for candidate in traces_files[nr:]):
+                        raise click.ClickException(
+                            f"trace {block_file} has no subsequent block to replay "
+                            "from an initialization checkpoint"
+                        )
+                    # A shortened trace begins with the trusted checkpoint,
+                    # rather than a candidate to execute against a stub parent.
+                    init_header = trace.block.header
+                    state = trace.post_state
+                    if PatriciaMerkleTrie(state.keyvals).root() != state.state_root:
+                        raise click.ClickException(f"Checkpoint state root mismatch in trace {block_file}")
 
                 request = FuzzerMessage(
                     initialize=InitializeMessage(
@@ -824,6 +876,12 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
                     )
 
                 last_parent = block_file.parent
+                if checkpoint:
+                    logging.info(
+                        f"📌 Using {block_file.name} as initialization checkpoint "
+                        f"at slot {init_header.timeslot}"
+                    )
+                    continue
 
             verbose and logging.debug(f'Import block: h={format_hash(trace.block.header.hash)} p={format_hash(trace.block.header.parent)} ts={trace.block.header.timeslot}')
             response = await fuzzer_session.send_request(FuzzerMessage(import_block=trace.block))

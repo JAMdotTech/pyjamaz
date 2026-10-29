@@ -430,6 +430,54 @@ def test_socket_negotiation_and_rejection_recovery(target, refine_request, vm):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize('local_ancestry', [False, True])
+@pytest.mark.parametrize('peer_ancestry', [False, True])
+def test_initialized_session_negotiates_ancestry(target, monkeypatch, local_ancestry, peer_ancestry):
+    target_handshake = target.msg_handshake
+    client_handshake = FuzzerSession.msg_handshake
+    transition = target.app.state_transition
+    seen = []
+
+    def handshake():
+        message = target_handshake()
+        message.peer_info.features.block_ancestry = local_ancestry
+        return message
+
+    def peer_handshake(session):
+        message = client_handshake(session)
+        message.peer_info.features.block_ancestry = peer_ancestry
+        return message
+
+    async def record_transition(block, produce=False):
+        seen.append(target.app.app_context.skip_lookup_anchor_ancestry.get())
+        await transition(block, produce)
+
+    monkeypatch.setattr(target, 'msg_handshake', handshake)
+    monkeypatch.setattr(FuzzerSession, 'msg_handshake', peer_handshake)
+    monkeypatch.setattr(target.app, 'state_transition', record_transition)
+
+    async def run():
+        server = await asyncio.start_unix_server(target._handle_client, path=target.path)
+        try:
+            session = FuzzerSession(target.path, app=None)
+            await session.connect()
+            try:
+                genesis = Header.default()
+                await session.send_request(FuzzerMessage(initialize=InitializeMessage(genesis, [], [])))
+                header = Header.default()
+                header.parent, header.timeslot = genesis.hash, 1
+                response = await session.send_request(FuzzerMessage(import_block=Block(header, Extrinsic.default())))
+                assert response.state_root is not None
+                assert seen == [not (local_ancestry and peer_ancestry)]
+            finally:
+                await session.close()
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    asyncio.run(run())
+
+
 def test_unnegotiated_and_uninitialized_refinement_closes_without_error(target, refine_request):
     async def run():
         server = await asyncio.start_unix_server(target._handle_client, path=target.path)

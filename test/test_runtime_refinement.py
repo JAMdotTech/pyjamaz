@@ -4,10 +4,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from pyjamaz import refinement as refinement_module
-from pyjamaz.availability import BundleData, DataUnavailable, availability_spec, zero_pad
+from pyjamaz import refinement as refinement_module, graypaper_constants as gp_const
+from pyjamaz.availability import BundleData, DataUnavailable, availability_spec, validate_work_package, zero_pad
 from pyjamaz.d3l import DataAvailabilityStore
 from pyjamaz.erasure import encode_chunks, erasure_data_shards
+from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.models.app import D3LEntry
 from pyjamaz.models.common import (
     Credential, ImportSegment, RefinementContext, WorkExecResult, WorkItem, WorkPackage,
@@ -248,3 +249,20 @@ def test_erasure_signature_dimensions_and_padding():
         encode_chunks(6, 1, data)
     with pytest.raises(ValueError, match='piece count'):
         encode_chunks(6, -1, b'')
+
+
+@pytest.mark.parametrize(('field', 'limit'), [
+    ('refine_gas_limit', gp_const.GAS_REFINE),
+    ('accumulate_gas_limit', gp_const.GAS_ACCUMULATION),
+])
+@pytest.mark.parametrize('excess', [0, 1])
+def test_package_gas_limits_are_inclusive(field, limit, excess):
+    value = package()
+    value.items.append(deepcopy(value.items[0]))
+    setattr(value.items[0], field, limit // 2)
+    setattr(value.items[1], field, limit - limit // 2 + excess)
+    if excess:
+        with pytest.raises(ProcessWorkpackageError, match='gas limits'):
+            validate_work_package(value)
+    else:
+        validate_work_package(value)

@@ -44,8 +44,9 @@ def validate_work_package(package: WorkPackage) -> None:
     )
     if footprint > MAXIMUM_SIZE_WORK_PACKAGE:
         raise ProcessWorkpackageError("work-package footprint exceeds its limit")
-    if (sum(w.refine_gas_limit for w in package.items) >= GAS_REFINE
-            or sum(w.accumulate_gas_limit for w in package.items) >= GAS_ACCUMULATION):
+    # GP-0.8.0-eq:14.9, with inclusive limits from graypaper PR #563.
+    if (sum(w.refine_gas_limit for w in package.items) > GAS_REFINE
+            or sum(w.accumulate_gas_limit for w in package.items) > GAS_ACCUMULATION):
         raise ProcessWorkpackageError("work-package gas limits exceed core limits")
 
 

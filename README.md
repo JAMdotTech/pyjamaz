@@ -12,6 +12,23 @@ pip install .
 pyjamaz fuzzer target --socket-path=/tmp/jam_target.sock
 ```
 
+The v1 target skips the historical lookup-anchor check (GP 11.38) only during
+imports in sessions where the peers did not both advertise ancestry support,
+as required by the conformance protocol. Lookup age and recent-anchor checks
+remain active. Ordinary block imports retain strict ancestry validation.
+Ancestry support remains unadvertised: v1 hash/slot hints alone do
+not supply the historical state-root commitments required by GP 0.8.0.
+
+`traces <folder>` and `fuzzer traces <folder>` accept shortened conformance traces
+without `genesis.bin`. Both use the first record's header and posterior state as
+the initialization checkpoint, then replay the remaining candidates. The fuzzer
+client opens a fresh session for each independent trace directory and verifies
+the target's actual parent state after an expected rejection.
+For local `traces` replay, the CLI reports the fuzzer ancestry policy when loading
+the checkpoint; use `--strict-ancestry` to retain the historical lookup check.
+Local corpora with `genesis.bin` always retain strict ancestry validation.
+For `fuzzer traces`, the handshake determines the ancestry policy.
+
 ## Running fuzzer target using Docker
 docker run -v /tmp:/tmp \
            -e JAM_FUZZ=1 \

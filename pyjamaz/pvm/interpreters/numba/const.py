@@ -21,11 +21,11 @@ PVM_PAGE_SHIFT = 12  # 4096 = 2^12
 
 # Exit reasons (matching ExitReason enum)
 EXIT_RESUME = 0  # GP:     ▸: continue PVM
-EXIT_HALT = 1  # GP-A.2: ∎: regular halt: halt
-EXIT_PANIC = 2  # GP-A.2: ☇: unexpected program termination: panic
-OUT_OF_GAS = 3  # GP-A.2: ∞: out-of-gas
-EXIT_PAGE_FAULT = 4  # GP-A.2: F: page-fault
-EXIT_HOST_HALT = 5  # GP-A.2: h: host-call
+EXIT_HALT = 1  # GP-0.8.0-section:A.1: ∎: regular halt: halt
+EXIT_PANIC = 2  # GP-0.8.0-section:A.1: ☇: unexpected program termination: panic
+OUT_OF_GAS = 3  # GP-0.8.0-section:A.1: ∞: out-of-gas
+EXIT_PAGE_FAULT = 4  # GP-0.8.0-section:A.1: F: page-fault
+EXIT_HOST_HALT = 5  # GP-0.8.0-section:A.1: h: host-call
 
 
 # state_out constants for invoke_jit (int64 array)

@@ -25,7 +25,7 @@ class StateStorage:
         self.change_sets: Dict[bytes, Dict[bytes, typing.Union[bytes, ItemStatus]]] = {}
         self.transaction: Dict[bytes, typing.Union[bytes, ItemStatus]] = {}
         self.parents: Dict[bytes, Optional[bytes]] = {}
-        # GP-0.7.2-eq:5.3 (A)
+        # GP-0.8.0-eq:5.3 (A)
         self.ancestors: Dict[bytes, Header | AncestorReference] = {}
 
     def add_ancestor(self, header: Header | AncestorReference):
@@ -34,7 +34,7 @@ class StateStorage:
 
     def get_parent(self, header: Header) -> Header | AncestorReference | None:
         """
-        GP-0.7.2-eq:5.2 (P)
+        GP-0.8.0-eq:5.2 (P)
 
         Parameters
         ----------
@@ -170,7 +170,7 @@ class StateStorage:
         if len(self.transaction) > 0:
             raise ValueError(f"Pending transaction; commit or rollback first")
 
-        state_trie = PatriciaMerkleTrie(self.as_list())
+        state_trie = PatriciaMerkleTrie(list(self.as_dict().items()))
 
         state_root = state_trie.root()
         DEBUG and logging.debug(f"StateStorage: Calculated state root {format_hash(state_root)}")
@@ -188,7 +188,7 @@ class StateStorage:
             visited: set[bytes] = set()
 
             # Process changeset modifications of current ancestors
-            processed = []
+            processed: set[bytes] = set()
 
             while lookup_block_hash is not None:
                 if lookup_block_hash in visited:
@@ -201,7 +201,7 @@ class StateStorage:
                                 items.pop(key, None)
                             else:
                                 items[key] = value
-                            processed.append(key)
+                            processed.add(key)
                 lookup_block_hash = self.parents.get(lookup_block_hash)
 
         return items
@@ -209,7 +209,7 @@ class StateStorage:
     def as_list(self) -> List[Tuple[bytes, bytes]]:
         items = self.as_dict()
 
-        return [(k,v) for k,v in sorted(items.items(), key=lambda x: x[0])]
+        return sorted(items.items(), key=lambda x: x[0])
 
     def as_dict_at(self, block_hash: bytes) -> Dict[bytes, bytes]:
         """Return an immutable posterior-state view for a retained block."""
@@ -249,7 +249,7 @@ class StateStorage:
         return sorted(self.as_dict_at(block_hash).items(), key=lambda item: item[0])
 
     def state_root_at(self, block_hash: bytes) -> bytes:
-        return PatriciaMerkleTrie(self.as_list_at(block_hash)).root()
+        return PatriciaMerkleTrie(list(self.as_dict_at(block_hash).items())).root()
 
 
     def finalize(self, block_hash: bytes):
@@ -323,9 +323,11 @@ class StateStorage:
             self.block_hash = block_hash
         DEBUG and logging.debug(f"Finalized block hash={format_hash(block_hash)}")
 
-    def clear(self):
+    def clear(self, *, keep_ancestors=False):
+        """Reset overlays and state selection, optionally retaining ancestor headers."""
         self.change_sets = {}
-        self.ancestors = {}
+        if not keep_ancestors:
+            self.ancestors = {}
         self.parents = {}
         self.block_hash = None
         self.finalized_block_hash = None
