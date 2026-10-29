@@ -12,7 +12,7 @@ from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.hostcalls import hostcall
-from pyjamaz.hostcalls.gas import gas_cost_by_size, fetch_cost
+from pyjamaz.hostcalls.gas import GAS_QUERY_COST, gas_cost_by_size, fetch_cost
 
 
 U32_MAX = 2 ** 32
@@ -62,7 +62,7 @@ def hc_grow_heap(registers, memory, invocation_output, logger):
         memory.heap_ptr = end * PVM_PAGE_SIZE
 
 
-@hostcall(48)
+@hostcall(GAS_QUERY_COST)
 def hc_gas(
         registers: List[int],
         memory: PVMMemory,

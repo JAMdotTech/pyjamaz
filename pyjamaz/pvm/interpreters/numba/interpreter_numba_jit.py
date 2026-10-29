@@ -424,6 +424,7 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
     uint64[::1],     # block_gas_costs (parallel to block_starts_sorted)
     int32,           # current_block_start_in (-1 if none)
     boolean,         # skip_first_block_charge (for page-fault resumption)
+    uint64,          # native_gas_cost (0 disables the hostcall 0 fast path)
 
     uint64[::1],     # registers_out
     int64[::1],      # state_out
@@ -460,6 +461,7 @@ def invoke_native(
         block_gas_costs,
         current_block_start_in,
         skip_first_block_charge,
+        native_gas_cost,
 
         registers_out,
         state_out,
@@ -565,6 +567,13 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_ecalli:
+                # An opted-in gas query has no memory or context side effects.
+                # Keep logging and insufficient-gas handling on the host path.
+                if not logging and v_x == 0 and native_gas_cost > 0 and gas >= native_gas_cost:
+                    gas = U64(gas - native_gas_cost)
+                    reg[7] = gas
+                    pc = U32(pc + skip_len)
+                    continue
                 exit_value = I64(v_x)
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_HOST_HALT, pc, gas, inst_nr, exit_value, skip_len, ERROR_NONE, current_block_start)
@@ -1621,6 +1630,7 @@ class PVMInterpreter:
         self.opcode: int = 0
         self.skip_len: int = 0
         self.gas: I64 = I64(0)
+        self.native_gas_cost = 0
         self.code: npt.NDArray[U8] = np.array(1, dtype=U8)
         self.code_size: U64 = U64(0)
         self.code_length: int = 0
@@ -2215,6 +2225,7 @@ class PVMInterpreter:
             self.block_gas_costs_array,
             np.int32(self.current_block_start),
             skip_first_block_charge,
+            np.uint64(self.native_gas_cost if self.log is None else 0),
 
             # Outputs
             registers_out,

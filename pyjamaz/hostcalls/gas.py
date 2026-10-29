@@ -12,6 +12,9 @@ Graypaper 0.8.0
 from pyjamaz.pvm.constants import MEM_W
 
 
+GAS_QUERY_COST = 48
+
+
 def gas_cost_for_octets(rate, octets):
     """B.17: G(rate, octets) = ceil(rate * octets / 1024).
 
