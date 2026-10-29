@@ -1,5 +1,5 @@
 import logging
-from copy import deepcopy
+from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Tuple, Union, Set
 
@@ -277,6 +277,17 @@ class RecentHistoryState(State, Serializable):
     def __post_init__(self):
         pass
 
+    def copy(self) -> 'RecentHistoryState':
+        """Copy mutable history records while sharing their immutable hashes."""
+        result = copy(self)
+        result.recent_blocks = []
+        for block in self.recent_blocks:
+            block_copy = copy(block)
+            block_copy.reported = [copy(package) for package in block.reported]
+            result.recent_blocks.append(block_copy)
+        result.accumulation_output_log = self.accumulation_output_log.copy()
+        return result
+
     def get_recent_block(self, block_hash) -> Optional[RecentBlock]:
         for block in self.recent_blocks:
             if block.header_hash == block_hash:
@@ -371,6 +382,23 @@ class ServiceAccount(Serializable):
     creation_slot: int = field(metadata={'codec': U32})
     last_accumulation_slot: int = field(metadata={'codec': U32})
     parent_service: int = field(metadata={'codec': U32})
+
+    def copy(self) -> 'ServiceAccount':
+        """Copy account data, including mutable preimage availability histories."""
+        # Storage-backed maps have their own caches and engine references. Keep
+        # their existing deepcopy behavior; pending accounts normally use dicts.
+        if not all(type(mapping) is dict for mapping in (
+            self.storage_items, self.preimages, self.preimage_availability
+        )):
+            return deepcopy(self)
+
+        result = copy(self)
+        result.storage_items = self.storage_items.copy()
+        result.preimages = self.preimages.copy()
+        result.preimage_availability = {
+            key: history.copy() for key, history in self.preimage_availability.items()
+        }
+        return result
 
     @property
     def threshold_balance(self):
@@ -576,7 +604,9 @@ class ServicesState(State, Serializable):
         service_account = None
 
         if check_pending_changes and service_account_id in self.pending_changes.service_accounts:
-            service_account = deepcopy(self.pending_changes.service_accounts[service_account_id])
+            pending = self.pending_changes.service_accounts[service_account_id]
+            if pending is not None:
+                service_account = pending.copy()
         else:
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before retrieving preimage')
