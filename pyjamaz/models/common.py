@@ -174,7 +174,7 @@ class ImportSegment(Serializable):
     Attributes
     ----------
     tree_root: H256
-        GP-0.8.0-eq:14.3 (blackboard_H) | Root of the segment tree. # TODO what about H^[+] ?
+        GP-0.8.0-eq:14.3 (blackboard_H) | Root of the segment tree.
     index: U16
         GP-0.8.0-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
     """
@@ -191,7 +191,7 @@ class ImportSegment(Serializable):
 
     @property
     def segment_index(self) -> int:
-        """The logical export index after removing C.35's discriminator."""
+        """The logical export index after removing C.37's discriminator."""
         return self.index & self.SEGMENT_INDEX_MASK
 
     @classmethod
@@ -428,13 +428,13 @@ class WorkExecResult(Serializable):
         GP-0.8.0-eq:11.7 (BIG) | Code oversize error.
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
-    ok: bytes = field(default=None, metadata={'codec': Bytes})
-    out_of_gas: bool = field(default=None, metadata={'codec': Null})
-    panic: bool = field(default=None, metadata={'codec': Null})
-    bad_exports: bool = field(default=None, metadata={'codec': Null})
-    digest_oversize: bool = field(default=None, metadata={'codec': Null})
-    bad_code: bool = field(default=None, metadata={'codec': Null})
-    code_oversize: bool = field(default=None, metadata={'codec': Null})
+    ok: typing.Optional[bytes] = field(default=None, metadata={'codec': Bytes})
+    out_of_gas: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    panic: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    bad_exports: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    digest_oversize: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    bad_code: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    code_oversize: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
 
     _codec_enum = True
 
