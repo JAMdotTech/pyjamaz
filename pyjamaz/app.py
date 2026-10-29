@@ -5,6 +5,7 @@ import logging
 import os
 import time
 import typing
+from copy import copy
 from dataclasses import dataclass, field
 from functools import partial
 from typing import TypeVar, Optional, List, Callable, Dict, Tuple
@@ -264,26 +265,26 @@ class PyjamazApp:
         return jam_state
 
     @log_execution_time
-    async def store_jam_state(self):
-        await self.components.timeslot.store_state(self.working_state.timeslot)
-        await self.components.entropy.store_state(self.working_state.entropy)
-        await self.components.disputes.store_state(self.working_state.disputes)
-        await self.components.validator_pool.store_state(self.working_state.validator_pool)
-        await self.components.validator_archive.store_state(self.working_state.validator_archive)
-        await self.components.safrole.store_state(self.working_state.safrole)
-        await self.components.assurances.store_state(self.working_state.assurances)
-        await self.components.statistics.store_state(self.working_state.statistics)
-        await self.components.services.store_state(self.working_state.services)
-        await self.components.recent_history.store_state(self.working_state.recent_history)
-        await self.components.authorizer_pools.store_state(self.working_state.authorizer_pools)
-        await self.components.authorizer_queues.store_state(self.working_state.authorizer_queues)
-        await self.components.accumulation_queue.store_state(self.working_state.accumulation_queue)
-        await self.components.accumulation_history.store_state(self.working_state.accumulation_history)
-        await self.components.validator_queue.store_state(self.working_state.validator_queue)
-        await self.components.privileged_services.store_state(self.working_state.privileged_services)
-        await self.components.recent_accumulation_output.store_state(
-            self.working_state.recent_accumulation_outputs
-            )
+    async def store_jam_state(self, previous_state: JamState | None = None):
+        """Store changed components, or all components without a pre-state.
+
+        ``previous_state`` must describe the selected stored parent and remain
+        unmodified while transitions construct the new component states.
+        """
+        for name in (
+            "timeslot", "entropy", "disputes", "validator_pool", "validator_archive",
+            "safrole", "assurances", "statistics", "services", "recent_history",
+            "authorizer_pools", "authorizer_queues", "accumulation_queue",
+            "accumulation_history", "validator_queue", "privileged_services",
+            "recent_accumulation_output",
+        ):
+            state_name = "recent_accumulation_outputs" if name == "recent_accumulation_output" else name
+            state = getattr(self.working_state, state_name)
+            # Service accounts are stored independently, not compared as one component.
+            if name != "services" and previous_state is not None:
+                if state == getattr(previous_state, state_name):
+                    continue
+            await getattr(self.components, name).store_state(state)
 
     def is_epoch_change(self, slotnumber: int = None) -> bool:
         """
@@ -365,6 +366,10 @@ class PyjamazApp:
             raise BlockValidationError(BlockValidationErrorCode.state_root_mismatch)
 
         self.block_context.state_root = self.working_state.state_root
+
+        # Transitions produce new component states. Retain the stored inputs for
+        # comparison before replacing the working state's component references.
+        previous_state = copy(self.working_state)
 
         # Set components pre-state
         pre_state_timeslot = self.working_state.timeslot
@@ -666,7 +671,7 @@ class PyjamazApp:
         self.working_state.privileged_services = services_after_accumulation_output.post_state_privileged_services
         self.working_state.recent_accumulation_outputs = services_after_accumulation_output.beefy_commitment_map
 
-        await self.store_jam_state()
+        await self.store_jam_state(previous_state)
 
         self.state_storage.commit()
 
