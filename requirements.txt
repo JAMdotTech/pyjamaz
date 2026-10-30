@@ -12,7 +12,7 @@ py-bip39-bindings~=0.3
 rocksdict~=0.3
 
 bandersnatch-vrfs==0.6.3
-jamcodec~=0.1.6
+jamcodec~=0.1.7
 py-jam-erasure-bindings==0.1.0
 
 numpy==2.3.5

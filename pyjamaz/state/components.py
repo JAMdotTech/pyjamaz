@@ -112,8 +112,6 @@ class Entropy(StateComponent):
             Output containing: posterior state of EntropyState (η')
         """
 
-        post_state_entropy = deepcopy(pre_state_entropy)
-
         # GP-0.8.0-eq:6.23 (η'[0]) | State transition for first index of the entropy.
         eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(header))
 
@@ -121,12 +119,12 @@ class Entropy(StateComponent):
         # State transition happen on epoch change.
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # GP-0.8.0-eq:6.24 (`e > e'`) | When epoch changes
-            post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[:3]
+            entropy = [eta_0] + pre_state_entropy.entropy[:3]
         else:
-            post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[1:]
+            entropy = [eta_0] + pre_state_entropy.entropy[1:]
 
         return EntropyOutput(
-            post_state=post_state_entropy
+            post_state=EntropyState(entropy=entropy)
         )
 
     def retrieve_state(self) -> EntropyState:
@@ -207,13 +205,13 @@ class ValidatorPool(StateComponent):
         ValidatorPoolOutput
             Output containing: posterior state of ValidatorPoolState (κ')
         """
-        post_state_validator_pool = deepcopy(pre_state_validator_pool)
-
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            post_state_validator_pool.validators = pre_state_safrole.validators
+            validators = pre_state_safrole.validators
+        else:
+            validators = pre_state_validator_pool.validators
 
         return ValidatorPoolOutput(
-            post_state=post_state_validator_pool
+            post_state=ValidatorPoolState(validators=[copy(validator) for validator in validators])
         )
 
     def retrieve_state(self) -> ValidatorPoolState:
@@ -252,14 +250,14 @@ class ValidatorArchive(StateComponent):
         ValidatorArchiveOutput
             Output containing: posterior state of ValidatorArchiveState (λ')
         """
-        post_state_validator_archive = deepcopy(pre_state_validator_archive)
-
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Update prior epoch validators GP-0.8.0-eq:6.14
-            post_state_validator_archive.validators = pre_state_validator_pool.validators
+            validators = pre_state_validator_pool.validators
+        else:
+            validators = pre_state_validator_archive.validators
 
         return ValidatorArchiveOutput(
-            post_state=post_state_validator_archive
+            post_state=ValidatorArchiveState(validators=[copy(validator) for validator in validators])
         )
 
     def retrieve_state(self) -> ValidatorArchiveState:
@@ -597,7 +595,9 @@ class AuthorizerPools(StateComponent):
         AuthorizerPoolsOutput
             Output containing: Posterior state of AuthorizerPoolsState (α')
         """
-        post_state_authorizer_pools = deepcopy(pre_state_authorizer_pools)
+        post_state_authorizer_pools = AuthorizerPoolsState(
+            authorizer_pools=[pool.copy() for pool in pre_state_authorizer_pools.authorizer_pools]
+        )
 
         # GP-0.8.0-eq:8.3 | Remove used authorizations
         for guarantee in extrinsic_guarantees:
@@ -651,7 +651,7 @@ class RecentHistory(StateComponent):
         RecentHistoryIntermediateOutput
             Output containing: Intermediate state of RecentHistoryState (β†)
         """
-        intermediate_state_recent_history = deepcopy(pre_state_recent_history)
+        intermediate_state_recent_history = pre_state_recent_history.copy()
 
         if len(pre_state_recent_history.recent_blocks) > 0:
             intermediate_state_recent_history.recent_blocks[-1].state_root = header.parent_state_root
@@ -689,7 +689,7 @@ class RecentHistory(StateComponent):
             Output containing: Posterior state of RecentHistoryState (β')
         """
         # TODO: Does bold_C need to be replaced by θ? Unclear
-        post_state_recent_history = deepcopy(intermediate_state_recent_history)
+        post_state_recent_history = intermediate_state_recent_history.copy()
 
         reported_work_packages = sorted([
             ReportedWorkPackage(
@@ -704,7 +704,7 @@ class RecentHistory(StateComponent):
             raise StateTransitionError(f"Work reports must be less than number of cores ({gp_const.CORE_COUNT})")
 
         if len(intermediate_state_recent_history.recent_blocks) > 0:
-            mmr_peaks = intermediate_state_recent_history.accumulation_output_log
+            mmr_peaks = post_state_recent_history.accumulation_output_log
         else:
             mmr_peaks = []
 
@@ -1921,7 +1921,14 @@ class Statistics(StateComponent):
         """
         # TODO: check input parameters: remove tau_prime and add bold_S
 
-        post_state = deepcopy(pre_state_statistics)
+        # Record fields are integers. Copy each mutable record, and start the
+        # per-block service statistics empty because they are rebuilt below.
+        post_state = StatisticsState(
+            vals_current=[copy(record) for record in pre_state_statistics.vals_current],
+            vals_last=[copy(record) for record in pre_state_statistics.vals_last],
+            cores=[copy(record) for record in pre_state_statistics.cores],
+            services={},
+        )
 
         # GP-0.8.0-eq:13.4-13.6: assurances belong to the prior set;
         for assurer in sorted({a.validator_index for a in extrinsic_assurances}):
@@ -1960,8 +1967,6 @@ class Statistics(StateComponent):
                 available_work_reports=self.block_context.available_work_reports,
                 extrinsic_assurances=extrinsic_assurances
             )
-
-        post_state.services = {}
 
         # GP-0.8.0-eq:13.14-13.16 | Determine affected services
         services = [r.service_id for w in incoming_work_reports for r in w.results]
@@ -2194,8 +2199,12 @@ class Services(StateComponent):
 
         accumulation_state = AccumulationStateComponents(
             services=services,
-            validator_queue=deepcopy(pre_state_validator_queue),
-            authorizer_queues=deepcopy(pre_state_authorizer_queues),
+            validator_queue=ValidatorQueueState(
+                validators=[copy(validator) for validator in pre_state_validator_queue.validators]
+            ),
+            authorizer_queues=AuthorizerQueuesState(
+                authorizer_queues=[queue.copy() for queue in pre_state_authorizer_queues.authorizer_queues]
+            ),
             privileged_services=deepcopy(pre_state_privileged_services)
         )
 

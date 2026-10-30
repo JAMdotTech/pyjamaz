@@ -8,7 +8,7 @@ import numpy.typing as npt
 
 from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter, PVMMemory
-from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.pvm.types import PVMProgram, validate_pvm_gas
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
 from pyjamaz.settings import DEBUG
 
@@ -121,13 +121,16 @@ class PVMInvocation:
     def __init__(
         self,
         invocation_mutator: InvocationMutator,  # f
-        invocation_context: Optional[InvocationContext]  # x
-
+        invocation_context: Optional[InvocationContext],  # x
+        native_gas_cost: int = 0,
     ):
         self.pvm_program: Optional[PVMProgram] = None
         self.pvm: Optional[PVMInterpreter] = None
         self.invocation_mutator = invocation_mutator
         self.invocation_context = invocation_context
+        # Opt in only when hostcall 0 charges this cost and returns gas in r7.
+        # Arbitrary mutators keep every hostcall on the normal dispatch path.
+        self.native_gas_cost = validate_pvm_gas(native_gas_cost)
 
     def pvm_invoke_host_call(
             self,
@@ -228,6 +231,8 @@ class PVMInvocation:
             )
 
         self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger=settings.PVM_DEBUGGER)
+        if hasattr(self.pvm, "native_gas_cost"):
+            self.pvm.native_gas_cost = self.native_gas_cost
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,
