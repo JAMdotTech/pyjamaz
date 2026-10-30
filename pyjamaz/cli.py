@@ -789,7 +789,92 @@ async def replay_traces(
             f"{mismatch_count} trace state-root mismatch{'es' if mismatch_count != 1 else ''}"
         )
 
-@fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
+def _report_differences(expected, actual, field_path=''):
+    """Describe report fields without hiding gas, output or commitment differences."""
+    if is_dataclass(expected) and is_dataclass(actual):
+        for item in fields(expected):
+            name = f'{field_path}.{item.name}' if field_path else item.name
+            yield from _report_differences(getattr(expected, item.name), getattr(actual, item.name), name)
+    elif isinstance(expected, (list, tuple)) and isinstance(actual, (list, tuple)):
+        if len(expected) != len(actual):
+            yield f'{field_path}.length: expected={len(expected)} actual={len(actual)}'
+        for index, (left, right) in enumerate(zip(expected, actual)):
+            yield from _report_differences(left, right, f'{field_path}[{index}]')
+    elif isinstance(expected, dict) and isinstance(actual, dict):
+        for key in sorted(expected.keys() | actual.keys()):
+            name = f'{field_path}[{key.hex() if isinstance(key, bytes) else key!s}]'
+            if key not in actual:
+                yield f'{name}: missing from actual report'
+            elif key not in expected:
+                yield f'{name}: unexpected in actual report'
+            else:
+                yield from _report_differences(expected[key], actual[key], name)
+    elif expected != actual:
+        def display(value):
+            if isinstance(value, bytes):
+                return '0x' + value.hex()
+            return repr(value)
+        yield f'{field_path}: expected={display(expected)} actual={display(actual)}'
+
+
+def _read_refinement_fixture(file, codec):
+    if not file.is_file():
+        raise click.ClickException(f'Incomplete refinement fixture: missing {file}')
+    try:
+        raw = file.read_bytes()
+        stream = JamBytes(raw)
+        value = codec.from_jam_bytes(stream)
+        if stream.get_remaining_length() or value.to_jam_bytes().to_bytes() != raw:
+            raise ValueError('noncanonical encoding or trailing bytes')
+        return value
+    except Exception as exc:
+        raise click.ClickException(f'Invalid refinement fixture {file}: {exc}') from exc
+
+
+async def _replay_refinement_trace(session, fixture_file):
+    from pyjamaz.fuzzer.v1.types import RefineBundle
+    from pyjamaz.models.common import WorkReport
+
+    folder = fixture_file.parent
+    genesis = _read_refinement_fixture(folder / 'genesis.bin', TraceGenesis)
+    request = _read_refinement_fixture(fixture_file, RefineBundle)
+    expected = _read_refinement_fixture(folder / 'report.bin', WorkReport)
+    if not session.features.refine:
+        raise click.ClickException(f'Refinement was not negotiated; target cannot replay {fixture_file}')
+
+    response = await session.send_request(FuzzerMessage(initialize=InitializeMessage(
+        header=genesis.header, state=genesis.state.keyvals, ancestry=[],
+    )))
+    if response.state_root != genesis.state.state_root:
+        raise click.ClickException(f'Fuzzer initial state root mismatch in refinement fixture {folder}')
+
+    response = await session.send_request(FuzzerMessage(refine_bundle=request))
+    failures = []
+    if response.error is not None:
+        failures.append(f'Fuzzer RefineBundle failed: {response.error}')
+    elif response.work_report is None:
+        failures.append('Unexpected fuzzer response to RefineBundle: expected work_report')
+    elif response.work_report.to_jam_bytes().to_bytes() != expected.to_jam_bytes().to_bytes():
+        failures.append('Work report mismatch:\n' + '\n'.join(
+            _report_differences(expected, response.work_report),
+        ))
+
+    state_response = await session.send_request(FuzzerMessage(get_state=genesis.header.hash))
+    if state_response.state is None:
+        failures.append(f'Fuzzer GetState failed after refinement: {state_response.error or "expected state"}')
+    else:
+        state_root = PatriciaMerkleTrie(state_response.state).root()
+        if state_root != genesis.state.state_root:
+            failures.append(
+                f'Refinement changed initialized state: expected={format_hash(genesis.state.state_root)} '
+                f'actual={format_hash(state_root)}'
+            )
+    if failures:
+        raise click.ClickException(f'Refinement trace {fixture_file}:\n' + '\n'.join(failures))
+    logging.info(f'✅ Refinement report matches {folder / "report.bin"}; initialized state unchanged')
+
+
+@fuzzer.command('traces', help='Replay block and refinement traces against a fuzzer target over UNIX socket.')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
@@ -805,6 +890,7 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
     connected = False
     mismatch_count = 0
     last_parent = None
+    last_was_refinement = False
 
     def require_response(response, field, operation):
         if response.error is not None:
@@ -823,12 +909,29 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
         traces_files = await anyio.to_thread.run_sync(
             lambda: sorted(f for f in traces_folder.rglob("*.bin") if f.name not in ['genesis.bin', 'report.bin']),
         )
+        for report_file in traces_folder.rglob('report.bin'):
+            if not any(candidate.parent == report_file.parent for candidate in traces_files):
+                raise click.ClickException(
+                    f'Incomplete refinement fixture: missing {report_file.parent / "refine.bin"}'
+                )
 
         for nr, block_file in enumerate(traces_files, start=1):
             logging.info(f'📂 Processing trace file {block_file}')
+            if block_file.name == 'refine.bin':
+                # Refinement fixtures always start from their own genesis state,
+                # even when the directory also contains block traces.
+                if last_parent is not None:
+                    await fuzzer_session.close()
+                    connected = False
+                    await fuzzer_session.connect()
+                    connected = True
+                await _replay_refinement_trace(fuzzer_session, block_file)
+                last_parent = block_file.parent
+                last_was_refinement = True
+                continue
             trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
-            if block_file.parent != last_parent:
+            if block_file.parent != last_parent or last_was_refinement:
                 if last_parent is not None:
                     # Each trace chain has its own handshake and Initialize.
                     await fuzzer_session.close()
@@ -876,6 +979,7 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
                     )
 
                 last_parent = block_file.parent
+                last_was_refinement = False
                 if checkpoint:
                     logging.info(
                         f"📌 Using {block_file.name} as initialization checkpoint "
