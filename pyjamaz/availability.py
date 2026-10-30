@@ -189,8 +189,10 @@ def availability_spec(package_hash: bytes, bundle: bytes, exports: list[bytes],
         raise ProcessWorkpackageError("invalid exported segments")
     originals = erasure_data_shards(validator_count)
     alignment = 2 * originals
+    # GP-0.8.0-eq:14.18: k = ceil(|b| / z), where z = 2 D(v).
+    piece_count = (len(bundle) + alignment - 1) // alignment
     padded_bundle = zero_pad(alignment, bundle)
-    bundle_shards = encode_chunks(validator_count, len(padded_bundle) // alignment, padded_bundle)
+    bundle_shards = encode_chunks(validator_count, piece_count, padded_bundle)
     segments = exports + paged_proof_segments(exports)
     segment_shard_size = EC_SEGMENT_SIZE // originals
     # H.4-H.5: transpose segments so every validator row contains one shard of each segment.
