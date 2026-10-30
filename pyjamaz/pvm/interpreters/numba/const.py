@@ -27,6 +27,8 @@ OUT_OF_GAS = 3  # GP-0.8.0-section:A.1: ∞: out-of-gas
 EXIT_PAGE_FAULT = 4  # GP-0.8.0-section:A.1: F: page-fault
 EXIT_HOST_HALT = 5  # GP-0.8.0-section:A.1: h: host-call
 
+# Host call IDs
+HC_GAS = 0
 
 # state_out constants for invoke_jit (int64 array)
 STATE_STATUS = 0

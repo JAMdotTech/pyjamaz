@@ -20,6 +20,7 @@ from pyjamaz.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_c
 from pyjamaz.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.hostcalls.debug import hc_log
 from pyjamaz.hostcalls.general import hc_grow_heap, hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch, hc_not_found
+from pyjamaz.hostcalls.gas import GAS_QUERY_COST
 from pyjamaz.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_invoke, hc_expunge, hc_pages
 from pyjamaz.settings import DEBUG
@@ -232,7 +233,8 @@ def pvm_invoke_accumulate(
         invocation_mutator=AccumulateInvocationMutator(
             post_entropy=post_entropy,
             accumulation_inputs=accumulation_inputs,
-        )
+        ),
+        native_gas_cost=GAS_QUERY_COST,
     )
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
