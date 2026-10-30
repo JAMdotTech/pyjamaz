@@ -22,6 +22,7 @@ _apply_jam_fuzz_spec_override()
 FUZZER_VERSION = 1
 FUZZER_FEATURE_FORK = True
 FUZZER_FEATURE_ANCESTRY = False
+FUZZER_FEATURE_REFINE = True
 
 DEBUG = False
 PROFILING = False

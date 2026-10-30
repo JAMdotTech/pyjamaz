@@ -10,8 +10,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String, Bool, H512
 
 from pyjamaz.exceptions import BlockValidationError
-from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO, VALIDATOR_COUNT, \
-    valid_validator_count
+from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO, VALIDATOR_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 # from pyjamaz.models.block import Credential, Guarantee
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
@@ -126,7 +125,8 @@ class Preimage:
             program_authors = Vec(String).decode(metadata_bytes)
         except Exception:
             metadata_version = 0
-            program_name = metadata.decode("utf-8")
+            # GP metadata is an opaque blob; its display name need not be UTF-8.
+            program_name = metadata.decode("utf-8", errors="replace")
             program_license = ''
             program_authors = []
             program_version = ''
@@ -174,7 +174,7 @@ class ImportSegment(Serializable):
     Attributes
     ----------
     tree_root: H256
-        GP-0.8.0-eq:14.3 (blackboard_H) | Root of the segment tree. # TODO what about H^[+] ?
+        GP-0.8.0-eq:14.3 (blackboard_H) | Root of the segment tree.
     index: U16
         GP-0.8.0-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
     """
@@ -191,7 +191,7 @@ class ImportSegment(Serializable):
 
     @property
     def segment_index(self) -> int:
-        """The logical export index after removing C.35's discriminator."""
+        """The logical export index after removing C.37's discriminator."""
         return self.index & self.SEGMENT_INDEX_MASK
 
     @classmethod
@@ -281,7 +281,7 @@ class WorkPackage(Serializable):
 
     def authorizer_hash(self) -> bytes:
         """
-        GP-0.8.0-eq:14.11 (bold_p_a) | Authorizer hash.
+        GP-0.8.0-eq:14.11: p_a = H(p_u ++ p_f).
         """
         return blake2b_256_hash(self.auth_code_hash + self.authorizer_config)
 
@@ -304,6 +304,10 @@ class WorkPackage(Serializable):
         return getattr(self, '_authorization_code', None)
 
     def set_authorization_code(self, services_state: 'ServicesState') -> None:
+        # GP-0.8.0-eq:14.11: (metadata, code) = historical_lookup(host, lookup-slot, code-hash).
+        # A reused package must not retain code from another historical state.
+        setattr(self, '_authorization_code', None)
+        self.authorization_metadata = None
         preimage_blob = services_state.historical_preimage_lookup(
             service_account_id=self.auth_code_host,
             timeslot=self.context.lookup_anchor_slot,
@@ -424,13 +428,13 @@ class WorkExecResult(Serializable):
         GP-0.8.0-eq:11.7 (BIG) | Code oversize error.
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
-    ok: bytes = field(default=None, metadata={'codec': Bytes})
-    out_of_gas: bool = field(default=None, metadata={'codec': Null})
-    panic: bool = field(default=None, metadata={'codec': Null})
-    bad_exports: bool = field(default=None, metadata={'codec': Null})
-    digest_oversize: bool = field(default=None, metadata={'codec': Null})
-    bad_code: bool = field(default=None, metadata={'codec': Null})
-    code_oversize: bool = field(default=None, metadata={'codec': Null})
+    ok: typing.Optional[bytes] = field(default=None, metadata={'codec': Bytes})
+    out_of_gas: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    panic: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    bad_exports: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    digest_oversize: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    bad_code: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
+    code_oversize: typing.Optional[bool] = field(default=None, metadata={'codec': Null})
 
     _codec_enum = True
 
@@ -508,7 +512,7 @@ class WorkDigest(Serializable):
     @classmethod
     def from_work_item(cls, work_item: WorkItem, result: WorkExecResult, gas_used: int) -> "WorkDigest":
         """
-        GP-0.8.0-eq:14.10 (function_C) | the item-to-result function
+        GP-0.8.0-eq:14.10: C(w, result, gas_used) -> work digest.
         """
         # Rename to WorkDigest
         return cls(
@@ -554,30 +558,7 @@ class WorkPackageSpec(Serializable):
     exports_root: bytes = field(metadata={'codec': H256})
     exports_count: int = field(metadata={'codec': U16})
 
-    @classmethod
-    def create_from_work_package(cls,
-                                 work_package: WorkPackage, extrinsic_data: List[bytes], imported_segments: List[bytes],
-                                 justification_data: List[bytes], exported_segments: List[bytes], exports_root: bytes,
-                                 *, erasure_shards: int,
-                                 ) -> "WorkPackageSpec":
-        """
-        GP-0.8.0-eq:14.18 function_A | creates an availability specifier from a workpackage
-        # TODO finish implementation
-        """
-        # GP-0.8.0-eq:14.17: the report carries its original assurer set size.
-        if not valid_validator_count(erasure_shards):
-            raise ValueError("invalid assurer count")
 
-        # serialized_auditable_work_package = work_package.serialize_to_auditable()
-
-        return WorkPackageSpec(
-            hash=work_package.hash(),
-            length=work_package.to_jam_bytes().length,
-            erasure_root=bytes(32),
-            erasure_shards=erasure_shards,
-            exports_root=exports_root,
-            exports_count=len(exported_segments),
-        )
 
 
 
