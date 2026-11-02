@@ -1,4 +1,5 @@
 import math
+from functools import lru_cache
 from math import ceil
 from typing import List, Tuple, Optional
 from pyjamaz.hashing import blake2b_256_hash, keccak_256_hash
@@ -42,12 +43,32 @@ class PatriciaMerkleTrie:
         if len(data) == 0:
             return b'\0' * 32
         if len(data) == 1:
+            key, value = data[0]
+            if (
+                type(key) is bytes and type(value) is bytes
+                and self._leaf is _TRIE_LEAF_ENCODER
+                and blake2b_256_hash is _TRIE_HASH_FUNCTION
+            ):
+                input_size = len(key) + len(value)
+                if input_size <= _TRIE_LEAF_CACHE_MAX_INPUT_BYTES:
+                    return _cached_trie_leaf_hash(key, value)
+                if input_size <= _TRIE_LARGE_LEAF_CACHE_MAX_INPUT_BYTES:
+                    return _cached_trie_large_leaf_hash(key, value)
             encoded = self._leaf(*data[0])
         else:
             left, right = [], []
             for key, value in data:
                 (right if self._bit(key, index) else left).append((key, value))
-            encoded = self._branch(self.merkle(left, index + 1), self.merkle(right, index + 1))
+            left_hash = self.merkle(left, index + 1)
+            right_hash = self.merkle(right, index + 1)
+            if (
+                type(left_hash) is bytes and type(right_hash) is bytes
+                and len(left_hash) == len(right_hash) == 32
+                and self._branch is _TRIE_BRANCH_ENCODER
+                and blake2b_256_hash is _TRIE_HASH_FUNCTION
+            ):
+                return _cached_trie_branch_hash(left_hash, right_hash)
+            encoded = self._branch(left_hash, right_hash)
 
         return blake2b_256_hash(encoded)
 
@@ -56,6 +77,32 @@ class PatriciaMerkleTrie:
         GP-0.8.0-eq:D.5 | Constructs a Patricia Merkle trie root hash from the key-value pairs
         """
         return self.merkle(self.data, index=index)
+
+
+# Bound retained leaf inputs to 24 MiB: 4096 small entries of at most 4 KiB,
+# plus 32 larger entries of at most 256 KiB for common program/preimage values.
+# Branch inputs and results are fixed-size; entry counts bound Python overhead.
+# Leaves larger than the admission limit are hashed without retaining them.
+_TRIE_LEAF_CACHE_MAX_INPUT_BYTES = 4096
+_TRIE_LARGE_LEAF_CACHE_MAX_INPUT_BYTES = 256 * 1024
+_TRIE_LEAF_ENCODER = PatriciaMerkleTrie._leaf
+_TRIE_BRANCH_ENCODER = PatriciaMerkleTrie._branch
+_TRIE_HASH_FUNCTION = blake2b_256_hash
+
+
+@lru_cache(maxsize=4096)
+def _cached_trie_leaf_hash(key: bytes, value: bytes) -> bytes:
+    return _TRIE_HASH_FUNCTION(_TRIE_LEAF_ENCODER(key, value))
+
+
+@lru_cache(maxsize=32)
+def _cached_trie_large_leaf_hash(key: bytes, value: bytes) -> bytes:
+    return _TRIE_HASH_FUNCTION(_TRIE_LEAF_ENCODER(key, value))
+
+
+@lru_cache(maxsize=8192)
+def _cached_trie_branch_hash(left: bytes, right: bytes) -> bytes:
+    return _TRIE_HASH_FUNCTION(_TRIE_BRANCH_ENCODER(left, right))
 
 
 class MerkleMountainRange:
