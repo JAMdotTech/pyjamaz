@@ -491,7 +491,8 @@ def invoke_native(
 
     # Gas model: track current block start for block-based gas charging
     current_block_start = current_block_start_in
-    skip_block_charge = skip_first_block_charge
+    # Resolve the entry PC even when the caller restored an already-paid block.
+    lookup_block = True
     n_blocks = len(block_starts_sorted)
 
     # Local state array for logging: [inst_nr, opcode, pc, gas, start_time]
@@ -517,7 +518,7 @@ def invoke_native(
             return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP, current_block_start)
 
         # GP-0.8.0-eq:A.8 - charge when entering a new basic block
-        if n_blocks > 0:
+        if n_blocks > 0 and (lookup_block or current_block_start < 0):
             block_idx = get_block_index_jit(block_starts_sorted, I32(pc))
             if block_idx >= 0:
                 if current_block_start < 0:
@@ -528,8 +529,8 @@ def invoke_native(
 
                 current_block_start = block_starts_sorted[block_idx]
 
-        # Clear skip flag after first iteration (must be outside gas model check)
-        skip_block_charge = False
+        # Reuse the block until a terminator resets current_block_start.
+        lookup_block = False
 
         # Fetch opcode and decode
         opcode = code[pc]
