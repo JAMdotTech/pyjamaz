@@ -1,14 +1,15 @@
 import asyncio
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from jamcodec.exceptions import ScaleDecodeException
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import U8, String, Vec, Array, Bytes, Tuple as JamTuple, H256, Null, UnsignedInteger, U32
+from jamcodec.types import U8, String, Vec, Array, Bytes, Tuple as JamTuple, H256, Null, UnsignedInteger, U16, U32, Map
 
 from pyjamaz.models.block import Block, Header
+from pyjamaz.models.common import WorkPackage, WorkReport
 
 HEADER_LEN = 4
 MAX_MESSAGE_SIZE = 16 * 1024 * 1024
@@ -52,15 +53,24 @@ class InitializeMessage(Serializable):
 class Features:
     BLOCK_ANCESTRY: int = 1 << 0
     SIMPLE_FORKING: int = 1 << 1
-    RESERVED: int      = 1 << 31
+    REFINE: int         = 1 << 2
+    RESERVED: int       = 1 << 31
 
-    def __init__(self, fork:bool=False, ancestry:bool=False):
+    def __init__(self, fork: bool=False, ancestry: bool=False, refine: bool=False):
         self._value = 0 & 0xFFFFFFFF
         self.simple_forking = fork
         self.block_ancestry = ancestry
+        self.refine = refine
 
     def _get_flag(self, mask: int) -> bool:
         return (self._value & mask) != 0
+
+    def __and__(self, other: "Features") -> "Features":
+        if not isinstance(other, Features):
+            return NotImplemented
+        features = Features()
+        features._value = self._value & other._value
+        return features
 
     def _set_flag(self, mask: int, enabled: bool):
         if enabled:
@@ -83,6 +93,14 @@ class Features:
     @simple_forking.setter
     def simple_forking(self, value: bool):
         self._set_flag(self.SIMPLE_FORKING, value)
+
+    @property
+    def refine(self) -> bool:
+        return self._get_flag(self.REFINE)
+
+    @refine.setter
+    def refine(self, value: bool):
+        self._set_flag(self.REFINE, value)
 
 
 class FeaturesCodec(UnsignedInteger):
@@ -119,14 +137,32 @@ class PeerInfoMessage(Serializable):
 
 
 @dataclass
+class WorkPackageBundle(Serializable):
+    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
+    extrinsics: List[bytes] = field(metadata={'codec': Vec(Bytes)})
+    import_segments: List[bytes] = field(metadata={'codec': Vec(Array(U8, 4104))})
+    justifications: List[List[bytes]] = field(metadata={'codec': Vec(Vec(H256))})
+
+
+@dataclass
+class RefineBundle(Serializable):
+    core_index: int = field(metadata={'codec': U16})
+    segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
+    erasure_shards: int = field(metadata={'codec': U16})
+    bundle: WorkPackageBundle = field(metadata={'codec': WorkPackageBundle.to_codec_def()})
+
+
+@dataclass
 class FuzzerMessage(Serializable):
-    peer_info: PeerInfoMessage = field(default=None, metadata={'codec': PeerInfoMessage.to_codec_def()})
-    initialize: InitializeMessage = field(default=None, metadata={'codec': InitializeMessage.to_codec_def()})
-    state_root: bytes = field(default=None, metadata={'codec': H256})
-    import_block: Block = field(default=None, metadata={'codec': Block.to_codec_def()})
-    get_state: bytes = field(default=None, metadata={'codec': H256})
-    state: List[Tuple[bytes, bytes]] = field(default=None, metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
-    error: str = field(default=None, metadata={'codec': {'id': 255, 'type': String}})
+    peer_info: Optional[PeerInfoMessage] = field(default=None, metadata={'codec': PeerInfoMessage.to_codec_def()})
+    initialize: Optional[InitializeMessage] = field(default=None, metadata={'codec': InitializeMessage.to_codec_def()})
+    state_root: Optional[bytes] = field(default=None, metadata={'codec': H256})
+    import_block: Optional[Block] = field(default=None, metadata={'codec': Block.to_codec_def()})
+    get_state: Optional[bytes] = field(default=None, metadata={'codec': H256})
+    state: Optional[List[Tuple[bytes, bytes]]] = field(default=None, metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
+    refine_bundle: Optional[RefineBundle] = field(default=None, metadata={'codec': RefineBundle.to_codec_def()})
+    work_report: Optional[WorkReport] = field(default=None, metadata={'codec': WorkReport.to_codec_def()})
+    error: Optional[str] = field(default=None, metadata={'codec': {'id': 255, 'type': String}})
 
     _codec_enum = True
 
@@ -148,6 +184,10 @@ class FuzzerMessage(Serializable):
             raise ValueError("Incoming message too large: %d bytes" % length)
         payload = await reader.readexactly(length)
         try:
-            return cls.from_jam_bytes(JamBytes(payload))
+            stream = JamBytes(payload)
+            message = cls.from_jam_bytes(stream)
+            if stream.get_remaining_length() or message.to_jam_bytes().to_bytes() != payload:
+                raise ValueError("Noncanonical message or trailing bytes")
+            return message
         except ScaleDecodeException as e:
             raise ValueError(f"Malformed message: {e}") from e

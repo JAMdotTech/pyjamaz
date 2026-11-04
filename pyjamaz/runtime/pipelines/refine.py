@@ -1,17 +1,22 @@
 import asyncio
 import logging
 from asyncio import TaskGroup
+from copy import deepcopy
 from typing import Dict, List
 
 import anyio
 
 from pyjamaz.app import PyjamazApp
+from pyjamaz.availability import BundleData, DataUnavailable, import_reference, resolve_import_root, validate_work_package
+from pyjamaz.exceptions import ProcessWorkpackageError
+from pyjamaz.merkle import ConstantDepthMerkleTree
+from pyjamaz.refinement import Refinement
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.runtime.extrinsics import WorkpackageExtrinsicCollector
 from pyjamaz.models.common import WorkPackage, WorkPackageStatus, WorkPackageReportableStatus, \
     WorkPackageReportedStatus, BlockDesc, Credential, Guarantee
 from pyjamaz.runtime.types import WorkPackageQueueItem
-from pyjamaz.settings import DEBUG, GUARANTEE_SIGNATURE_WAIT_PERIOD
+from pyjamaz.settings import DEBUG, GUARANTEE_SIGNATURE_WAIT_PERIOD, SOLO_MODE
 from pyjamaz.transport.pubsub import PubSubSignal
 from pyjamaz.utils import format_hash
 
@@ -39,7 +44,7 @@ class RefinePipeline:
         task_group.start_soon(self._guarantuee_worker)
 
     def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes]):
-
+        work_package = deepcopy(work_package)
         self._pending_work_packages[work_package.hash()] = WorkPackageQueueItem(
             work_package=work_package, status=WorkPackageStatus(
                 Reportable=WorkPackageReportableStatus(
@@ -96,84 +101,141 @@ class RefinePipeline:
             finally:
                 self._timeslot_queue.task_done()
 
+    def _segment_root_lookup(self, package: WorkPackage, state) -> dict[bytes, bytes]:
+        # GP-0.8.0-eq:14.14: the runtime supplies the known package-to-export-root correspondence.
+        known = {}
+        for block in state.recent_history.recent_blocks:
+            known.update({report.hash: report.exports_root for report in block.reported})
+        for pending in self._pending_work_packages.values():
+            if pending.work_report is not None:
+                spec = pending.work_report.package_spec
+                known[spec.hash] = spec.exports_root
+        mappings = {}
+        for item in package.items:
+            for entry in item.import_segments:
+                if entry.is_work_package_hash and entry.tree_root not in mappings:
+                    if entry.tree_root in known:
+                        mappings[entry.tree_root] = known[entry.tree_root]
+                    elif self.app.d3l_store is not None:
+                        mappings[entry.tree_root] = self.app.d3l_store.segment_root_for_package(entry.tree_root)
+                    else:
+                        raise DataUnavailable("segment-root mapping is unavailable")
+        return mappings
+
+    def _bundle_data(self, package: WorkPackage, mappings: dict[bytes, bytes]) -> BundleData:
+        extrinsics, segments, proofs = [], [], []
+        stored_trees = {}
+        for item in package.items:
+            for manifest in item.extrinsic:
+                blob = self._work_package_extrinsics.get(package, manifest.hash, manifest.len)
+                if blob is None:
+                    raise DataUnavailable("extrinsic data is unavailable")
+                extrinsics.append(blob)
+            for entry in item.import_segments:
+                root = resolve_import_root(mappings, import_reference(entry))
+                if self.app.d3l_store is None:
+                    raise DataUnavailable("imported segments are unavailable")
+                if root not in stored_trees:
+                    stored = self.app.d3l_store.retrieve_segments(root).segments
+                    tree = ConstantDepthMerkleTree(stored)
+                    if tree.root() != root:
+                        raise ProcessWorkpackageError("stored segments do not match their root")
+                    stored_trees[root] = (stored, tree)
+                stored, tree = stored_trees[root]
+                if entry.segment_index >= len(stored):
+                    raise ProcessWorkpackageError("import segment index out of range")
+                segments.append(stored[entry.segment_index])
+                proofs.append(tree.trace(entry.segment_index))
+        return BundleData.from_parts(package, extrinsics, segments, proofs)
+
+    @staticmethod
+    def _validator_keys(state) -> tuple[bytes, ...]:
+        return tuple(bytes(validator.ed25519) for validator in state.validator_pool.validators)
+
+    @staticmethod
+    def _view_is_committed(state, head_hash: bytes) -> bool:
+        storage = state.services.state_storage
+        return not storage.transaction and storage.block_hash in (None, head_hash)
+
+    @staticmethod
+    def _retry(item: WorkPackageQueueItem) -> None:
+        item.work_report = None
+        item.signatures.clear()
+        item.status = WorkPackageStatus(Reportable=WorkPackageReportableStatus(remaining_blocks=4))
+
     async def _refine_worker(self) -> None:
         while True:
-            wp_item = await self._refine_queue.get()
+            item = await self._refine_queue.get()
+            try:
+                await self._refine_work_package(item)
+            except asyncio.CancelledError:
+                self._retry(item)
+                raise
+            except DataUnavailable as exc:
+                self._retry(item)
+                logging.info("Refine waits for data: %s", exc)
+            except ProcessWorkpackageError as exc:
+                self._retry(item)
+                item.status = WorkPackageStatus(Failed=str(exc))
+                logging.info("Work package rejected: %s", exc)
+            except Exception as exc:
+                self._retry(item)
+                item.status = WorkPackageStatus(Failed=str(exc))
+                logging.exception("Work-package refinement failed")
+            finally:
+                self._refine_queue.task_done()
 
-            logging.info(f'👨‍💻 Processing work-package {format_hash(wp_item.work_package.hash())} [{wp_item.status.enum_value()[0]}]')
+    async def _refine_work_package(self, item: WorkPackageQueueItem) -> None:
+        # Capture every input before dispatch; the worker must not follow a live state view.
+        state = self.app.working_state
+        package = deepcopy(item.work_package)
+        validate_work_package(package)
+        core = self.app.get_core_assigment()
+        if core is None:
+            self._retry(item)
+            return
+        head_root = state.state_root
+        slot = state.timeslot.number
+        head_hash = self.app.retrieve_block_hash(slot)
+        if head_hash is None or not self._view_is_committed(state, head_hash):
+            self._retry(item)
+            return
+        validator_keys = self._validator_keys(state)
+        mappings = self._segment_root_lookup(package, state)
+        data = self._bundle_data(package, mappings)
+        execution = Refinement(state.services.snapshot(), data)
+        report = await anyio.to_thread.run_sync(
+            execution.compute_work_report, package, core, mappings, len(validator_keys),
+        )
 
-            # if self.get_core_assigment() is None:
-            #     raise ProcessWorkpackageError("Cannot process work package: no core assignment")
+        # A changed branch or validator/core assignment needs a fresh guarantee view.
+        current = self.app.working_state
+        if (current.state_root != head_root or self.app.get_core_assigment() != core
+                or self._validator_keys(current) != validator_keys
+                or not self._view_is_committed(current, head_hash)):
+            self._retry(item)
+            return
+        if self.app.d3l_store is not None:
+            self.app.d3l_store.store_work_report(report, execution.bundle, execution.exported_segments)
+        item.work_report = report
+        item.status = WorkPackageStatus(Reported=WorkPackageReportedStatus(
+            reported_in=BlockDesc(slot=slot, header_hash=head_hash), core=core, report_hash=report.hash(),
+        ))
+        if self.app.pubsub:
+            await self.app.pubsub.publish(PubSubSignal(
+                topic=MESSAGE_TYPES.WORK_PACKAGE_STATUS, data=[item.status.to_json()],
+            ))
+        credential = await self.app.create_guarantee_signature(report)
+        await self.add_signature(package.hash(), credential)
 
-            work_package = wp_item.work_package
-
-            # Prepare extrinsic data (GP-0.8.0-eq:B.6 bold_x_flat)
-            extrinsics = [
-                [self._work_package_extrinsics.get(work_package, x.hash, x.len) for x in w.extrinsic]
-                for w in work_package.items
-            ]
-
-            # Set code
-            work_package.set_authorization_code(self.app.working_state.services)
-
-            # Todo move work_result_computation to here
-            work_report = await anyio.to_thread.run_sync(
-                self.app.work_result_computation,
-                work_package,
-                self.app.get_core_assigment(),
-                self.app.working_state.services,
-                extrinsics,
-                # GP-0.8.0-eq:14.13: capture the assurer count before dispatch.
-                len(self.app.working_state.validator_pool.validators),
-            )
-
-            logging.info(f'👨‍💻Created work-report {format_hash(work_report.hash())}')
-
-            wp_item.work_report = work_report
-
-            # Update work package status
-            wp_item.status = WorkPackageStatus(
-                Reported=WorkPackageReportedStatus(
-                    reported_in=BlockDesc(
-                        slot=self.app.working_state.timeslot.number,
-                        header_hash=self.app.retrieve_block_hash(self.app.working_state.timeslot.number)
-                    ),
-                    core=self.app.get_core_assigment(),
-                    report_hash=work_report.hash()
-                )
-            )
-
-            if self.app.pubsub:
-                # Send signal
-                await self.app.pubsub.publish(
-                    PubSubSignal(
-                        topic=MESSAGE_TYPES.WORK_PACKAGE_STATUS,
-                        data=[wp_item.status.to_json()]
-                    )
-                )
-
-            # Clean up work package extrinsics
-            self._work_package_extrinsics.clear(work_package)
-
-            # Guarantee signature
-            credential = await self.app.create_guarantee_signature(work_report)
-
-            await self.add_signature(work_package.hash(), credential)
-
-
-            #TODO
-            # TODO exchange signature with other core members
-            for v_idx, assignment in enumerate(self.app.block_context.guarantor_assignments):
-                if assignment.validator_ed25519 != self.app.config.keys.ed25519.public_key and assignment.core_index == self.app.get_core_assigment():
-                    signature = await self.app.create_guarantee_signature_for_validator(work_report, v_idx)
-                    # await asyncio.sleep(3)
-                    await self.add_signature(work_package.hash(), signature)
-
-            # await self.app.guarantee_work_report(work_report, self.app.current_timeslot())
-
-            DEBUG and logging.debug(f"Processed work package: {format_hash(work_package.hash())}")
-
-
+        if SOLO_MODE:
+            for index, assignment in enumerate(self.app.block_context.guarantor_assignments):
+                if (assignment.validator_ed25519 != self.app.config.keys.ed25519.public_key
+                        and assignment.core_index == core):
+                    signature = await self.app.create_guarantee_signature_for_validator(report, index)
+                    await self.add_signature(package.hash(), signature)
+        self._work_package_extrinsics.clear(item.work_package)
+        logging.info("Created work-report %s", format_hash(report.hash()))
 
     async def _guarantuee_worker(self) -> None:
         while True:

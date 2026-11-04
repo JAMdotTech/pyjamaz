@@ -13,6 +13,7 @@ class FuzzerSession:
     def __init__(self, path: str, app: 'PyjamazApp') -> None:
         self.path = path
         self.app = app
+        self.features = Features()
         self.reader: asyncio.StreamReader
         self.writer: asyncio.StreamWriter
 
@@ -20,7 +21,7 @@ class FuzzerSession:
         return FuzzerMessage(
             peer_info=PeerInfoMessage(
                 fuzz_version=FUZZER_VERSION,
-                features=Features(fork=False, ancestry=False),
+                features=Features(fork=False, ancestry=False, refine=True),
                 app_version=Version.from_str(APP_VERSION),
                 jam_version=Version.from_str(GP_VERSION),
                 name = "PyJAMaz"
@@ -42,6 +43,8 @@ class FuzzerSession:
         except asyncio.TimeoutError:
             raise RuntimeError("Target did not send PeerInfo in time")
 
+        if target_peerinfo.peer_info is None:
+            raise RuntimeError("Target did not send PeerInfo")
         if target_peerinfo.peer_info.jam_version != jam_version:
             raise RuntimeError(
                 f"Protocol version mismatch: ours={GP_VERSION}, theirs={target_peerinfo.peer_info.jam_version}"
@@ -52,24 +55,37 @@ class FuzzerSession:
                 f"Fuzzer version mismatch: ours={FUZZER_VERSION}, theirs={target_peerinfo.peer_info.fuzz_version}"
             )
 
+        self.features = our_peerinfo.peer_info.features & target_peerinfo.peer_info.features
         logging.info(
             f"[fuzzer] Connected to {target_peerinfo.peer_info.name} (v{target_peerinfo.peer_info.app_version})")
 
 
     async def send_request(self, req: FuzzerMessage) -> FuzzerMessage:
         """Send *req* and return the parsed response."""
-
-        # logging.debug(f"[fuzzer] Sending {req.to_json()}")
+        if req.refine_bundle is not None and not self.features.refine:
+            raise RuntimeError("Refinement was not negotiated")
+        responses = {
+            'initialize': 'state_root', 'import_block': 'state_root',
+            'get_state': 'state', 'refine_bundle': 'work_report',
+        }
+        variant = req.enum_value()[0]
+        if variant not in responses:
+            raise RuntimeError(f"Unexpected outgoing request {variant}")
         self.writer.write(req.fuzzer_encode())
         await self.writer.drain()
         try:
             rsp = await asyncio.wait_for(FuzzerMessage.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
         except asyncio.TimeoutError:
+            await self.close()
             raise RuntimeError(f"Target timed out when responding to {req.to_json()}")
-        # TODO message type sanity checks
-        # logging.debug(f"[fuzzer] Received {rsp.to_json()}")
+        except (ValueError, asyncio.IncompleteReadError):
+            await self.close()
+            raise
+        allowed_error = variant in ('import_block', 'refine_bundle') and rsp.error is not None
+        if getattr(rsp, responses[variant]) is None and not allowed_error:
+            await self.close()
+            raise RuntimeError(f"Unexpected response to {variant}: expected {responses[variant]}")
         return rsp
-
 
     async def connect(self) -> None:
         self.reader, self.writer = await asyncio.open_unix_connection(self.path)
