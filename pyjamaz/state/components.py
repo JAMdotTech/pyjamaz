@@ -1,8 +1,9 @@
 import bisect
 import logging
-from concurrent.futures import as_completed
+from concurrent.futures import as_completed, wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from copy import deepcopy, copy
+from threading import Lock
 from typing import List, Union, Optional, Set, Dict
 
 from bandersnatch_vrfs import RingContext, ietf_vrf_verify
@@ -19,7 +20,7 @@ from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
 from pyjamaz.hostcalls.models import PvmAccumulateOutput
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE, DEBUG, \
-    USE_THREAD_POOL_ACCUMULATE
+    USE_THREAD_POOL_ACCUMULATE, SAFROLE_THREAD_POOL_MAX_WORKERS
 from pyjamaz.signing import Ed25519Keypair, jam_ring_context
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer, AccumulationInput, \
@@ -47,6 +48,23 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     FullAccumulationOutput
 from pyjamaz.transport.pubsub import PubSubSignal
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, format_hash, log_execution_time, sum_dict_values
+
+
+_safrole_ticket_executor = None
+_safrole_ticket_executor_lock = Lock()
+
+
+def _get_safrole_ticket_executor():
+    """Share a lazy verifier pool across blocks and app instances."""
+    global _safrole_ticket_executor
+    with _safrole_ticket_executor_lock:
+        if _safrole_ticket_executor is None:
+            # ThreadPoolExecutor joins its workers when the process exits.
+            _safrole_ticket_executor = ThreadPoolExecutor(
+                max_workers=SAFROLE_THREAD_POOL_MAX_WORKERS,
+                thread_name_prefix='safrole',
+            )
+        return _safrole_ticket_executor
 
 
 class Timeslot(StateComponent):
@@ -425,7 +443,7 @@ class Safrole(StateComponent):
                 # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
                 raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
 
-        input_tickets = [None] * len(extrinsic_tickets)
+        input_tickets: List[Optional[TicketBody]] = [None] * len(extrinsic_tickets)
 
         if len(extrinsic_tickets) > 0:
 
@@ -447,49 +465,36 @@ class Safrole(StateComponent):
 
             ring_context = jam_ring_context(self.ring_data, ring_public_keys)
 
-            if USE_THREAD_POOL_SAFROLE:
+            futures = []
+            try:
+                if USE_THREAD_POOL_SAFROLE and len(extrinsic_tickets) > 1:
+                    executor = _get_safrole_ticket_executor()
+                    for ticket_data in extrinsic_tickets:
+                        futures.append(executor.submit(
+                            self.create_ticket_body, ticket_data, ring_context,
+                            post_state_entropy.entropy[2],
+                        ))
+                    # Consume in extrinsic order, preserving sequential error
+                    # precedence even when later proofs finish first.
+                    tickets = (future.result() for future in futures)
+                else:
+                    tickets = (
+                        self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
+                        for ticket_data in extrinsic_tickets
+                    )
 
-                DEBUG and logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
-
-                with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
-                    futs = {
-                        tp.submit(
-                            self.create_ticket_body,
-                            ticket_data,
-                            ring_context,
-                            post_state_entropy.entropy[2]
-                        ): idx
-                        for idx, ticket_data in enumerate(extrinsic_tickets)
-                    }
-
-                    for fut in as_completed(futs):
-                        ticket = fut.result()
-                        idx = futs[fut]
-
-                        # Check if ticket already exists
-                        if any(
-                                existing.id == ticket.id
-                                for existing in self.post_state_safrole.ticket_accumulator
-                        ):
-                            # GP-0.8.0-eq:6.34
-                            raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
-                        else:
-                            input_tickets[idx] = ticket
-            else:
-                # Validate extrinsic
-                for idx, ticket_data in enumerate(extrinsic_tickets):
-
-                    ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
-
-                    # Check if ticket already exists
-                    if any(
-                            existing.id == ticket.id
-                            for existing in self.post_state_safrole.ticket_accumulator
-                    ):
+                for idx, ticket in enumerate(tickets):
+                    if any(existing.id == ticket.id for existing in self.post_state_safrole.ticket_accumulator):
                         # GP-0.8.0-eq:6.34
                         raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
-                    else:
-                        input_tickets[idx] = ticket
+                    input_tickets[idx] = ticket
+            finally:
+                if futures:
+                    for future in futures:
+                        future.cancel()
+                    # Workers read this component's post-state. Finish running
+                    # jobs before a rejected block can be followed by another.
+                    wait(futures)
 
             # Check if tickets are in order: GP-0.8.0-eq:6.33
             if not self.tickets_in_order(input_tickets):
