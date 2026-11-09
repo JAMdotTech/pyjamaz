@@ -3,11 +3,20 @@ import typing
 from enum import Enum
 from typing import Optional, Dict, List, Tuple
 
+from pyjamaz import merkle
+from pyjamaz.incremental_trie import IncrementalMerkleTrie
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.block import AncestorReference, Header
 from pyjamaz.settings import DEBUG
 from pyjamaz.storage import StorageEngine
 from pyjamaz.utils import format_hash, log_execution_time
+
+
+_STATE_TRIE_TYPE = PatriciaMerkleTrie
+_STATE_TRIE_METHODS = (
+    PatriciaMerkleTrie._leaf, PatriciaMerkleTrie._branch, PatriciaMerkleTrie._bit,
+    PatriciaMerkleTrie.merkle, PatriciaMerkleTrie.root,
+)
 
 
 class ItemStatus(Enum):
@@ -27,6 +36,7 @@ class StateStorage:
         self.parents: Dict[bytes, Optional[bytes]] = {}
         # GP-0.8.0-eq:5.3 (A)
         self.ancestors: Dict[bytes, Header | AncestorReference] = {}
+        self._trie_snapshot = (None, IncrementalMerkleTrie())
 
     def add_ancestor(self, header: Header | AncestorReference):
         self.ancestors[header.hash] = header
@@ -170,12 +180,46 @@ class StateStorage:
         if len(self.transaction) > 0:
             raise ValueError(f"Pending transaction; commit or rollback first")
 
-        state_trie = PatriciaMerkleTrie(list(self.as_dict().items()))
-
-        state_root = state_trie.root()
+        state_root = self._root_from_items(self.as_dict())
         DEBUG and logging.debug(f"StateStorage: Calculated state root {format_hash(state_root)}")
 
         return state_root
+
+    def _root_from_items(self, items: Dict[bytes, bytes]) -> bytes:
+        # Keep the original path for custom encoders and non-state-trie input.
+        if (PatriciaMerkleTrie is not _STATE_TRIE_TYPE or (
+                PatriciaMerkleTrie._leaf, PatriciaMerkleTrie._branch, PatriciaMerkleTrie._bit,
+                PatriciaMerkleTrie.merkle, PatriciaMerkleTrie.root,
+            ) != _STATE_TRIE_METHODS or merkle.blake2b_256_hash is not merkle._TRIE_HASH_FUNCTION):
+            return PatriciaMerkleTrie(list(items.items())).root()
+
+        current = {}
+        for key, value in items.items():
+            if (type(key) is not bytes or len(key) not in (31, 32)
+                    or type(value) not in (bytes, bytearray)):
+                return PatriciaMerkleTrie(list(items.items())).root()
+            # Mutable buffers must not alias the previous materialized view.
+            current[key] = bytes(value)
+
+        previous, trie = self._trie_snapshot
+        try:
+            if previous is None:
+                trie = IncrementalMerkleTrie(current)
+            else:
+                changes = {key: value for key, value in current.items()
+                           if previous.get(key) != value}
+                changes.update((key, None) for key in previous if key not in current)
+                trie = trie.update(changes)
+        except ValueError:
+            # A 31-byte key may prefix a 32-byte key in malformed input. Let
+            # the original builder report its existing error for that case.
+            return PatriciaMerkleTrie(list(items.items())).root()
+
+        # Retain only the latest view, rather than a separate trie per block.
+        # Full materialization above observes external base writes and validates
+        # ancestry even after a fork switch, clear(), or failed transaction.
+        self._trie_snapshot = (current, trie)
+        return trie.root()
 
     def as_dict(self) -> Dict[bytes, bytes]:
         if len(self.transaction) > 0:
@@ -249,7 +293,7 @@ class StateStorage:
         return sorted(self.as_dict_at(block_hash).items(), key=lambda item: item[0])
 
     def state_root_at(self, block_hash: bytes) -> bytes:
-        return PatriciaMerkleTrie(list(self.as_dict_at(block_hash).items())).root()
+        return self._root_from_items(self.as_dict_at(block_hash))
 
 
     def finalize(self, block_hash: bytes):
