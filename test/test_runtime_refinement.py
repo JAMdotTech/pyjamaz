@@ -5,10 +5,14 @@ from types import SimpleNamespace
 import pytest
 
 from pyjamaz import refinement as refinement_module, graypaper_constants as gp_const
-from pyjamaz.availability import BundleData, DataUnavailable, availability_spec, validate_work_package, zero_pad
+from pyjamaz.availability import (
+    BundleData, DataUnavailable, ImportedSegment, availability_spec, recover_import,
+    validate_work_package, zero_pad,
+)
 from pyjamaz.d3l import DataAvailabilityStore
-from pyjamaz.erasure import encode_chunks, erasure_data_shards
+from pyjamaz.erasure import encode_blob, encode_chunks, erasure_data_shards
 from pyjamaz.exceptions import ProcessWorkpackageError
+from pyjamaz.merkle import ConstantDepthMerkleTree
 from pyjamaz.models.app import D3LEntry
 from pyjamaz.models.common import (
     Credential, ImportSegment, RefinementContext, WorkExecResult, WorkItem, WorkPackage,
@@ -17,7 +21,7 @@ from pyjamaz.models.state import PendingChanges, ServicesState
 from pyjamaz.refinement import Refinement
 from pyjamaz.runtime.pipelines import refine
 from pyjamaz.state.storage import StateStorage
-from pyjamaz.storage import InMemoryStorageEngine
+from pyjamaz.storage import FileStorageEngine, InMemoryStorageEngine
 
 
 def package(payload=b'package', imports=None):
@@ -125,6 +129,149 @@ def test_runtime_uses_recent_history_mapping_for_external_package(runtime):
     item = submit(runtime, value)
     asyncio.run(runtime.pipeline._refine_work_package(item))
     assert item.work_report.segment_root_lookup == {source_hash: root}
+
+
+def test_recovered_cached_and_complete_exports_make_identical_reports(runtime):
+    exports = [bytes([index + 1]) * 4104 for index in range(3)]
+    tree = ConstantDepthMerkleTree(exports)
+    root = tree.root()
+    spec = availability_spec(b's' * 32, b'source bundle', exports, 6)
+    mappings = {spec.hash: root}
+    value = package(imports=[
+        ImportSegment.from_work_package_hash(spec.hash, 2),
+        ImportSegment.from_segment_root(root, 0),
+        ImportSegment.from_work_package_hash(spec.hash, 2),
+    ])
+    second = deepcopy(value.items[0])
+    second.import_segments = list(reversed(value.items[0].import_segments[:2]))
+    value.items.append(second)
+    runtime.app.working_state.recent_history.recent_blocks = [SimpleNamespace(
+        reported=[SimpleNamespace(hash=spec.hash, exports_root=root)],
+    )]
+    item = submit(runtime, value)
+    store = runtime.app.d3l_store
+    store.store_segments(D3LEntry(root, exports))
+
+    def compute():
+        data = runtime.pipeline._bundle_data(value, mappings)
+        execution = Refinement(runtime.app.working_state.services.snapshot(), data)
+        report = execution.compute_work_report(value, 0, mappings, 6)
+        return report.to_jam_bytes().to_bytes(), execution.bundle
+
+    expected = compute()
+    shards = encode_blob(6, exports[2])
+    recovered = recover_import(spec, 2, {i: shards[i] for i in (3, 4, 5)},
+                               justification=tree.trace(2))
+    store.store_import(root, 2, recovered)
+    # One cached segment, with the other supplied by the complete-export fallback.
+    assert compute() == expected
+    store.store_import(root, 0, ImportedSegment(exports[0], tuple(tree.trace(0))))
+    store.storage_engine.delete(root)
+    assert compute() == expected
+    asyncio.run(runtime.pipeline._refine_work_package(item))
+    assert item.work_report.to_jam_bytes().to_bytes() == expected[0]
+    expected_imports = [[exports[2], exports[0], exports[2]], [exports[0], exports[2]]]
+    assert runtime.invocations[-1]['work_items_import_segments'] == expected_imports
+
+
+def test_corrupt_individual_import_falls_back_to_complete_exports(runtime):
+    exports = [b'x' * 4104, b'y' * 4104]
+    tree = ConstantDepthMerkleTree(exports)
+    root = tree.root()
+    store = runtime.app.d3l_store
+    store.store_import(root, 1, ImportedSegment(exports[1], tuple(tree.trace(1))))
+    key = next(iter(store.storage_engine.as_dict()))
+    store.storage_engine.put(key, b'corrupt')
+    store.store_segments(D3LEntry(root, exports))
+    value = package(imports=[ImportSegment.from_segment_root(root, 1)])
+    data = runtime.pipeline._bundle_data(value, {})
+    assert data.import_segments({}, value.items[0]) == [exports[1]]
+
+
+@pytest.mark.parametrize('corrupt', [False, True])
+def test_worker_retries_disk_import_until_verified_data_is_inserted(runtime, tmp_path, corrupt):
+    exports = [b'x' * 4104, b'y' * 4104]
+    tree = ConstantDepthMerkleTree(exports)
+    root = tree.root()
+    runtime.app.d3l_store = DataAvailabilityStore(FileStorageEngine(str(tmp_path)))
+    store = runtime.app.d3l_store
+    if corrupt:
+        store.store_import(root, 1, ImportedSegment(exports[1], tuple(tree.trace(1))))
+        next(tmp_path.iterdir()).write_bytes(b'corrupt')
+    item = submit(runtime, package(imports=[ImportSegment.from_segment_root(root, 1)]))
+
+    async def run():
+        worker = asyncio.create_task(runtime.pipeline._refine_worker())
+        try:
+            await runtime.pipeline._refine_queue.put(item)
+            await asyncio.wait_for(runtime.pipeline._refine_queue.join(), timeout=2)
+            assert item.status.Reportable
+            assert runtime.invocations == runtime.signed == []
+            store.store_import(root, 1, ImportedSegment(exports[1], tuple(tree.trace(1))))
+            await runtime.pipeline._refine_queue.put(item)
+            await asyncio.wait_for(runtime.pipeline._refine_queue.join(), timeout=2)
+            assert item.status.Reported
+            assert len(runtime.signed) == 1
+        finally:
+            worker.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await worker
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('corrupt_import', [False, True])
+@pytest.mark.parametrize('fault', ['malformed', 'trailing', 'noncanonical', 'root', 'tree'])
+def test_worker_retries_corrupt_complete_exports_until_repaired(runtime, tmp_path, corrupt_import, fault):
+    exports = [b'x' * 4104, b'y' * 4104]
+    tree = ConstantDepthMerkleTree(exports)
+    root = tree.root()
+    runtime.app.d3l_store = DataAvailabilityStore(FileStorageEngine(str(tmp_path)))
+    store = runtime.app.d3l_store
+    if corrupt_import:
+        store.store_import(root, 1, ImportedSegment(exports[1], tuple(tree.trace(1))))
+        next(tmp_path.iterdir()).write_bytes(b'corrupt')
+    data = D3LEntry(root, exports).to_jam_bytes().to_bytes()
+    if fault == 'malformed':
+        data = data[:33]
+    elif fault == 'trailing':
+        data += bytes(1)
+    elif fault == 'noncanonical':
+        data = data[:32] + b'\x80\x02' + data[33:]
+    elif fault == 'root':
+        data = bytes(32) + data[32:]
+    else:
+        data = D3LEntry(root, [b'z' * 4104] * 2).to_jam_bytes().to_bytes()
+    store.storage_engine.put(root, data)
+    item = submit(runtime, package(imports=[ImportSegment.from_segment_root(root, 1)]))
+
+    async def run():
+        worker = asyncio.create_task(runtime.pipeline._refine_worker())
+        try:
+            await runtime.pipeline._refine_queue.put(item)
+            await asyncio.wait_for(runtime.pipeline._refine_queue.join(), timeout=2)
+            assert item.status.Reportable
+            assert runtime.invocations == runtime.signed == []
+            store.store_segments(D3LEntry(root, exports))
+            await runtime.pipeline._refine_queue.put(item)
+            await asyncio.wait_for(runtime.pipeline._refine_queue.join(), timeout=2)
+            assert item.status.Reported
+            assert len(runtime.signed) == 1
+        finally:
+            worker.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await worker
+
+    asyncio.run(run())
+
+
+def test_complete_exports_still_reject_out_of_range_manifest_index(runtime):
+    exports = [b'x' * 4104, b'y' * 4104]
+    root = ConstantDepthMerkleTree(exports).root()
+    runtime.app.d3l_store.store_segments(D3LEntry(root, exports))
+    value = package(imports=[ImportSegment.from_segment_root(root, 2)])
+    with pytest.raises(ProcessWorkpackageError, match='index out of range'):
+        runtime.pipeline._bundle_data(value, {})
 
 
 @pytest.mark.parametrize('in_progress', ['transaction', 'candidate'])

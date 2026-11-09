@@ -25,6 +25,7 @@ class Refinement:
     def compute_work_report(self, package: WorkPackage, core_index: int,
                             mappings: dict[bytes, bytes], erasure_shards: int) -> WorkReport:
         # GP-0.8.0-eq:14.13: Xi(p,c,l,v) -> WorkReport or bottom (ProcessWorkpackageError).
+        # package=p, core_index=c, mappings=l, erasure_shards=v.
         self.bundle = b''
         self.exported_segments = []
         validate_work_package(package)

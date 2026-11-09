@@ -1,10 +1,12 @@
-"""GP 0.8.0 bundle assembly and availability commitments (section 14)."""
+"""GP 0.8.0 import recovery, bundle assembly and availability commitments (section 14)."""
 
 from dataclasses import dataclass, field
 
-from jamcodec.types import H256, Vec
+from jamcodec.base import JamBytes
+from jamcodec.exceptions import RemainingScaleBytesNotEmptyException, ScaleDecodeException
+from jamcodec.types import H256, VarInt64, Vec
 
-from pyjamaz.erasure import encode_chunks, erasure_data_shards
+from pyjamaz.erasure import encode_chunks, erasure_data_shards, recover_segment
 from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import (
     EC_SEGMENT_SIZE, GAS_ACCUMULATION, GAS_REFINE, MAXIMUM_DEPENDENCIES_WORK_REPORT,
@@ -12,7 +14,7 @@ from pyjamaz.graypaper_constants import (
     MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE, MAXIMUM_SIZE_WORK_PACKAGE, MAXIMUM_WORK_ITEMS,
 )
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.merkle import ConstantDepthMerkleTree, WellBalancedMerkleTree
+from pyjamaz.merkle import BinaryMerkleTree, ConstantDepthMerkleTree, WellBalancedMerkleTree
 from pyjamaz.models.common import ImportSegment, WorkItem, WorkPackage, WorkPackageSpec
 
 
@@ -79,6 +81,19 @@ class ImportedSegment:
     justification: tuple[bytes, ...]
 
 
+def verify_import(root: bytes, index: int, imported: ImportedSegment) -> None:
+    """Check one S_l / J_l pair from GP-0.8.0-eq:14.15 against L_l(r)."""
+    if (not isinstance(root, bytes) or len(root) != 32
+            or isinstance(index, bool) or not isinstance(index, int)
+            or not 0 <= index < MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE):
+        raise ProcessWorkpackageError("invalid import root or segment index")
+    if (not isinstance(imported.segment, bytes) or len(imported.segment) != EC_SEGMENT_SIZE
+            or len(imported.justification) > (MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE - 1).bit_length()
+            or any(not isinstance(h, bytes) or len(h) != 32 for h in imported.justification)
+            or not ConstantDepthMerkleTree.verify(imported.segment, index, imported.justification, root)):
+        raise ProcessWorkpackageError("invalid import segment justification")
+
+
 @dataclass
 class BundleData:
     """The data lookups assumed by X, S_l and J_l; no storage or network access."""
@@ -125,15 +140,7 @@ class BundleData:
             imported = self.imports.get((entry.tree_root, entry.index))
             if imported is None:
                 raise ProcessWorkpackageError("import segment is unavailable")
-            proof = imported.justification
-            if (len(imported.segment) != EC_SEGMENT_SIZE
-                    or entry.segment_index >= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
-                    or len(proof) > (MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE - 1).bit_length()
-                    or not ConstantDepthMerkleTree.verify(
-                        imported.segment, entry.segment_index, proof,
-                        resolve_import_root(mappings, import_reference(entry)),
-                    )):
-                raise ProcessWorkpackageError("invalid import segment justification")
+            verify_import(resolve_import_root(mappings, import_reference(entry)), entry.segment_index, imported)
             imports.append(imported)
         return imports
 
@@ -180,9 +187,106 @@ def paged_proof_segments(exports: list[bytes]) -> list[bytes]:
     return pages
 
 
+def decode_paged_proof(proof_segment: bytes, export_count: int,
+                      page_index: int) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
+    """Decode P(s)[page_index] into J_6(s,page_index) and L_6(s,page_index)."""
+    # GP-0.8.0-eq:14.12: P(s) contains two variable-length hash sequences, padded to WG.
+    if (isinstance(export_count, bool) or not isinstance(export_count, int)
+            or not 1 <= export_count <= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
+            or isinstance(page_index, bool) or not isinstance(page_index, int)
+            or not 0 <= page_index < (export_count + 63) // 64):
+        raise ProcessWorkpackageError("invalid proof page index or export count")
+    if not isinstance(proof_segment, bytes) or len(proof_segment) != EC_SEGMENT_SIZE:
+        raise ProcessWorkpackageError("invalid proof page size")
+    path_count = max(0, (export_count - 1).bit_length() - 6)
+    leaf_count = min(64, export_count - page_index * 64)
+    stream = JamBytes(proof_segment)
+    sequences = []
+    try:
+        for expected_count in (path_count, leaf_count):
+            start = stream.offset
+            count = VarInt64.decode(stream)
+            if (count != expected_count
+                    or bytes(stream.data[start:stream.offset]) != VarInt64.encode(count).to_bytes()):
+                raise ProcessWorkpackageError("invalid or noncanonical proof page count")
+            sequences.append(tuple(bytes(stream.get_next_bytes(32)) for _ in range(count)))
+    except (RemainingScaleBytesNotEmptyException, ScaleDecodeException) as exc:
+        raise ProcessWorkpackageError("malformed proof page") from exc
+    if any(stream.get_remaining_bytes()):
+        raise ProcessWorkpackageError("proof page has nonzero padding")
+    return sequences[0], sequences[1]
+
+
+def import_justification(segment: bytes, segment_index: int, proof_segment: bytes,
+                        export_count: int, exports_root: bytes) -> tuple[bytes, ...]:
+    """Derive J_0(s,segment_index) from one recovered P(s) page."""
+    # GP-0.8.0-eq:14.12, E.5-E.7: append the page-local co-path to J_6, root first.
+    if (isinstance(segment_index, bool) or not isinstance(segment_index, int)
+            or segment_index < 0):
+        raise ProcessWorkpackageError("import segment index out of range")
+    path, leaves = decode_paged_proof(proof_segment, export_count, segment_index // 64)
+    if segment_index >= export_count:
+        raise ProcessWorkpackageError("import segment index out of range")
+    if not isinstance(segment, bytes) or len(segment) != EC_SEGMENT_SIZE:
+        raise ProcessWorkpackageError("invalid import segment size")
+    local_index = segment_index % 64
+    if leaves[local_index] != blake2b_256_hash(b'leaf' + segment):
+        raise ProcessWorkpackageError("import segment does not match its proof page")
+    width = min(64, 1 << (export_count - 1).bit_length())
+    nodes = list(leaves) + [bytes(32)] * (width - len(leaves))
+    tree = BinaryMerkleTree(nodes)
+    proof = list(path)
+    while len(nodes) > 1:
+        split = len(nodes) // 2
+        if local_index < split:
+            proof.append(tree.node(nodes[split:]))
+            nodes = nodes[:split]
+        else:
+            proof.append(tree.node(nodes[:split]))
+            nodes = nodes[split:]
+            local_index -= split
+    imported = ImportedSegment(segment, tuple(proof))
+    verify_import(exports_root, segment_index, imported)
+    return imported.justification
+
+
+def recover_import(spec: WorkPackageSpec, segment_index: int, shards: dict[int, bytes], *,
+                  justification: tuple[bytes, ...] | None = None,
+                  proof_page_shards: dict[int, bytes] | None = None) -> ImportedSegment:
+    """Recover and verify one import using a source report's availability specification.
+
+    This composes H.6 and 14.12 to supply the segment/proof pair required by 14.15;
+    it is a local convenience function, not an additional GP-defined function.
+    """
+    if (isinstance(spec.exports_count, bool) or not isinstance(spec.exports_count, int)
+            or not 1 <= spec.exports_count <= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
+            or isinstance(segment_index, bool) or not isinstance(segment_index, int)
+            or not 0 <= segment_index < spec.exports_count):
+        raise ProcessWorkpackageError("import segment index or export count out of range")
+    if (justification is None) == (proof_page_shards is None):
+        raise ProcessWorkpackageError("supply either an import justification or proof page shards")
+    try:
+        # GP-0.8.0-eq:H.6: k = WG / (2 D(v)); v is the source report's shard count.
+        segment = recover_segment(spec.erasure_shards, shards)
+        if proof_page_shards is not None:
+            page = recover_segment(spec.erasure_shards, proof_page_shards)
+            proof = import_justification(segment, segment_index, page, spec.exports_count, spec.exports_root)
+        else:
+            proof = tuple(justification)
+            if len(proof) != (spec.exports_count - 1).bit_length():
+                raise ProcessWorkpackageError("invalid import justification depth")
+    except ValueError as exc:
+        raise ProcessWorkpackageError(str(exc)) from exc
+    # GP-0.8.0-eq:14.15: S_l and J_l may contain only data justified against L_l(r).
+    imported = ImportedSegment(segment, proof)
+    verify_import(spec.exports_root, segment_index, imported)
+    return imported
+
+
 def availability_spec(package_hash: bytes, bundle: bytes, exports: list[bytes],
                       validator_count: int) -> WorkPackageSpec:
     # GP-0.8.0-eq:14.18: A(h,b,s,v) -> (h, |b|, u, v, M(s), |s|).
+    # package_hash=h, bundle=b, exports=s, validator_count=v.
     if not isinstance(package_hash, bytes) or len(package_hash) != 32:
         raise ValueError("work-package hash must be 32 bytes")
     if len(exports) > MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE or any(len(s) != EC_SEGMENT_SIZE for s in exports):

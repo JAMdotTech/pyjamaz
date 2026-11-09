@@ -123,6 +123,7 @@ class RefinePipeline:
         return mappings
 
     def _bundle_data(self, package: WorkPackage, mappings: dict[bytes, bytes]) -> BundleData:
+        # GP-0.8.0-eq:14.15-14.16: acquire S_l(w) and J_l(w) in manifest order for B(p,l).
         extrinsics, segments, proofs = [], [], []
         stored_trees = {}
         for item in package.items:
@@ -135,11 +136,19 @@ class RefinePipeline:
                 root = resolve_import_root(mappings, import_reference(entry))
                 if self.app.d3l_store is None:
                     raise DataUnavailable("imported segments are unavailable")
+                try:
+                    imported = self.app.d3l_store.retrieve_import(root, entry.segment_index)
+                except DataUnavailable:
+                    pass
+                else:
+                    segments.append(imported.segment)
+                    proofs.append(imported.justification)
+                    continue
                 if root not in stored_trees:
                     stored = self.app.d3l_store.retrieve_segments(root).segments
                     tree = ConstantDepthMerkleTree(stored)
                     if tree.root() != root:
-                        raise ProcessWorkpackageError("stored segments do not match their root")
+                        raise DataUnavailable("stored segments do not match their root")
                     stored_trees[root] = (stored, tree)
                 stored, tree = stored_trees[root]
                 if entry.segment_index >= len(stored):
