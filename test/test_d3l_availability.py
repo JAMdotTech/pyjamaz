@@ -158,6 +158,63 @@ def test_corrupt_global_source_index_remains_unavailable(data):
         store.sources()
 
 
+def test_historical_assurance_selects_registration_that_existed_at_its_slot(data):
+    _, _, _, original = data
+    store = DataAvailabilityStore(InMemoryStorageEngine())
+    later = replace(original, registered_block=b'l' * 32, registered_slot=100)
+    store.register_source(original)
+    store.register_source(later)
+    store.mark_assured(original.report, b'a' * 32, 20, lambda _: True)
+    assert store._source(original.identity).assured_slot == 20
+    assert store._source(later.identity).assured_block is None
+
+
+def test_assurance_matches_full_report_when_erasure_root_is_shared(data):
+    _, _, _, original = data
+    store = DataAvailabilityStore(InMemoryStorageEngine())
+    another_report = replace(original.report, core_index=original.report.core_index + 1)
+    other = replace(original, report=another_report, registered_block=b'o' * 32, registered_slot=11)
+    store.register_source(original)
+    store.register_source(other)
+    store.mark_assured(original.report, b'a' * 32, 20, lambda _: True)
+    assert store._source(original.identity).assured_slot == 20
+    assert store._source(other.identity).assured_block is None
+
+
+def test_older_assurance_replay_preserves_existing_canonical_reference(data):
+    _, _, _, original = data
+    store = DataAvailabilityStore(InMemoryStorageEngine())
+    existing = replace(original, assured_block=b'n' * 32, assured_slot=30)
+    store.register_source(existing)
+    store.mark_assured(original.report, b'a' * 32, 20, lambda _: True)
+    assert store._source(original.identity) == existing
+
+
+def test_assurance_replay_replaces_orphan_reference_and_ignores_unavailable_source(data):
+    _, _, _, original = data
+    store = DataAvailabilityStore(InMemoryStorageEngine())
+    existing = replace(original, assured_block=b'o' * 32, assured_slot=30)
+    missing = replace(original, registered_block=b'm' * 32, registered_slot=11)
+    store.register_source(existing)
+    store.register_source(missing)
+    store.storage_engine.delete(b'source-v1:' + missing.identity)
+    canonical = lambda block: block in {original.registered_block, b'a' * 32}
+    store.mark_assured(original.report, b'a' * 32, 20, canonical)
+    repaired = store._source(original.identity)
+    assert repaired.assured_block == b'a' * 32 and repaired.assured_slot == 20
+
+
+def test_assurance_without_a_matching_eligible_registration_remains_unavailable(data):
+    _, _, _, original = data
+    store = DataAvailabilityStore(InMemoryStorageEngine())
+    store.register_source(original)
+    for report, slot, canonical in ((original.report, 5, lambda _: True),
+                                    (replace(original.report, core_index=0), 20, lambda _: True),
+                                    (original.report, 20, lambda _: False)):
+        with pytest.raises(DataUnavailable, match='matching source'):
+            store.mark_assured(report, b'a' * 32, slot, canonical)
+
+
 def test_local_report_lookup_establishes_only_local_source_provenance(data):
     bundle, exports, artifacts, source = data
     store = DataAvailabilityStore(InMemoryStorageEngine())

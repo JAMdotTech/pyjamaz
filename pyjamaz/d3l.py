@@ -222,7 +222,21 @@ class DataAvailabilityStore:
         return max(candidates, key=lambda source: (source.registered_slot, source.identity))
 
     def mark_assured(self, report: WorkReport, block_hash: bytes, slot: int, canonical) -> None:
-        source = self.source_for(erasure_root=report.package_spec.erasure_root, canonical=canonical)
+        report_hash = report.hash()
+        candidates = []
+        for identity in self._index(b'source-index-v1:erasure' + report.package_spec.erasure_root):
+            try:
+                source = self._source(identity)
+            except DataUnavailable:
+                continue
+            if (source.report.hash() == report_hash and source.registered_slot <= slot
+                    and canonical(source.registered_block)):
+                candidates.append(source)
+        if not candidates:
+            raise DataUnavailable('matching source registration is unavailable')
+        source = max(candidates, key=lambda record: (record.registered_slot, record.identity))
+        if source.assured_block is not None and canonical(source.assured_block):
+            return  # Replaying history must preserve an already known canonical assurance.
         self.register_source(replace(source, assured_block=block_hash, assured_slot=slot))
 
     def specification(self, erasure_root: bytes, canonical=None):
