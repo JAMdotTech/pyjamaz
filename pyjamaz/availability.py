@@ -55,13 +55,13 @@ def validate_work_package(package: WorkPackage) -> None:
 
 @dataclass(frozen=True)
 class WorkPackageHash:
-    """The tagged H+ import-reference variant from GP 14.3 and C.35."""
+    """The tagged H+ import-reference variant from GP 14.3 and C.37."""
 
     value: bytes
 
 
 def import_reference(entry: ImportSegment) -> bytes | WorkPackageHash:
-    # GP-0.8.0-eq:C.35: the upper index bit distinguishes H+ from a segment root.
+    # GP-0.8.0-eq:C.37: the upper index bit distinguishes H+ from a segment root.
     return WorkPackageHash(entry.tree_root) if entry.is_work_package_hash else entry.tree_root
 
 
