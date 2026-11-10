@@ -123,6 +123,7 @@ class DataAvailabilityStore:
         self.storage_engine.put(b'bundle:' + spec.hash, bundle)
         self.storage_engine.put(b'package-root:' + spec.hash, spec.exports_root)
         self.storage_engine.put(b'local-report-v1:' + spec.erasure_root, report.to_jam_bytes().to_bytes())
+        self._add_index(b'local-exports-v1:' + spec.exports_root, spec.erasure_root)
 
     def _index(self, key: bytes) -> list[bytes]:
         try:
@@ -190,7 +191,14 @@ class DataAvailabilityStore:
             raise DataUnavailable('stored source metadata is invalid') from exc
 
     def sources(self) -> list[AvailabilitySource]:
-        return [self._source(identity) for identity in self._index(b'source-list-v1')]
+        sources = []
+        for identity in self._index(b'source-list-v1'):
+            try:
+                sources.append(self._source(identity))
+            except DataUnavailable:
+                # Keep the index entry so retained blocks can repair this record later.
+                continue
+        return sources
 
     def source_for(self, *, package_hash=None, exports_root=None, erasure_root=None, canonical=None):
         kind, value = ((b'package', package_hash) if package_hash is not None else
@@ -199,7 +207,10 @@ class DataAvailabilityStore:
             raise DataUnavailable('invalid source lookup')
         candidates = []
         for identity in self._index(b'source-index-v1:' + kind + value):
-            source = self._source(identity)
+            try:
+                source = self._source(identity)
+            except DataUnavailable:
+                continue
             actual = {b'package': source.spec.hash, b'exports': source.spec.exports_root,
                       b'erasure': source.spec.erasure_root}[kind]
             if actual != value:
@@ -218,14 +229,50 @@ class DataAvailabilityStore:
         try:
             return self.source_for(erasure_root=erasure_root, canonical=canonical).spec
         except DataUnavailable:
-            raw = self._retrieve(b'local-report-v1:' + erasure_root, 'unknown erasure root')
+            return self._local_report(erasure_root).package_spec
+
+    def _local_report(self, erasure_root: bytes) -> WorkReport:
+        from pyjamaz.availability import _shard_dimensions
+
+        raw = self._retrieve(b'local-report-v1:' + erasure_root, 'unknown erasure root')
+        try:
+            report = WorkReport.from_jam_bytes(JamBytes(raw))
+            _shard_dimensions(report.package_spec)
+            if report.package_spec.erasure_root != erasure_root or report.to_jam_bytes().to_bytes() != raw:
+                raise ValueError('noncanonical or mismatched local report')
+            return report
+        except (ValueError, InvalidScaleTypeValueException, RemainingScaleBytesNotEmptyException,
+                ProcessWorkpackageError) as exc:
+            raise DataUnavailable('stored local report is invalid') from exc
+
+    def local_report_for_exports(self, exports_root: bytes) -> WorkReport:
+        """Find a locally computed source without claiming chain-backed availability."""
+        if not isinstance(exports_root, bytes) or len(exports_root) != 32:
+            raise DataUnavailable('invalid exports root')
+        reports = []
+        for erasure_root in self._index(b'local-exports-v1:' + exports_root):
             try:
-                report = WorkReport.from_jam_bytes(JamBytes(raw))
-                if report.package_spec.erasure_root != erasure_root or report.to_jam_bytes().to_bytes() != raw:
-                    raise ValueError('noncanonical or mismatched local report')
-                return report.package_spec
-            except (ValueError, InvalidScaleTypeValueException, RemainingScaleBytesNotEmptyException) as exc:
-                raise DataUnavailable('stored local report is invalid') from exc
+                report = self._local_report(erasure_root)
+            except DataUnavailable:
+                continue
+            if report.package_spec.exports_root != exports_root:
+                raise DataUnavailable('stored local exports index does not match its report')
+            reports.append(report)
+        if not reports:
+            raise DataUnavailable('locally computed source metadata is unavailable')
+        # The same exports may be retained under several bundle/validator specifications.
+        return max(reports, key=lambda report: report.package_spec.erasure_root)
+
+    def _source_index_complete(self, kind, value, sources) -> bool:
+        """Missing source context protects only payloads whose indexes reference it."""
+        try:
+            identities = set(self._index(b'source-index-v1:' + kind + value))
+        except DataUnavailable:
+            return False
+        fields = {b'package': 'hash', b'exports': 'exports_root', b'erasure': 'erasure_root'}
+        expected = {source.identity for source in sources.values()
+                    if getattr(source.spec, fields[kind]) == value}
+        return bool(identities) and identities == expected
 
     @staticmethod
     def _shard_key(prefix, spec, index):
@@ -299,9 +346,11 @@ class DataAvailabilityStore:
     def prune(self, finalized_slot: int, canonical, finalized) -> None:
         # GP-0.8.0-sec:14.3.1: audit data until assurance finality; D3L at least 672 epochs.
         sources = self.sources()
+        by_identity = {source.identity: source for source in sources}
         for root in {source.spec.erasure_root for source in sources}:
             records = [source for source in sources if source.spec.erasure_root == root and canonical(source.registered_block)]
-            if not records or root in self._active_roots:
+            if (not records or root in self._active_roots
+                    or not self._source_index_complete(b'erasure', root, by_identity)):
                 continue
             spec = records[0].spec
             audit_expired = all(source.assured_block is not None and finalized(source.assured_block) for source in records)
@@ -315,12 +364,14 @@ class DataAvailabilityStore:
                     self.storage_engine.delete(self._shard_key(b'row-v1:', spec, index))
             for source in records:
                 shared = [s for s in sources if s.spec.hash == source.spec.hash and canonical(s.registered_block)]
-                if audit_expired and all(s.assured_block is not None and finalized(s.assured_block)
-                                         and s.spec.erasure_root not in self._active_roots for s in shared):
+                if (audit_expired and self._source_index_complete(b'package', source.spec.hash, by_identity)
+                        and all(s.assured_block is not None and finalized(s.assured_block)
+                                and s.spec.erasure_root not in self._active_roots for s in shared)):
                     self.storage_engine.delete(b'bundle:' + source.spec.hash)
             same_exports = [source for source in sources if source.spec.exports_root == spec.exports_root]
-            if exports_expired and all(finalized_slot >= source.registered_slot + 672 * EPOCH_TIMESLOTS
-                                       and source.spec.erasure_root not in self._active_roots for source in same_exports):
+            if (exports_expired and self._source_index_complete(b'exports', spec.exports_root, by_identity)
+                    and all(finalized_slot >= source.registered_slot + 672 * EPOCH_TIMESLOTS
+                            and source.spec.erasure_root not in self._active_roots for source in same_exports)):
                 self.storage_engine.delete(spec.exports_root)
                 for index in range(spec.exports_count):
                     self.storage_engine.delete(self._import_key(spec.exports_root, index))
