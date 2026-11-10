@@ -125,8 +125,7 @@ class RefinePipeline:
             finally:
                 self._timeslot_queue.task_done()
 
-    def _segment_root_lookup(self, package: WorkPackage, state) -> dict[bytes, bytes]:
-        # GP-0.8.0-eq:14.14: the runtime supplies the known package-to-export-root correspondence.
+    def _reported_mappings(self, state) -> dict[bytes, bytes]:
         known = {}
         for block in state.recent_history.recent_blocks:
             known.update({report.hash: report.exports_root for report in block.reported})
@@ -134,6 +133,11 @@ class RefinePipeline:
             if pending.work_report is not None:
                 spec = pending.work_report.package_spec
                 known[spec.hash] = spec.exports_root
+        return known
+
+    def _segment_root_lookup(self, package: WorkPackage, state) -> dict[bytes, bytes]:
+        # GP-0.8.0-eq:14.14: the runtime supplies the known package-to-export-root correspondence.
+        known = self._reported_mappings(state)
         mappings = {}
         for item in package.items:
             for entry in item.import_segments:
@@ -143,13 +147,36 @@ class RefinePipeline:
                     elif self.app.d3l_store is not None:
                         availability = getattr(getattr(self.app, 'runtime', None), 'availability', None)
                         if availability is not None:
-                            # Historical mappings become authoritative only through accepted reports.
-                            mappings[entry.tree_root] = availability.source_for(package_hash=entry.tree_root).spec.exports_root
-                        else:
-                            mappings[entry.tree_root] = self.app.d3l_store.segment_root_for_package(entry.tree_root)
+                            try:
+                                mappings[entry.tree_root] = availability.source_for(package_hash=entry.tree_root).spec.exports_root
+                                continue
+                            except DataUnavailable:
+                                pass
+                        # Retain authoritative mappings written by successful local report computation.
+                        mappings[entry.tree_root] = self.app.d3l_store.segment_root_for_package(entry.tree_root)
                     else:
                         raise DataUnavailable("segment-root mapping is unavailable")
         return mappings
+
+    def _validate_import_sources(self, package: WorkPackage, mappings: dict[bytes, bytes], state) -> None:
+        # GP-0.8.0-sec:14.4 (after eq:14.17): imported roots must be known before Psi_R.
+        # This is runtime acquisition policy, outside the pure Xi calculation. The 672-epoch
+        # retention minimum is not an expiry rule for otherwise known, available imports.
+        known = set(self._reported_mappings(state).values()) | set(mappings.values())
+        roots = {resolve_import_root(mappings, import_reference(entry))
+                 for item in package.items for entry in item.import_segments}
+        availability = getattr(getattr(self.app, 'runtime', None), 'availability', None)
+        for root in roots - known:
+            if self.app.d3l_store is not None:
+                try:
+                    self.app.d3l_store.local_report_for_exports(root)
+                    continue
+                except DataUnavailable:
+                    pass
+            if availability is not None:
+                availability.source_for(exports_root=root)
+            else:
+                raise DataUnavailable('import source is unknown')
 
     def _bundle_data(self, package: WorkPackage, mappings: dict[bytes, bytes]) -> BundleData:
         # GP-0.8.0-eq:14.15-14.16: acquire S_l(w) and J_l(w) in manifest order for B(p,l).
@@ -277,6 +304,7 @@ class RefinePipeline:
             authorization = await asyncio.to_thread(execution.authorize, package, core)
         # GP-0.8.0-eq:14.13: Psi_I has succeeded before X/S_l/J_l acquisition.
         mappings = self._segment_root_lookup(package, state)
+        self._validate_import_sources(package, mappings, state)
         if item.bundle is not None:
             try:
                 parts = decode_bundle(item.bundle)

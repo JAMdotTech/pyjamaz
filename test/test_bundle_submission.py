@@ -103,6 +103,9 @@ def test_client_without_imports_remains_compatible():
 
 def test_complete_bundle_refines_without_preexisting_import_storage(runtime):
     value, imports, proofs = bundle_case()
+    runtime.app.working_state.recent_history.recent_blocks = [SimpleNamespace(reported=[
+        SimpleNamespace(hash=b's' * 32, exports_root=value.items[0].import_segments[0].tree_root),
+    ])]
     runtime.app.d3l_store = None
     encoded = encode_bundle(value, [b'abc'], imports, proofs)
     runtime.pipeline.add_work_package(value, [], core_index=0, bundle=encoded)
@@ -187,6 +190,9 @@ def test_stale_staged_authorization_is_not_reused(runtime, monkeypatch):
 def test_staged_network_payloads_queue_complete_bundle_and_reuse_authorization(runtime, monkeypatch, kind):
     if kind == 146:
         value, imports, proofs = bundle_case()
+        runtime.app.working_state.recent_history.recent_blocks = [SimpleNamespace(reported=[
+            SimpleNamespace(hash=b's' * 32, exports_root=value.items[0].import_segments[0].tree_root),
+        ])]
         payloads = [b'abc', b''.join(imports), encode_import_proofs(proofs)]
     else:
         value, imports, proofs = package(), [], []

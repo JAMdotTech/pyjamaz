@@ -193,6 +193,9 @@ def test_worker_retries_disk_import_until_verified_data_is_inserted(runtime, tmp
     exports = [b'x' * 4104, b'y' * 4104]
     tree = ConstantDepthMerkleTree(exports)
     root = tree.root()
+    runtime.app.working_state.recent_history.recent_blocks = [SimpleNamespace(reported=[
+        SimpleNamespace(hash=b's' * 32, exports_root=root),
+    ])]
     runtime.app.d3l_store = DataAvailabilityStore(FileStorageEngine(str(tmp_path)))
     store = runtime.app.d3l_store
     if corrupt:
@@ -226,6 +229,9 @@ def test_worker_retries_corrupt_complete_exports_until_repaired(runtime, tmp_pat
     exports = [b'x' * 4104, b'y' * 4104]
     tree = ConstantDepthMerkleTree(exports)
     root = tree.root()
+    runtime.app.working_state.recent_history.recent_blocks = [SimpleNamespace(reported=[
+        SimpleNamespace(hash=b's' * 32, exports_root=root),
+    ])]
     runtime.app.d3l_store = DataAvailabilityStore(FileStorageEngine(str(tmp_path)))
     store = runtime.app.d3l_store
     if corrupt_import:
