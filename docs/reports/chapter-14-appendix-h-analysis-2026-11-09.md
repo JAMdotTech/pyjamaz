@@ -2,17 +2,58 @@
 
 Date: 2026-11-09
 
+Last updated: 2026-11-10
+
 Repository: `/Users/arjan/Development/pyjamaz`
 
 Specification: [Graypaper 0.8.0, June 3, 2026](</Users/arjan/Documents/Jamdot Tech/Graypaper/graypaper-0.8.0.pdf>), Chapter 14 (pages 26–29) and Appendix H (pages 71–73).
 
-Updated after implementing the Chapter 14 availability data flow in the working tree. The original local-recovery analysis has been revised to describe the resulting runtime and transport behavior.
+Updated after the local Chapter 14 review fixes. The existing networking prototype is checkpointed, and its protocol review findings remain deferred to the networking work.
 
 Specification precedence is the [v0.8.0 release](https://github.com/jam-conformance/jam-test-vectors/releases/tag/v0.8.0) at `d3c089c9a1d5352ad353626d7a2db8589f137b2a`, the explicitly selected additional [PR #563](https://github.com/gavofyork/graypaper/pull/563) exception, then GP 0.8.0. Delegated networking follows [JAMNP-S v1 at e0b7d291](https://github.com/zdave-parity/jam-np/blob/e0b7d2910afc0a7406043a4c79828edbcc357c2e/simple.md).
 
+## Changes on this branch and their motivation
+
+Branch: `az-segment-recovery-import`. The first branch change below follows `750c1f16`.
+
+| Commit | Change | Motivation |
+|---|---|---|
+| `4d6e4725` | Complete Appendix H recovery, proof-page decoding, verified individual-import storage and local refinement imports | Recover using the source report's dimensions and deliver verified segments to real PVM `fetch` selectors 5/6. |
+| `0e780285` | Checkpoint pending Chapter 14 submission, authorization, artifact/proof, source-storage, runtime and networking work, together with existing source utilities, documentation and regression fixtures | Preserve the state before the local review fixes. This commit includes pre-existing pending work; it does not imply that every included utility/test was newly implemented for Chapter 14. Generated databases, environments, logs and local artifacts were left untouched. |
+| `f19d3118` | Isolate missing/corrupt source records and index successful local reports by export root | Keep healthy sources available and protect shared retained data when metadata is incomplete. Let import eligibility recognize locally computed sources after restart. |
+| `fb90f1b2` | Check all import roots before runtime refinement | A valid Merkle proof establishes segment membership, while source provenance must also be known. Recent reports, successful local reports and canonical source records supply that provenance. Unknown roots remain retryable. |
+| `5a61dee0` | Correct tagged-import equation comments from C.35 to C.37 | Make the code references match the pinned GP. Encoding behavior is unchanged. |
+| `04a9af52` | Bind replayed assurances to the matching report and an existing registration at the assurance slot | Prevent historical replay from attaching an old assurance to a later registration or another report sharing an erasure root. Preserve existing canonical assurance references. |
+| `2309d233` | Fall back to the finalized head after restart; bound metadata backfill; normalize corrupt local export caches | Keep retained sources available after startup, avoid full-history rescans per miss/head, repair missing records from retained context, and keep local cache failures retryable. |
+| `c64a886f` | Require explicit trusted finality before availability pruning | Existing parent-finalization conventions must not authorize deletion. Confirmations can lag storage finality without rewinding storage; repeated/older confirmations cannot regress trusted availability finality. |
+
+For review, use `git diff 0e780285..HEAD` for the incremental local fixes and `git diff 750c1f16..HEAD` for the complete branch. `git show <commit>` isolates each change. No networking or CLI files changed after the checkpoint.
+
+The GP-facing signatures and return values remain unchanged:
+
+```python
+compute_work_report(package, core_index, mappings, erasure_shards)  # Xi(p,c,l,v), 14.13
+assemble_bundle(package, mappings)                                # B(p,l), 14.16
+availability_spec(package_hash, bundle, exports, validator_count) # A(h,b,s,v), 14.18
+```
+
+The runtime checks source provenance before `Psi_R`, including for a fully supplied bundle or an individually cached import. A cached segment or complete export set alone does not establish a known source. The 672-epoch retention minimum is not imposed as an additional consensus-validity cutoff on otherwise known, available imports.
+
+Historical discovery and replay process bounded batches of 64 blocks and yield between background batches. Parent/canonical caches avoid repeating full ancestry walks. Missing historical state remains unavailable; restoring retained context permits targeted repair without inventing the original validator set.
+
+Storage finalization retains availability data by default. A future trusted-finality integration can explicitly call:
+
+```python
+await app.finalize(header_hash, availability_finality_confirmed=True)
+```
+
+The confirmation requires valid retained headers on committed active ancestry. An older canonical checkpoint can confirm availability without moving storage finality backwards. Trusted availability-finality knowledge is deliberately conservative after restart: it must be confirmed again before pruning. Until that integration supplies confirmations, audit payloads are retained. The existing 672-epoch minimum, shared-data protection and active-request protection still apply when pruning is authorized.
+
+Remaining networking review work includes historical/current/builder access rules, CE133 import acquisition, missing-ancestor catch-up, response limits during reading, persistent-link key pinning and checkpoint/genesis configuration. Full guarantee coordination, assurance voting and audit/judgment production also remain outside these local fixes. Existing automatic assurance production is not newly gated by this change.
+
 ## Assessment
 
-**Appendix H recovery and Chapter 14's submission, availability artifacts, peer data services and local retention flow are implemented. Full guarantee coordination, assurance voting and audit judgments remain Chapters 15–17 work. The selected PR #563 equality and footprint policies are retained.**
+**Appendix H recovery and the local Chapter 14 submission, report, artifact and import path are implemented, including the five local review fixes and conservative retention guard. Networking remains a prototype with deferred review findings. Full guarantee coordination, assurance voting and audit judgments remain Chapters 15–17 work. The selected PR #563 equality and footprint policies are retained.**
 
 The analysis compared the specification with the relevant code, reran tests and reproduced several boundary cases.
 
@@ -35,7 +76,7 @@ Chapter 14 defines deterministic calculations and data services used by later va
 | **14.12** | Construct paged proofs for exported segments | **Implemented.** Encoding, decoding, canonical-count checks, padding validation and direct-proof reconstruction exist. |
 | **14.13** | Compute `Ξ(p,c,l,v)` | **Implemented.** Authorization precedes bundle validation/acquisition. Runtime and public `Ξ` share the authorized report calculation, with one authorization per unchanged attempt. |
 | **14.14** | Package-hash-to-export-root correspondence | **Implemented.** Recent/pending report mappings and canonical source records establish correspondence. Builder mappings are checked against known reports. Local artifacts remain distinct from chain-backed sources. |
-| **14.15** | `X`, `L_l`, `S_l` and `J_l` | **Implemented.** Local imports/full exports precede guarantor requests and coded segment/proof-page recovery. Every import is verified before storage and manifest-order bundle construction. |
+| **14.15** | `X`, `L_l`, `S_l` and `J_l` | **Implemented locally.** Known-source checks precede supplied/cached imports; imports are verified before use. Peer requests and recovery exist in the networking prototype, whose review findings remain open. |
 | **14.16** | Assemble the auditable bundle `B(p,l)` | **Implemented.** A shared canonical codec covers production RPC, client and fuzzer submission, including import justifications. Truncation, conflicting data, noncanonical encoding and trailing data are rejected. |
 | **14.17** | Derive the package availability specification from the computed bundle and exports | **Implemented.** Report construction calls `A` with the package hash, assembled bundle, flattened exports and explicit assurer count. |
 | **14.18** | Calculate availability commitments | **Implemented.** `availability_spec` returns only the GP specification; `build_availability_artifacts` shares its calculation and retains encoded rows and proofs for distribution. |
@@ -138,13 +179,13 @@ The availability runtime supplies the data services consumed by Chapters 15–17
 | Capability | Implementation | Boundary |
 |---|---|---|
 | **Acquiring imports** | Verified local imports/full exports, CE148 guarantor requests, CE139 ordinary shards, CE140 proven retry | Four requests in flight, five-second timeouts, one peer pass per recovery phase; insufficient data is retryable |
-| **Original assuring set** | Source records preserve validator order, core, guarantor identities and registration/assurance block references | Historical metadata is reconstructed only when retained block/state context suffices; otherwise data remains unavailable |
+| **Original assuring set** | Source records preserve validator order, core, guarantor identities and registration/assurance block references | Historical metadata is reconstructed in bounded batches only when retained context suffices; unavailable records are isolated and otherwise remain unavailable |
 | **Availability artifacts** | Encoded bundle chunks, export/proof-page rows and outer co-paths persist before report readiness | Each successful report attempt encodes one `(package hash,v)` artifact set |
 | **Chunk proofs** | Appendix E.2 well-balanced traces, complete-row, audit-chunk and combined segment-chunk verification | Root-first proof order, singleton hashing, exact dimensions and indexes are checked |
 | **Chunk distribution** | Accepted guarantees enqueue assigned-shard acquisition through CE137; CE138/147 and CE139/140/148 serve retained data | Readiness is exposed without producing assurance votes |
 | **Availability eligibility** | Canonical source lookup follows the selected branch and historical peer identities | Builder-provided mappings do not establish chain-backed metadata; local retention expiry is not a consensus rule |
-| **Retention** | Atomic versioned records, audit payloads until assurance finality, segment rows for at least 672 epochs | Real `finalize` drives pruning; active requests/shared data remain protected and segment proofs survive audit-payload deletion |
-| **Transport** | Pinned v1 genesis ALPN, mutual Ed25519/SAN identity and independent incremental QUIC stream readers | Includes partial frames, FIN, rejection, resets, timeouts and cancellation; UP0/block requests are retained |
+| **Retention** | Atomic versioned records, audit payloads until confirmed assurance finality, segment rows for at least 672 epochs | Explicit trusted-finality confirmation authorizes pruning; parent-finalization calls retain data. Active requests, incomplete sharing context and shared data remain protected |
+| **Transport** | Prototype pinned-v1 framing, identities and selected availability streams | Networking review findings remain deferred; passing loopback tests do not establish complete protocol conformance |
 | **Assuring and auditing** | Verified data acquisition/storage/serving and readiness | Full guarantee coordination, assurance voting, audit selection and judgment production remain Chapters 15–17 |
 
 The implementation is in [availability calculations](/Users/arjan/Development/pyjamaz/pyjamaz/availability.py), [storage](/Users/arjan/Development/pyjamaz/pyjamaz/d3l.py), [runtime data services](/Users/arjan/Development/pyjamaz/pyjamaz/runtime/availability.py) and [transport](/Users/arjan/Development/pyjamaz/pyjamaz/transport/protocol_jamnp_s.py). Retained bundle-chunk hashes and co-paths permit long-lived CE140 proofs after audit payload deletion.
@@ -155,7 +196,7 @@ The PDF also describes preparing distributions for two differently sized validat
 
 The final implementation regression run produced:
 
-- **693 passed, two skipped and 14 expected failures** across recovery, refinement, hostcalls, reports, traces and the new submission/artifact/storage/lifecycle/transport tests. This extends the earlier 497-pass baseline.
+- **730 passed, two skipped and 14 expected failures** across recovery, refinement, hostcalls, reports, traces and submission/artifact/storage/lifecycle tests, including unchanged transport regression tests. This extends the earlier 497-pass and 693-pass baselines.
 - **Six additional passes with the Graypaper interpreter** for local and peer recovered-import integration through the real PVM.
 - **17 transport tests**, included in the 693 passes, cover genuine QUIC exchanges. The six-node integration persists source metadata, corrupts CE139 responses, recovers through CE140 and consumes imports through real PVM `fetch` selectors 5/6, requiring identical bundle/report bytes to complete stored exports.
 - Byte-for-byte encoding and systematic/parity/mixed recovery against **12 pinned Tiny and Full erasure vectors**.
@@ -163,6 +204,7 @@ The final implementation regression run produced:
 - Proof-page tests around 64-leaf boundaries and at the 3,072-export limit.
 - Tests for malformed proofs, noncanonical encoding, nonzero padding, corrupt storage, retries and equivalent reports from recovered versus complete exports.
 - Lifecycle tests cover successful/failed commits, historical guarantors and resized assurer sets, missing-source backfill, assurance reconstruction, fork selection, active requests, 672-epoch boundaries and real finalization.
+- Local-fix regressions cover finalized-head restart lookup, bounded/yielding history replay, restored historical state, isolated missing records, fabricated roots, retained local provenance, corrupt complete-export retries, matching assurance registrations and delayed trusted finality. The final focused storage/lifecycle check passed 75 tests after the last guard adjustment.
 
 An additional broader run found seven stale tests in the pre-existing untracked `test/test_fuzzer_refinement_batch.py`: they require an absent `fuzzer traces --results-file` option. That batch-CLI feature is outside this change. Existing reference expectations were not rewritten.
 
@@ -180,15 +222,16 @@ The 14 expected failures are documented conflicts in upstream report vectors: th
 | **Chapter 14 package rules and report calculations** | **Implemented**, retaining the selected PR #563 exception and authorization-first ordering |
 | **Local recovered imports into refinement** | **Implemented and integration-tested** |
 | **Production bundle RPC ingestion** | **Implemented**, including import justifications and requested cores |
-| **Distributed shard acquisition, proofs and distribution** | **Implemented for the selected availability streams** |
-| **Historical assurer routing and availability lifecycle** | **Implemented**, with unavailable historical context reported explicitly |
+| **Distributed shard acquisition, proofs and distribution** | **Proof calculations implemented; networking prototype remains under deferred review** |
+| **Historical metadata and local availability lifecycle** | **Implemented locally**, with unavailable context isolated, bounded repair and a conservative trusted-finality guard |
 | **Complete honest-assurer and auditor operation** | **Outside this change: Chapters 15–17 coordination, voting and judgments** |
 
 ## Recommendations
 
-1. Connect the existing data-readiness services to the remaining Chapters 15–17 coordination, assurance and audit workflows.
-2. Add independent external golden `B`, `A` and full-report outputs when available. Current root-structure checks share the native erasure backend; the pinned erasure vectors provide an independent oracle for that backend.
-3. Keep aioquic pinned to 1.3.0 while its small mutual-TLS/receive-window integration hooks use private interfaces, and rerun the QUIC identity/framing/flow-control suite on upgrades.
-4. Evaluate large-package throughput before adding optimizations or simultaneous preparation for differently sized validator sets. Both remain deliberately deferred.
+1. Complete the deferred networking review fixes before treating the availability protocol as conformant. Connect a trusted finality source to the conservative pruning guard.
+2. Connect the existing data-readiness services to the remaining Chapters 15–17 coordination, assurance and audit workflows.
+3. Add independent external golden `B`, `A` and full-report outputs when available. Current root-structure checks share the native erasure backend; the pinned erasure vectors provide an independent oracle for that backend.
+4. Keep aioquic pinned to 1.3.0 while its small mutual-TLS/receive-window integration hooks use private interfaces, and rerun the QUIC identity/framing/flow-control suite on upgrades.
+5. Evaluate large-package throughput before adding optimizations or simultaneous preparation for differently sized validator sets. Both remain deliberately deferred.
 
 Existing pre-v1 certificates containing IP SANs must be regenerated; v1 requires the single DNS SAN derived from the Ed25519 key. The CLI certificate initializer now derives that name correctly. Startup also requires the genesis header hash for the v1 ALPN, supplied by persisted genesis data or an explicit transport constructor argument.
