@@ -126,7 +126,7 @@ def test_skipped_guarantee_validation_does_not_publish_source_metadata(transitio
     assert app.d3l_store.sources() == []
 
 
-def test_placeholder_finalized_signal_does_not_prune_and_real_finalization_does(source_data):
+def test_placeholder_signals_and_parent_finalization_retain_data_until_confirmed(source_data):
     async def run():
         artifacts, report, validators, exports = source_data
         app = PyjamazApp.__new__(PyjamazApp)
@@ -139,10 +139,11 @@ def test_placeholder_finalized_signal_does_not_prune_and_real_finalization_does(
         genesis = Header.default()
         registration = replace(genesis, parent=genesis.hash, timeslot=1)
         assurance = replace(genesis, parent=registration.hash, timeslot=2)
-        headers = {header.hash: header for header in (genesis, registration, assurance)}
+        expiry = replace(genesis, parent=assurance.hash, timeslot=1 + 672 * EPOCH_TIMESLOTS)
+        headers = {header.hash: header for header in (genesis, registration, assurance, expiry)}
         app.retrieve_block_header = headers.get
         app.state_storage.set_finalized_header(genesis)
-        for header in (registration, assurance):
+        for header in (registration, assurance, expiry):
             app.state_storage.set_header(header)
             app.state_storage.commit()
         app.runtime = NodeRuntime(app)
@@ -164,12 +165,119 @@ def test_placeholder_finalized_signal_does_not_prune_and_real_finalization_does(
         await app.finalize(assurance.hash)
         assert app.state_storage.finalized_block_hash == assurance.hash
         assert app.retrieve_finalized_head() == assurance.hash
+        app.d3l_store.prune.assert_not_called()
+        assert app.d3l_store.retrieve_validator_shard(report.package_spec, 0) == artifacts.shards[0]
+        assert not app.runtime.availability._assurance_finalized(app.d3l_store.sources()[0])
+
+        # A trusted confirmation can arrive after the local parent-finalization call.
+        await app.finalize(assurance.hash, availability_finality_confirmed=True)
         app.d3l_store.prune.assert_called_once()
         with pytest.raises(DataUnavailable, match='audit'):
             app.d3l_store.retrieve_validator_shard(report.package_spec, 0)
         assert app.d3l_store.retrieve_segment_shard(report.package_spec, 0, 0)[0]
         await app.finalize(assurance.hash)
         app.d3l_store.prune.assert_called_once()
+        await app.finalize(assurance.hash, availability_finality_confirmed=True)
+        assert app.d3l_store.prune.call_count == 2
+
+        # The minimum D3L lifetime also needs a trusted checkpoint before pruning.
+        await app.finalize(expiry.hash)
+        assert app.d3l_store.retrieve_segment_shard(report.package_spec, 0, 0)[0]
+        await app.finalize(expiry.hash, availability_finality_confirmed=True)
+        with pytest.raises(DataUnavailable, match='assigned shard'):
+            app.d3l_store.retrieve_segment_shard(report.package_spec, 0, 0)
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('fault', ['unknown', 'mismatched_header', 'uncommitted', 'candidate', 'orphan', 'transaction'])
+def test_availability_finality_confirmation_rejects_untrusted_state(fault):
+    app = PyjamazApp.__new__(PyjamazApp)
+    app.block_db = InMemoryStorageEngine()
+    app.state_storage = StateStorage(InMemoryStorageEngine())
+    app.d3l_store = DataAvailabilityStore(InMemoryStorageEngine())
+    availability = SimpleNamespace(on_finalized=Mock())
+    app.runtime = SimpleNamespace(availability=availability)
+    genesis = Header.default()
+    active = replace(genesis, parent=genesis.hash, timeslot=1)
+    other = replace(genesis, parent=genesis.hash, timeslot=2)
+    headers = {header.hash: header for header in (genesis, active)}
+    app.retrieve_block_header = headers.get
+    app.state_storage.set_finalized_header(genesis)
+    app.state_storage.set_header(active)
+    app.state_storage.commit()
+    target = active.hash
+    if fault == 'unknown':
+        target = b'u' * 32
+    elif fault == 'mismatched_header':
+        headers[active.hash] = other
+    elif fault == 'uncommitted':
+        headers[other.hash] = other
+        target = other.hash
+    elif fault == 'candidate':
+        app.state_storage.set_header(other)
+        target = other.hash
+    elif fault == 'orphan':
+        app.state_storage.set_header(other)
+        app.state_storage.commit()
+        headers[other.hash] = other
+        app.state_storage.select_block_hash(active.hash)
+        target = other.hash
+    else:
+        app.state_storage.put(b'k' * 31, b'pending')
+
+    with pytest.raises(ValueError, match='availability finality requires'):
+        asyncio.run(app.finalize(target, availability_finality_confirmed=True))
+    assert app.state_storage.finalized_block_hash == genesis.hash
+    availability.on_finalized.assert_not_called()
+
+
+def test_trusted_confirmation_may_lag_local_storage_finality(source_data):
+    async def run():
+        artifacts, report, validators, exports = source_data
+        app = PyjamazApp.__new__(PyjamazApp)
+        app.block_db = InMemoryStorageEngine()
+        app.state_storage = StateStorage(InMemoryStorageEngine())
+        app.d3l_store = DataAvailabilityStore(InMemoryStorageEngine())
+        app.runtime = SimpleNamespace(availability=AvailabilityRuntime(app))
+        genesis = Header.default()
+        headers = [genesis]
+        for slot in (1, 2, 3, 4, 1 + 672 * EPOCH_TIMESLOTS):
+            headers.append(replace(genesis, parent=headers[-1].hash, timeslot=slot))
+        _, registration, assurance, later_registration, later_assurance, storage_tip = headers
+        app.state_storage.set_finalized_header(genesis)
+        for header in headers:
+            await app.store_block_header(header)
+            if header != genesis:
+                app.state_storage.set_header(header)
+                app.state_storage.commit()
+        app.d3l_store.store_work_report(report, b'bundle', exports, artifacts=artifacts)
+        app.d3l_store.register_source(AvailabilitySource(report, validators, validators[:2],
+                                                       registration.hash, 1, assurance.hash, 2))
+        later_exports = [b'y' * 4104]
+        later_artifacts = build_availability_artifacts(b'q' * 32, b'later', later_exports, 6)
+        later_report = replace(report, package_spec=later_artifacts.spec)
+        app.d3l_store.store_work_report(later_report, b'later', later_exports, artifacts=later_artifacts)
+        app.d3l_store.register_source(AvailabilitySource(later_report, validators, validators[:2],
+                                                       later_registration.hash, 3, later_assurance.hash, 4))
+
+        await app.finalize(storage_tip.hash)
+        assert not app.state_storage.has_state_at(assurance.hash)
+        await app.finalize(assurance.hash, availability_finality_confirmed=True)
+        assert app.state_storage.finalized_block_hash == storage_tip.hash
+        assert app.retrieve_finalized_head() == storage_tip.hash
+        assert app.runtime.availability._availability_finalized_hash == assurance.hash
+        with pytest.raises(DataUnavailable, match='audit'):
+            app.d3l_store.retrieve_validator_shard(report.package_spec, 0)
+        assert app.d3l_store.retrieve_validator_shard(later_report.package_spec, 0) == later_artifacts.shards[0]
+        # Storage's newer slot does not prematurely expire D3L at the older trusted tip.
+        assert app.d3l_store.retrieve_segment_shard(report.package_spec, 0, 0)[0]
+        assert app.d3l_store.retrieve_segment_shard(later_report.package_spec, 0, 0)[0]
+
+        await app.finalize(later_assurance.hash, availability_finality_confirmed=True)
+        with pytest.raises(DataUnavailable, match='audit'):
+            app.d3l_store.retrieve_validator_shard(later_report.package_spec, 0)
+        assert app.state_storage.finalized_block_hash == storage_tip.hash
 
     asyncio.run(run())
 

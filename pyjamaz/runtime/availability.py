@@ -306,12 +306,14 @@ class AvailabilityRuntime:
 
     def on_finalized(self, block_hash):
         # Only the application's explicitly confirmed finality path calls this hook.
-        self._availability_finalized_hash = block_hash
-        finalized = self._lineage(block_hash)
-        self._availability_finalized_blocks = finalized
+        # Repeated or delayed confirmations must not move trusted availability finality backwards.
+        if block_hash not in self._availability_finalized_blocks:
+            self._availability_finalized_hash = block_hash
+            self._availability_finalized_blocks = self._lineage(block_hash)
+        block_hash = self._availability_finalized_hash
         header = self.app.retrieve_block_header(block_hash)
         if header is not None:
-            self.store.prune(header.timeslot, self.canonical, finalized.__contains__)
+            self.store.prune(header.timeslot, self.canonical, self._availability_finalized_blocks.__contains__)
 
     def assigned_index(self, source):
         key = self.app.config.keys.ed25519.public_key

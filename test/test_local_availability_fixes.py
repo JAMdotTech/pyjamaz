@@ -63,6 +63,10 @@ def test_trusted_finality_lineage_is_reused_until_next_confirmation(source_data)
     runtime.on_finalized(next_header.hash)
     assert runtime._assurance_finalized(newly_assured)
     assert runtime._lineage.call_count == 2
+    runtime.on_finalized(source.registered_block)
+    assert runtime._availability_finalized_hash == next_header.hash
+    assert runtime._assurance_finalized(newly_assured)
+    assert runtime._lineage.call_count == 2
 
 
 def history_runtime(count):
