@@ -95,7 +95,7 @@ def test_initialize_rejects_conflicting_slot_for_its_header(target):
 @pytest.mark.parametrize("peer_ancestry", [False, True])
 def test_import_uses_negotiated_session_ancestry(target, monkeypatch, local_ancestry, peer_ancestry):
     async def run():
-        genesis = await initialize(target)
+        genesis = Header.default()
         block = child(genesis, 1)
         ordinary_transition = target.app.state_transition
         seen = []
@@ -117,6 +117,11 @@ def test_import_uses_negotiated_session_ancestry(target, monkeypatch, local_ance
         peer.peer_info.features.block_ancestry = peer_ancestry
         reader = asyncio.StreamReader()
         reader.feed_data(peer.fuzzer_encode())
+        reader.feed_data(FuzzerMessage(initialize=InitializeMessage(
+            header=genesis,
+            state=[(COUNTER, (10).to_bytes(4, "little")), (REMOVED, b"old")],
+            ancestry=[],
+        )).fuzzer_encode())
         reader.feed_data(FuzzerMessage(import_block=block).fuzzer_encode())
         reader.feed_eof()
 
@@ -141,6 +146,7 @@ def test_import_uses_negotiated_session_ancestry(target, monkeypatch, local_ance
         writer = Writer()
         await target._handle_client(reader, writer)
         assert seen == [not (local_ancestry and peer_ancestry)]
+        assert int.from_bytes(target.app.state_storage.get(COUNTER), "little") == 11
         assert not target.app.app_context.skip_lookup_anchor_ancestry.get()
         assert writer.closed
 
