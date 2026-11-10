@@ -6,6 +6,7 @@ they do not produce guarantees, assurance votes or audit judgments.
 
 import asyncio
 import logging
+from collections import deque
 from dataclasses import dataclass
 
 from jamcodec.base import JamBytes
@@ -39,12 +40,22 @@ class StagedSubmission:
 class AvailabilityRuntime:
     REQUEST_TIMEOUT = 5
     REQUESTS_IN_FLIGHT = 4
+    BACKFILL_BATCH_SIZE = 64
 
     def __init__(self, app):
         self.app = app
         self._queue = asyncio.Queue(maxsize=4096)
         self._queued = set()
-        self._backfilled_head = None
+        self._canonical_head = None
+        self._canonical_hashes = set()
+        self._canonical_cursor = None
+        self._parents = {}
+        # Discover ancestors backwards, then replay this queue oldest first.
+        self._backfill_pending = deque()
+        self._repair_blocks = {}
+        self._backfill_wakeup = asyncio.Event()
+        self._availability_finalized_hash = None
+        self._availability_finalized_blocks = set()
 
     @property
     def store(self):
@@ -54,56 +65,148 @@ class AvailabilityRuntime:
 
     def start(self, task_group):
         task_group.start_soon(self._assigned_worker)
+        task_group.start_soon(self._backfill_worker)
+        self._backfill_wakeup.set()
+
+    def _head(self):
+        storage = self.app.state_storage
+        return getattr(storage, 'block_hash', None) or getattr(storage, 'finalized_block_hash', None)
+
+    def _parent(self, block_hash):
+        if block_hash not in self._parents:
+            header = self.app.retrieve_block_header(block_hash)
+            if header is not None:
+                self._parents[block_hash] = header.parent
+            else:
+                parent = getattr(self.app.state_storage, 'parents', {}).get(block_hash)
+                # A just-committed header may not yet have reached block storage.
+                # Do not cache an absent parent: storage can become available later.
+                if parent is not None:
+                    self._parents[block_hash] = parent
+                return parent
+        return self._parents[block_hash]
+
+    def _refresh_canonical_head(self):
+        head = self._head()
+        if head == self._canonical_head:
+            return
+        cursor, path = head, []
+        while cursor is not None and cursor not in self._canonical_hashes and len(path) < self.BACKFILL_BATCH_SIZE:
+            if cursor in path:
+                cursor = None
+                break
+            path.append(cursor)
+            cursor = self._parent(cursor)
+        if cursor in self._canonical_hashes:
+            old = self._canonical_head
+            removed = 0
+            while old is not None and old != cursor and removed < self.BACKFILL_BATCH_SIZE:
+                self._canonical_hashes.discard(old)
+                old = self._parents.get(old)
+                removed += 1
+            if old != cursor:
+                # Do not walk an arbitrarily long discarded branch in one call.
+                self._canonical_hashes.clear()
+                self._canonical_cursor = cursor
+                self._backfill_pending.clear()
+            self._backfill_pending.extend(reversed(path))
+        else:
+            # A deep reorganization is discovered in bounded batches just like startup.
+            self._canonical_hashes.clear()
+            self._canonical_cursor = cursor
+            self._backfill_pending.clear()
+            self._backfill_pending.extend(reversed(path))
+        self._canonical_head = head
+        self._canonical_hashes.update(path)
+        self._backfill_wakeup.set()
 
     def _lineage(self, head):
         """Use persisted headers; finalized state overlays need not retain ancestry."""
         seen = set()
         while head is not None and head not in seen:
             seen.add(head)
-            header = self.app.retrieve_block_header(head)
-            if header is None:
-                head = getattr(self.app.state_storage, 'parents', {}).get(head)
-            else:
-                head = header.parent
+            head = self._parent(head)
         return seen
 
     def canonical(self, block_hash):
-        return block_hash in self._lineage(self.app.state_storage.block_hash)
+        self._refresh_canonical_head()
+        return block_hash in self._canonical_hashes
 
     def source_for(self, **lookup):
         try:
             return self.store.source_for(**lookup, canonical=self.canonical)
         except DataUnavailable:
-            self._backfill_sources(force=True)
+            self._backfill_sources()
+            key = next(((kind, value) for kind, value in lookup.items() if value is not None), None)
+            # Known registration/assurance blocks can repair a removed record at
+            # the same head without rescanning every retained block.
+            for block_hash in tuple(self._repair_blocks.get(key, ())):
+                if self.canonical(block_hash):
+                    self._backfill_block(block_hash)
             return self.store.source_for(**lookup, canonical=self.canonical)
 
-    def _backfill_sources(self, *, force=False):
-        """Recover routing from retained committed blocks and historical state, when present."""
-        head = self.app.state_storage.block_hash
-        if head == self._backfilled_head and not force:
+    def _backfill_sources(self):
+        """Discover and replay at most one small batch of retained historical context."""
+        self._refresh_canonical_head()
+        for _ in range(self.BACKFILL_BATCH_SIZE):
+            cursor = self._canonical_cursor
+            if cursor is None or cursor in self._canonical_hashes:
+                self._canonical_cursor = None
+                break
+            self._canonical_hashes.add(cursor)
+            self._backfill_pending.appendleft(cursor)
+            self._canonical_cursor = self._parent(cursor)
+        if self._canonical_cursor is not None:
             return
-        blocks = [self.app.retrieve_block_by_hash(h) for h in self._lineage(head)]
-        blocks = sorted((b for b in blocks if b is not None), key=lambda b: b.header.timeslot)
-        for block in blocks:
-            if not block.extrinsic.guarantees and not block.extrinsic.assurances:
-                continue
-            try:
-                state = dict(self.app.state_storage.as_list_at(block.header.hash))
-                def read(component, codec):
-                    return codec.from_jam_bytes(JamBytes(state[WELL_KNOWN_STORAGE_KEYS[component]]))
-                pool = read(8, ValidatorPoolState)
-                archive = read(9, ValidatorArchiveState)
-                entropy = read(6, EntropyState)
-                timeslot = TimeslotState(block.header.timeslot)
-                context = BlockContext()
-                context.set_guarantor_assignments(entropy, timeslot, pool)
-                context.set_prev_guarantor_assignments(entropy, timeslot, pool, archive)
-                reported = self._reported_from_block(block, pool)
-                self.record_committed(block, pool.validators, archive.validators, context, reported)
-            except (KeyError, ValueError, DataUnavailable, ScaleDecodeException, StateTransitionError):
-                # Missing historical state must not be replaced with the current validator set.
-                continue
-        self._backfilled_head = head
+        for _ in range(self.BACKFILL_BATCH_SIZE):
+            if not self._backfill_pending:
+                break
+            block_hash = self._backfill_pending.popleft()
+            if self.canonical(block_hash):
+                try:
+                    self._backfill_block(block_hash)
+                except OSError:
+                    self._backfill_pending.appendleft(block_hash)
+                    raise
+
+    async def _backfill_worker(self):
+        while True:
+            await self._backfill_wakeup.wait()
+            self._backfill_wakeup.clear()
+            while True:
+                try:
+                    self._backfill_sources()
+                except (OSError, DataUnavailable):
+                    logging.exception('Historical availability backfill will retry later')
+                    break
+                if self._canonical_cursor is None and not self._backfill_pending:
+                    break
+                await asyncio.sleep(0)
+
+    def _backfill_block(self, block_hash):
+        block = self.app.retrieve_block_by_hash(block_hash)
+        if block is None or not block.extrinsic.guarantees and not block.extrinsic.assurances:
+            return
+        # The accepted block identifies the records to retry if its historical
+        # state is restored later. These hints do not establish source metadata.
+        for guarantee in block.extrinsic.guarantees:
+            self._remember_source_block(guarantee.report, block_hash)
+        try:
+            state = dict(self.app.state_storage.as_list_at(block.header.hash))
+            def read(component, codec):
+                return codec.from_jam_bytes(JamBytes(state[WELL_KNOWN_STORAGE_KEYS[component]]))
+            pool = read(8, ValidatorPoolState)
+            archive = read(9, ValidatorArchiveState)
+            entropy = read(6, EntropyState)
+            timeslot = TimeslotState(block.header.timeslot)
+            context = BlockContext()
+            context.set_guarantor_assignments(entropy, timeslot, pool)
+            context.set_prev_guarantor_assignments(entropy, timeslot, pool, archive)
+            self.record_committed(block, pool.validators, archive.validators, context,
+                                  self._reported_from_block(block, pool))
+        except (KeyError, ValueError, DataUnavailable, ScaleDecodeException, StateTransitionError):
+            # Missing historical state must not be replaced with the current validator set.
+            return
 
     def _reported_from_block(self, block, pool):
         if not block.extrinsic.assurances:
@@ -127,7 +230,10 @@ class AvailabilityRuntime:
         """Called after commit, while verified guarantee assignment identities are known."""
         if self.app.d3l_store is None:
             return
+        self._parents[block.header.hash] = block.header.parent
+        self._refresh_canonical_head()
         for guarantee in block.extrinsic.guarantees:
+            self._remember_source_block(guarantee.report, block.header.hash)
             current = block.header.timeslot // ROTATION_PERIOD_CORE == guarantee.slot // ROTATION_PERIOD_CORE
             assignments = context.guarantor_assignments if current else context.prev_guarantor_assignments
             previous_epoch = ((block.header.timeslot - ROTATION_PERIOD_CORE) // EPOCH_TIMESLOTS
@@ -144,19 +250,27 @@ class AvailabilityRuntime:
                 pass  # The committed context can reconstruct a missing source record.
             self.store.register_source(source)
             self._enqueue(source)
-        lineage = self._lineage(block.header.parent) | {block.header.hash}
         for report in available_reports:
+            self._remember_source_block(report, block.header.hash)
             try:
-                self.store.mark_assured(report, block.header.hash, block.header.timeslot, lineage.__contains__)
+                self.store.mark_assured(report, block.header.hash, block.header.timeslot, self.canonical)
             except DataUnavailable:
                 pass
+
+    def _remember_source_block(self, report, block_hash):
+        spec = report.package_spec
+        for kind, value in (('package_hash', spec.hash), ('exports_root', spec.exports_root),
+                            ('erasure_root', spec.erasure_root)):
+            blocks = self._repair_blocks.setdefault((kind, value), deque(maxlen=self.BACKFILL_BATCH_SIZE))
+            if block_hash not in blocks:
+                blocks.append(block_hash)
 
     def _enqueue(self, source):
         try:
             self.assigned_index(source)
         except DataUnavailable:
             return
-        finalized_hash = self.app.state_storage.finalized_block_hash
+        finalized_hash = self._availability_finalized_hash
         finalized_header = self.app.retrieve_block_header(finalized_hash) if finalized_hash is not None else None
         if (finalized_header is not None
                 and finalized_header.timeslot >= source.registered_slot + 672 * EPOCH_TIMESLOTS
@@ -191,7 +305,10 @@ class AvailabilityRuntime:
                 self._queue.task_done()
 
     def on_finalized(self, block_hash):
+        # Only the application's explicitly confirmed finality path calls this hook.
+        self._availability_finalized_hash = block_hash
         finalized = self._lineage(block_hash)
+        self._availability_finalized_blocks = finalized
         header = self.app.retrieve_block_header(block_hash)
         if header is not None:
             self.store.prune(header.timeslot, self.canonical, finalized.__contains__)
@@ -217,8 +334,7 @@ class AvailabilityRuntime:
             return False
 
     def _assurance_finalized(self, source):
-        finalized_hash = getattr(self.app.state_storage, 'finalized_block_hash', None)
-        return source.assured_block is not None and source.assured_block in self._lineage(finalized_hash)
+        return source.assured_block is not None and source.assured_block in self._availability_finalized_blocks
 
     async def _request(self, method, *args, **kwargs):
         protocol = getattr(self.app, 'protocol', None)
@@ -266,10 +382,16 @@ class AvailabilityRuntime:
             return self.store.retrieve_import(root, index)
         except DataUnavailable:
             stored = [bytes(segment) for segment in self.store.retrieve_segments(root).segments]
+            tree = ConstantDepthMerkleTree(stored)
+            if tree.root() != root:
+                raise DataUnavailable('stored export segments do not match their root')
             if not 0 <= index < len(stored):
                 raise ProcessWorkpackageError('import segment index out of range')
-            imported = ImportedSegment(stored[index], tuple(ConstantDepthMerkleTree(stored).trace(index)))
-            verify_import(root, index, imported)
+            imported = ImportedSegment(stored[index], tuple(tree.trace(index)))
+            try:
+                verify_import(root, index, imported)
+            except ProcessWorkpackageError as exc:
+                raise DataUnavailable('stored export segment is invalid') from exc
             return imported
 
     async def acquire_import(self, root, index, *, page_cache=None):
