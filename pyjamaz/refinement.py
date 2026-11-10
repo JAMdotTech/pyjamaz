@@ -1,10 +1,11 @@
 """Work-report computation with the GP's explicit (p, c, l, v) arguments."""
 
-from pyjamaz.availability import BundleData, availability_spec, validate_work_package
+from pyjamaz.availability import BundleData, build_availability_artifacts, validate_work_package
 from pyjamaz.erasure import erasure_data_shards
 from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import CORE_COUNT, EC_SEGMENT_SIZE, MAXIMUM_SIZE_ENCODED_WORK_REPORT
 from pyjamaz.hostcalls.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
+from pyjamaz.hostcalls.models import PvmIsAuthorizedOutput
 from pyjamaz.models.common import WorkDigest, WorkExecResult, WorkPackage, WorkReport
 from pyjamaz.models.state import ServicesState
 
@@ -21,6 +22,7 @@ class Refinement:
         self.data = data
         self.bundle = b''
         self.exported_segments: list[bytes] = []
+        self.artifacts = None
 
     def compute_work_report(self, package: WorkPackage, core_index: int,
                             mappings: dict[bytes, bytes], erasure_shards: int) -> WorkReport:
@@ -28,8 +30,16 @@ class Refinement:
         # package=p, core_index=c, mappings=l, erasure_shards=v.
         self.bundle = b''
         self.exported_segments = []
+        self.artifacts = None
+        self._validate_arguments(package, core_index, mappings, erasure_shards)
+        authorization = self.authorize(package, core_index)
+        return self._compute_authorized_report(package, core_index, mappings, erasure_shards, authorization)
+
+    @staticmethod
+    def _validate_arguments(package, core_index, mappings, erasure_shards) -> None:
         validate_work_package(package)
-        if not 0 <= core_index < CORE_COUNT:
+        if (isinstance(core_index, bool) or not isinstance(core_index, int)
+                or not 0 <= core_index < CORE_COUNT):
             raise ProcessWorkpackageError("invalid core index")
         try:
             erasure_data_shards(erasure_shards)
@@ -42,10 +52,16 @@ class Refinement:
         if mappings.keys() != expected_mappings:
             raise ProcessWorkpackageError("segment-root dictionary has unexpected keys")
 
-        # GP-0.8.0-eq:14.15-14.16: obtain verified X, S_l and J_l before invoking PVM code.
-        bundle = self.data.assemble_bundle(package, mappings)
-        extrinsics = [self.data.extrinsic_data(item) for item in package.items]
-        imports = [self.data.import_segments(mappings, item) for item in package.items]
+    def authorize(self, package: WorkPackage, core_index: int) -> PvmIsAuthorizedOutput:
+        """Evaluate Psi_I(p,c) against this execution's detached service state."""
+        # GP-0.8.0-eq:14.13 / B.1: authorization precedes data acquisition and Psi_R.
+        validate_work_package(package)
+        if (isinstance(core_index, bool) or not isinstance(core_index, int)
+                or not 0 <= core_index < CORE_COUNT):
+            raise ProcessWorkpackageError("invalid core index")
+        self.bundle = b''
+        self.exported_segments = []
+        self.artifacts = None
         package.set_authorization_code(self.services)
         authorization = pvm_invoke_is_authorized(package, core_index)
         trace = authorization.work_exec_result.ok
@@ -53,6 +69,20 @@ class Refinement:
             raise ProcessWorkpackageError("Unauthorized")
         if len(trace) > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
             raise ProcessWorkpackageError("Oversized auth result")
+        return authorization
+
+    def _compute_authorized_report(self, package: WorkPackage, core_index: int,
+                                   mappings: dict[bytes, bytes], erasure_shards: int,
+                                   authorization: PvmIsAuthorizedOutput) -> WorkReport:
+        """Finish Xi using the authorization from the same package/core/state attempt."""
+        self._validate_arguments(package, core_index, mappings, erasure_shards)
+        trace = authorization.work_exec_result.ok
+        if not isinstance(trace, bytes) or len(trace) > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
+            raise ProcessWorkpackageError("invalid authorization result")
+        # GP-0.8.0-eq:14.15-14.16: verify X, S_l and J_l after successful Psi_I.
+        bundle = self.data.assemble_bundle(package, mappings)
+        extrinsics = [self.data.extrinsic_data(item) for item in package.items]
+        imports = [self.data.import_segments(mappings, item) for item in package.items]
 
         digests = []
         exports = []
@@ -80,7 +110,8 @@ class Refinement:
             export_offset += item.export_count
 
         # GP-0.8.0-eq:14.17: s = A(H(p), B(p,l), concat(exports), v).
-        spec = availability_spec(package.hash(), bundle, exports, erasure_shards)
+        artifacts = build_availability_artifacts(package.hash(), bundle, exports, erasure_shards)
+        spec = artifacts.spec
         report = WorkReport(
             package_spec=spec, context=package.context, core_index=core_index,
             authorizer_hash=package.authorizer_hash(), auth_output=trace,
@@ -88,4 +119,5 @@ class Refinement:
         )
         self.bundle = bundle
         self.exported_segments = exports
+        self.artifacts = artifacts
         return report

@@ -154,17 +154,12 @@ class BundleData:
 
     def assemble_bundle(self, package: WorkPackage, mappings: dict[bytes, bytes]) -> bytes:
         # GP-0.8.0-eq:14.16: B(p,l) = E(p, X#(p_w), S_l#(p_w), J_l#(p_w)).
-        output = bytearray(package.to_jam_bytes().to_bytes())
-        for item in package.items:
-            for blob in self.extrinsic_data(item):
-                output.extend(blob)
-        for item in package.items:
-            for segment in self.import_segments(mappings, item):
-                output.extend(segment)
-        for item in package.items:
-            for proof in self.import_justifications(mappings, item):
-                output.extend(Vec(H256).encode(list(proof)).to_bytes())
-        return bytes(output)
+        from pyjamaz.bundle import encode_bundle
+
+        extrinsics = [blob for item in package.items for blob in self.extrinsic_data(item)]
+        imports = [entry for item in package.items for entry in self._verified_imports(mappings, item)]
+        return encode_bundle(package, extrinsics, [entry.segment for entry in imports],
+                             [list(entry.justification) for entry in imports])
 
 
 def zero_pad(alignment: int, data: bytes) -> bytes:
@@ -283,10 +278,28 @@ def recover_import(spec: WorkPackageSpec, segment_index: int, shards: dict[int, 
     return imported
 
 
-def availability_spec(package_hash: bytes, bundle: bytes, exports: list[bytes],
-                      validator_count: int) -> WorkPackageSpec:
-    # GP-0.8.0-eq:14.18: A(h,b,s,v) -> (h, |b|, u, v, M(s), |s|).
-    # package_hash=h, bundle=b, exports=s, validator_count=v.
+@dataclass(frozen=True)
+class ValidatorShard:
+    """One validator row of 14.18 and its E.2 co-path (JAMNP-S CE 137)."""
+
+    shard_index: int
+    bundle_shard: bytes
+    segment_shards: tuple[bytes, ...]
+    justification: tuple[bytes, ...]
+
+
+@dataclass(frozen=True)
+class AvailabilityArtifacts:
+    """The retained data behind A(h,b,s,v), rather than a new GP transform."""
+
+    spec: WorkPackageSpec
+    shards: tuple[ValidatorShard, ...]
+
+
+def build_availability_artifacts(package_hash: bytes, bundle: bytes, exports: list[bytes],
+                                 validator_count: int) -> AvailabilityArtifacts:
+    """Build A(h,b,s,v) and retain its encoded chunks and distribution proofs."""
+    # GP-0.8.0-eq:14.18: package_hash=h, bundle=b, exports=s, validator_count=v.
     if not isinstance(package_hash, bytes) or len(package_hash) != 32:
         raise ValueError("work-package hash must be 32 bytes")
     if len(exports) > MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE or any(len(s) != EC_SEGMENT_SIZE for s in exports):
@@ -305,12 +318,131 @@ def availability_spec(package_hash: bytes, bundle: bytes, exports: list[bytes],
         for i in range(originals) for segment in segments
     )
     rows = encode_chunks(validator_count, len(transposed) // alignment, transposed)
+    segment_rows = []
     leaves = []
     for bundle_shard, row in zip(bundle_shards, rows):
-        chunks = [row[i:i + segment_shard_size] for i in range(0, len(row), segment_shard_size)]
-        leaves.append(blake2b_256_hash(bundle_shard) + WellBalancedMerkleTree(chunks).root())
-    return WorkPackageSpec(
-        hash=package_hash, length=len(bundle), erasure_root=WellBalancedMerkleTree(leaves).root(),
+        chunks = tuple(row[i:i + segment_shard_size] for i in range(0, len(row), segment_shard_size))
+        segment_rows.append(chunks)
+        leaves.append(blake2b_256_hash(bundle_shard) + WellBalancedMerkleTree(list(chunks)).root())
+    tree = WellBalancedMerkleTree(leaves)
+    spec = WorkPackageSpec(
+        hash=package_hash, length=len(bundle), erasure_root=tree.root(),
         erasure_shards=validator_count, exports_root=ConstantDepthMerkleTree(exports).root(),
         exports_count=len(exports),
     )
+    shards = tuple(ValidatorShard(index, bundle_shards[index], segment_rows[index], tuple(tree.trace(index)))
+                   for index in range(validator_count))
+    return AvailabilityArtifacts(spec, shards)
+
+
+def availability_spec(package_hash: bytes, bundle: bytes, exports: list[bytes],
+                      validator_count: int) -> WorkPackageSpec:
+    # GP-0.8.0-eq:14.18: A(h,b,s,v) -> (h, |b|, u, v, M(s), |s|).
+    # package_hash=h, bundle=b, exports=s, validator_count=v.
+    return build_availability_artifacts(package_hash, bundle, exports, validator_count).spec
+
+
+def _shard_dimensions(spec: WorkPackageSpec) -> tuple[int, int, int]:
+    """Return the bundle chunk size, segment chunk size and combined segment count."""
+    from pyjamaz.graypaper_constants import MAXIMUM_SIZE_AUDITABLE_BUNDLE
+
+    try:
+        originals = erasure_data_shards(spec.erasure_shards)
+    except ValueError as exc:
+        raise ProcessWorkpackageError(str(exc)) from exc
+    if (isinstance(spec.length, bool) or not isinstance(spec.length, int)
+            or not 0 <= spec.length <= MAXIMUM_SIZE_AUDITABLE_BUNDLE
+            or isinstance(spec.exports_count, bool) or not isinstance(spec.exports_count, int)
+            or not 0 <= spec.exports_count <= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE
+            or not isinstance(spec.erasure_root, bytes) or len(spec.erasure_root) != 32):
+        raise ProcessWorkpackageError("invalid availability specification")
+    # GP-0.8.0-eq:14.18: z=2D(v), bundle chunks have 2 ceil(|b|/z) bytes.
+    bundle_size = 2 * ((spec.length + 2 * originals - 1) // (2 * originals))
+    segment_count = spec.exports_count + (spec.exports_count + 63) // 64
+    return bundle_size, EC_SEGMENT_SIZE // originals, segment_count
+
+
+def _trace_sizes(index: int, count: int, leaf_size: int) -> tuple[int, ...]:
+    """E.2 siblings are raw leaves for singleton subtrees, otherwise hashes."""
+    if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < count:
+        raise ProcessWorkpackageError("shard index out of range")
+    sizes = []
+    while count > 1:
+        split = (count + 1) // 2
+        if index < split:
+            other_count = count - split
+            count = split
+        else:
+            other_count = split
+            count -= split
+            index -= split
+        sizes.append(leaf_size if other_count == 1 else 32)
+    return tuple(sizes)
+
+
+def _check_proof_sizes(proof, sizes: tuple[int, ...]) -> None:
+    if (not isinstance(proof, (list, tuple)) or len(proof) != len(sizes)
+            or any(not isinstance(value, bytes) or len(value) != size
+                   for value, size in zip(proof, sizes))):
+        raise ProcessWorkpackageError("invalid shard justification dimensions")
+
+
+def verify_validator_shard(shard: ValidatorShard, spec: WorkPackageSpec) -> None:
+    """Verify one full validator row against A(h,b,s,v)'s erasure root."""
+    # GP-0.8.0-eq:14.18, E.2-E.3; JAMNP-S e0b7d291 CE 137.
+    bundle_size, segment_size, segment_count = _shard_dimensions(spec)
+    sizes = _trace_sizes(shard.shard_index, spec.erasure_shards, 64)
+    if (not isinstance(shard.bundle_shard, bytes) or len(shard.bundle_shard) != bundle_size
+            or len(shard.segment_shards) != segment_count
+            or any(not isinstance(value, bytes) or len(value) != segment_size for value in shard.segment_shards)):
+        raise ProcessWorkpackageError("invalid validator shard dimensions")
+    _check_proof_sizes(shard.justification, sizes)
+    leaf = blake2b_256_hash(shard.bundle_shard) + WellBalancedMerkleTree(list(shard.segment_shards)).root()
+    if not WellBalancedMerkleTree.verify(leaf, shard.shard_index, spec.erasure_shards,
+                                        shard.justification, spec.erasure_root):
+        raise ProcessWorkpackageError("validator shard does not match the erasure root")
+
+
+def audit_shard_justification(shard: ValidatorShard) -> tuple[bytes, ...]:
+    """JAMNP-S e0b7d291 CE 138: append the segment-row root to CE 137's co-path."""
+    return shard.justification + (WellBalancedMerkleTree(list(shard.segment_shards)).root(),)
+
+
+def verify_audit_shard(bundle_shard: bytes, shard_index: int, proof: tuple[bytes, ...],
+                       spec: WorkPackageSpec) -> None:
+    """Verify a bundle chunk using the CE 138 co-path to the 14.18 erasure root."""
+    bundle_size, _, _ = _shard_dimensions(spec)
+    sizes = _trace_sizes(shard_index, spec.erasure_shards, 64) + (32,)
+    _check_proof_sizes(proof, sizes)
+    if not isinstance(bundle_shard, bytes) or len(bundle_shard) != bundle_size:
+        raise ProcessWorkpackageError("invalid audit shard size")
+    leaf = blake2b_256_hash(bundle_shard) + proof[-1]
+    if not WellBalancedMerkleTree.verify(leaf, shard_index, spec.erasure_shards,
+                                        proof[:-1], spec.erasure_root):
+        raise ProcessWorkpackageError("audit shard does not match the erasure root")
+
+
+def segment_shard_justification(shard: ValidatorShard, segment_index: int) -> tuple[bytes, ...]:
+    """JAMNP-S e0b7d291 CE 140: outer co-path, bundle hash, then segment co-path."""
+    path = WellBalancedMerkleTree(list(shard.segment_shards)).trace(segment_index)
+    return shard.justification + (blake2b_256_hash(shard.bundle_shard),) + tuple(path)
+
+
+def verify_segment_shard(segment_shard: bytes, segment_index: int, shard_index: int,
+                         proof: tuple[bytes, ...], spec: WorkPackageSpec) -> None:
+    """Verify an export/proof-page chunk against the GP-0.8.0-eq:14.18 erasure root."""
+    # JAMNP-S e0b7d291 CE 140: j ++ [H(bundle shard)] ++ T(segment row, segment_index).
+    _, segment_size, segment_count = _shard_dimensions(spec)
+    outer_sizes = _trace_sizes(shard_index, spec.erasure_shards, 64)
+    inner_sizes = _trace_sizes(segment_index, segment_count, segment_size)
+    _check_proof_sizes(proof, outer_sizes + (32,) + inner_sizes)
+    if not isinstance(segment_shard, bytes) or len(segment_shard) != segment_size:
+        raise ProcessWorkpackageError("invalid segment shard size")
+    outer_depth = len(outer_sizes)
+    segment_root = WellBalancedMerkleTree([]).root_from_trace(
+        segment_shard, segment_index, segment_count, proof[outer_depth + 1:], single_item_hashed=True,
+    )
+    leaf = proof[outer_depth] + segment_root
+    if not WellBalancedMerkleTree.verify(leaf, shard_index, spec.erasure_shards,
+                                        proof[:outer_depth], spec.erasure_root):
+        raise ProcessWorkpackageError("segment shard does not match the erasure root")

@@ -669,6 +669,16 @@ class PyjamazApp:
         self.state_storage.commit()
 
         self.working_state.state_root = self.state_storage.state_root()
+        availability = getattr(getattr(self, 'runtime', None), 'availability', None)
+        if availability is not None and not SKIP_VALIDATE_GUARANTEES:
+            try:
+                # Chapter 14 routing is published only after the guarantee's block commits.
+                availability.record_committed(block, validator_pool_output.post_state.validators,
+                                              validator_archive_output.post_state.validators,
+                                              self.block_context, assurances_after_assurances_output.reported)
+            except Exception:
+                # An off-chain storage failure must not turn a committed STF into a rejection.
+                logging.exception('Availability metadata could not be retained; backfill will retry')
         signals = tuple(self.app_context.post_commit_signals)
         self.app_context.post_commit_signals.clear()
         if self.app_context.pubsub:
@@ -1025,6 +1035,12 @@ class PyjamazApp:
         if header_hash != self.state_storage.finalized_block_hash:
             self.state_storage.finalize(header_hash)
             await self.store_finalized_head(header_hash)
+            availability = getattr(getattr(self, 'runtime', None), 'availability', None)
+            if availability is not None and self.d3l_store is not None:
+                try:
+                    availability.on_finalized(header_hash)
+                except Exception:
+                    logging.exception('Availability retention update failed')
             logging.info(f'🔒 Finalized block  {format_hash(header_hash)}')
         else:
             DEBUG and logging.debug(f'Skipped finalization, {format_hash(header_hash)} already finalized')
@@ -1083,9 +1099,11 @@ class PyjamazApp:
         return guarantors
 
     # TODO deprecated
-    def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes]):
+    def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes], *,
+                         core_index: int | None = None, bundle: bytes | None = None):
 
-        self.runtime.refine_pipeline.add_work_package(work_package, extrinsics)
+        self.runtime.refine_pipeline.add_work_package(work_package, extrinsics,
+                                                      core_index=core_index, bundle=bundle)
 
     async def guarantee_work_report(self, work_report: WorkReport, timeslot: int):
 

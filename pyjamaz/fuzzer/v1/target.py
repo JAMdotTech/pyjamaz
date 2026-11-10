@@ -151,11 +151,18 @@ class FuzzerTarget:
         bundle = request.bundle
 
         def compute():
-            data = BundleData.from_parts(
+            execution = Refinement(services, BundleData())
+            execution._validate_arguments(
+                bundle.work_package, request.core_index, request.segment_root_lookup, request.erasure_shards,
+            )
+            # GP-0.8.0-eq:14.13: authorize before hashing or verifying supplied X/S/J data.
+            authorization = execution.authorize(bundle.work_package, request.core_index)
+            execution.data = BundleData.from_parts(
                 bundle.work_package, bundle.extrinsics, bundle.import_segments, bundle.justifications,
             )
-            return Refinement(services, data).compute_work_report(
+            return execution._compute_authorized_report(
                 bundle.work_package, request.core_index, request.segment_root_lookup, request.erasure_shards,
+                authorization,
             )
 
         try:
