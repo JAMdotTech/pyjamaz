@@ -393,7 +393,8 @@ def generate(seed, ip, port):
     metadata = bytearray(128)
     enc, zone = ipv6_to_byte_array(ip)
     if len(enc) == 4:
-        metadata[0:4] = enc
+        # JAMNP-S v1 endpoints use the entire IPv6 field, including IPv4-mapped addresses.
+        metadata[0:16] = bytes(10) + b'\xff\xff' + enc
     elif len(enc) == 16:
         metadata[0:16] = enc
     else:
@@ -417,7 +418,7 @@ async def init_certificate(db_path, seed):
     pk_pem, cert_pem = generate_cert(
         keys,
         ips="127.0.0.1",    #TODO: hardcoded for now
-        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka",
+        alternative_name=quic_peer_id(keys.ed25519.public_key),
     )
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")

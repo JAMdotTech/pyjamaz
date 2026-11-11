@@ -235,6 +235,36 @@ def test_authorization_failure_is_recoverable(target, refine_request, vm):
     asyncio.run(run())
 
 
+def test_bundle_validation_follows_successful_authorization(target, refine_request, vm, monkeypatch):
+    calls = []
+    from_parts = BundleData.from_parts
+
+    def authorize(*_):
+        calls.append('authorize')
+        return vm.auth
+
+    def validate(*args):
+        calls.append('bundle')
+        return from_parts(*args)
+
+    monkeypatch.setattr(refinement_module, 'pvm_invoke_is_authorized', authorize)
+    monkeypatch.setattr(BundleData, 'from_parts', validate)
+
+    async def run():
+        await initialize(target)
+        vm.auth.work_exec_result = WorkExecResult(panic=True)
+        response = await target.msg_refine_bundle(FuzzerMessage(refine_bundle=refine_request))
+        assert response.error == 'Unauthorized'
+        assert calls == ['authorize']
+
+        vm.auth.work_exec_result = WorkExecResult(ok=b'auth')
+        response = await target.msg_refine_bundle(FuzzerMessage(refine_bundle=refine_request))
+        assert response.work_report is not None
+        assert calls == ['authorize', 'authorize', 'bundle']
+
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize('metadata', [b'', bytes(5), b'\xff'])
 def test_real_authorizer_and_refine_pvm_on_historical_state(target, refine_request, metadata):
     # Return an empty successful result from both real invocations.
@@ -506,11 +536,11 @@ def test_unnegotiated_and_uninitialized_refinement_closes_without_error(target, 
     asyncio.run(run())
 
 
-def test_internal_refinement_error_and_duplicate_initialize_close_session(target, refine_request, monkeypatch):
+def test_internal_refinement_error_and_duplicate_initialize_close_session(target, refine_request, vm, monkeypatch):
     def fail(*args, **kwargs):
         raise RuntimeError('internal failure')
 
-    monkeypatch.setattr(Refinement, 'compute_work_report', fail)
+    monkeypatch.setattr(Refinement, '_compute_authorized_report', fail)
 
     async def run():
         server = await asyncio.start_unix_server(target._handle_client, path=target.path)

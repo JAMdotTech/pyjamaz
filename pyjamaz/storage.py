@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -224,15 +225,29 @@ class FileStorageEngine(StorageEngine):
 
 
     def put(self, key: bytes, value: bytes):
-        with open(os.path.join(self.file_path, f'{key.hex()}.bin'), 'wb') as f:
-            f.write(value)
+        # Publish complete records atomically, including across a node restart.
+        destination = Path(self.file_path) / f'{key.hex()}.bin'
+        with tempfile.NamedTemporaryFile(dir=self.file_path, delete=False) as stream:
+            temporary = stream.name
+            try:
+                stream.write(value)
+                stream.flush()
+                os.fsync(stream.fileno())
+            except BaseException:
+                os.unlink(temporary)
+                raise
+        try:
+            os.replace(temporary, destination)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
 
     def get(self, key: bytes) -> bytes:
         with open(os.path.join(self.file_path, f'{key.hex()}.bin'), 'rb') as f:
             return f.read()
 
     def delete(self, key: bytes):
-        file_path = Path(self.file_path) / key.hex()
+        file_path = Path(self.file_path) / f'{key.hex()}.bin'
 
         if file_path.exists():
             file_path.unlink()

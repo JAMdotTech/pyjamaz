@@ -3,6 +3,7 @@ import logging
 import uuid
 
 from jamcodec.base import JamBytes
+from pyjamaz.bundle import decode_package
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.app import PyjamazApp
@@ -245,33 +246,18 @@ def rpcBeefyRoot(app: PyjamazApp, params):
 
 
 def rpcSubmitWorkPackage(app: PyjamazApp, params):
-    #TODO: should assign to a specific core
     ex = [base64_decode(x) for x in params[2]]
     wp = WorkPackage.from_jam_bytes(JamBytes(base64_decode(params[1])))
     DEBUG and logging.debug(f'Received workpackage {format_hash(wp.hash())}')
-    app.add_work_package(wp, ex)
+    app.add_work_package(wp, ex, core_index=params[0])
 
 
 def rpcSubmitWorkPackageBundle(app: PyjamazApp, params):
-    #TODO: should assign to a specific core
-    data = JamBytes(base64_decode(params[1]))
-    extrinsics = []
-
-    wp = WorkPackage.from_jam_bytes(data)
-
-    for item in wp.items:
-        for extrinsic_item in item.extrinsic:
-            extrinsic_data = bytes(data.get_next_bytes(extrinsic_item.len))
-            # Check data
-            if blake2b_256_hash(extrinsic_data) != extrinsic_item.hash:
-                raise RPCCallException("Invalid extrinsic data")
-            extrinsics.append(extrinsic_data)
-
-    if data.get_remaining_length() > 0:
-        logging.warning(f'DATA LEFT IN WORKPACKAGE BUNDLE: {data.get_remaining_length()}')
-
-    # DEBUG and logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
-    app.add_work_package(wp, extrinsics)
+    # GP-0.8.0-eq:14.16: retain B(p,l), not only its package/extrinsic prefix.
+    # The worker authorizes p before decoding and verifying the large data sequences.
+    encoded = base64_decode(params[1])
+    wp, _ = decode_package(encoded)
+    app.add_work_package(wp, [], core_index=params[0], bundle=encoded)
 
 
 def rpcSubmitPreimage(app: PyjamazApp, params):

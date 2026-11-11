@@ -221,8 +221,60 @@ class BinaryMerkleTree:
             node_limit = ceil(len(nodes)/2)
             return self.hash_function(b'node' + self.node(nodes[:node_limit]) + self.node(nodes[node_limit:]))
 
+    def trace(self, index: int) -> List[bytes]:
+        """GP-0.8.0-eq:E.2: T(v,i), with opposite nodes ordered root first."""
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(self.data):
+            raise IndexError("Merkle leaf index out of range")
+        nodes = self.data
+        proof = []
+        while len(nodes) > 1:
+            split = (len(nodes) + 1) // 2
+            if index < split:
+                proof.append(self.node(nodes[split:]))
+                nodes = nodes[:split]
+            else:
+                proof.append(self.node(nodes[:split]))
+                nodes = nodes[split:]
+                index -= split
+        return proof
+
+    def root_from_trace(self, value: bytes, index: int, count: int, proof: List[bytes] | Tuple[bytes, ...],
+                        *, single_item_hashed: bool = False) -> Optional[bytes]:
+        """Reconstitute E.1 from E.2; E.3 additionally hashes a singleton leaf."""
+        if (isinstance(index, bool) or not isinstance(index, int)
+                or isinstance(count, bool) or not isinstance(count, int)
+                or not 0 <= index < count or not isinstance(value, bytes)
+                or not isinstance(proof, (list, tuple))
+                or any(not isinstance(sibling, bytes) for sibling in proof)):
+            return None
+        directions = []
+        while count > 1:
+            split = (count + 1) // 2
+            right = index >= split
+            directions.append(right)
+            if right:
+                index -= split
+                count -= split
+            else:
+                count = split
+        if len(proof) != len(directions):
+            return None
+        if not directions:
+            return self.hash_function(value) if single_item_hashed else value
+        for right, sibling in reversed(list(zip(directions, proof))):
+            left, other = (sibling, value) if right else (value, sibling)
+            value = self.hash_function(b'node' + left + other)
+        return value
+
 
 class WellBalancedMerkleTree(BinaryMerkleTree):
+    @staticmethod
+    def verify(value: bytes, index: int, count: int, proof: List[bytes] | Tuple[bytes, ...], root: bytes) -> bool:
+        """Check E.3 inclusion using the exact E.2 path for (index,count)."""
+        return (isinstance(root, bytes) and len(root) == 32
+                and WellBalancedMerkleTree([]).root_from_trace(
+                    value, index, count, proof, single_item_hashed=True) == root)
+
     def root(self) -> bytes:
         """
         GP-0.8.0-eq:E.3 | well-balanced merkle tree root hash

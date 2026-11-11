@@ -669,6 +669,16 @@ class PyjamazApp:
         self.state_storage.commit()
 
         self.working_state.state_root = self.state_storage.state_root()
+        availability = getattr(getattr(self, 'runtime', None), 'availability', None)
+        if availability is not None and not SKIP_VALIDATE_GUARANTEES:
+            try:
+                # Chapter 14 routing is published only after the guarantee's block commits.
+                availability.record_committed(block, validator_pool_output.post_state.validators,
+                                              validator_archive_output.post_state.validators,
+                                              self.block_context, assurances_after_assurances_output.reported)
+            except Exception:
+                # An off-chain storage failure must not turn a committed STF into a rejection.
+                logging.exception('Availability metadata could not be retained; backfill will retry')
         signals = tuple(self.app_context.post_commit_signals)
         self.app_context.post_commit_signals.clear()
         if self.app_context.pubsub:
@@ -1021,13 +1031,55 @@ class PyjamazApp:
 
         return block
 
-    async def finalize(self, header_hash: bytes):
-        if header_hash != self.state_storage.finalized_block_hash:
+    async def finalize(self, header_hash: bytes, *, availability_finality_confirmed: bool = False):
+        """Finalize storage; prune availability only after an explicit trusted confirmation.
+
+        The current producer/importer calls finalize on parents as a local convention.
+        Those calls do not establish the finality required by GP 14.3.1 for deleting
+        audit data. A future finality integration must supply the confirmation.
+        """
+        already_finalized = False
+        if availability_finality_confirmed:
+            if self.state_storage.transaction:
+                raise ValueError('availability finality requires committed state')
+            header = self.retrieve_block_header(header_hash)
+            if header is None or header.hash != header_hash:
+                raise ValueError('availability finality requires a retained committed header')
+            # An explicit confirmation must not turn an orphan or pending candidate
+            # into the canonical availability-retention checkpoint.
+            cursor = self.state_storage.block_hash or self.state_storage.finalized_block_hash
+            visited = set()
+            while cursor is not None and cursor not in visited:
+                if cursor == self.state_storage.finalized_block_hash:
+                    already_finalized = True
+                if cursor == header_hash:
+                    break
+                visited.add(cursor)
+                header = self.retrieve_block_header(cursor)
+                if header is not None and header.hash != cursor:
+                    raise ValueError('availability finality requires valid ancestry headers')
+                cursor = header.parent if header is not None else self.state_storage.parents.get(cursor)
+            if cursor != header_hash:
+                raise ValueError('availability finality requires the active branch')
+            if not already_finalized and not self.state_storage.has_state_at(header_hash):
+                raise ValueError('availability finality requires a retained committed header')
+
+        # Real confirmation can lag the producer's local finalization convention.
+        # Its canonical ancestors remain eligible without rewinding storage finality.
+        if header_hash != self.state_storage.finalized_block_hash and not already_finalized:
             self.state_storage.finalize(header_hash)
             await self.store_finalized_head(header_hash)
             logging.info(f'🔒 Finalized block  {format_hash(header_hash)}')
         else:
             DEBUG and logging.debug(f'Skipped finalization, {format_hash(header_hash)} already finalized')
+
+        if availability_finality_confirmed:
+            availability = getattr(getattr(self, 'runtime', None), 'availability', None)
+            if availability is not None and self.d3l_store is not None:
+                try:
+                    availability.on_finalized(header_hash)
+                except Exception:
+                    logging.exception('Availability retention update failed')
 
     async def create_state_dump(self) -> StateDump:
         return StateDump(
@@ -1083,9 +1135,11 @@ class PyjamazApp:
         return guarantors
 
     # TODO deprecated
-    def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes]):
+    def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes], *,
+                         core_index: int | None = None, bundle: bytes | None = None):
 
-        self.runtime.refine_pipeline.add_work_package(work_package, extrinsics)
+        self.runtime.refine_pipeline.add_work_package(work_package, extrinsics,
+                                                      core_index=core_index, bundle=bundle)
 
     async def guarantee_work_report(self, work_report: WorkReport, timeslot: int):
 
