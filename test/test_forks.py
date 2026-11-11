@@ -212,6 +212,7 @@ class TestForks(unittest.TestCase):
 
     def test_invalid_finalize(self):
         self.state.set_block_hash(b'\x01' * 32, b'\x00' * 32)
+        self.state.commit()
         self.state.set_block_hash(b'\x02' * 32, b'\x01' * 32)
         self.state.put(b'timeslot', b'1')
         self.state.commit()

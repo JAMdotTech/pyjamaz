@@ -23,6 +23,8 @@ class StateStorage:
         self.finalized_block_hash = None
         self.block_hash: Optional[bytes] = None
         self.change_sets: Dict[bytes, Dict[bytes, typing.Union[bytes, ItemStatus]]] = {}
+        # Empty allocated overlays and committed transitions can have identical writes.
+        self._committed_blocks: set[bytes] = set()
         self.transaction: Dict[bytes, typing.Union[bytes, ItemStatus]] = {}
         self.parents: Dict[bytes, Optional[bytes]] = {}
         # GP-0.8.0-eq:5.3 (A)
@@ -79,6 +81,7 @@ class StateStorage:
         self.parents[block_hash] = parent_hash
 
         self.change_sets[block_hash] = {}
+        self._committed_blocks.discard(block_hash)
 
     def set_temporary_block_hash(self, parent_hash: bytes):
         self.set_block_hash(bytes(32), parent_hash)
@@ -108,9 +111,23 @@ class StateStorage:
             or block_hash in self.change_sets
         )
 
+    def has_committed_state_at(self, block_hash: bytes) -> bool:
+        """Require committed overlays through the retained finalized state."""
+        cursor = bytes(block_hash)
+        visited: set[bytes] = set()
+        while cursor != self.finalized_block_hash:
+            if cursor in visited or cursor not in self.change_sets or cursor not in self._committed_blocks:
+                return False
+            visited.add(cursor)
+            cursor = self.parents.get(cursor)
+            if cursor is None:
+                return False
+        return True
+
     def update_temporary_block_hash(self, block_hash: bytes):
         self.parents[block_hash] = self.parents.pop(bytes(32))
         self.change_sets[block_hash] = self.change_sets.pop(bytes(32))
+        self._committed_blocks.discard(block_hash)
         self.block_hash = block_hash
 
     def clear_block_hash(self):
@@ -267,6 +284,8 @@ class StateStorage:
         while cursor != previous_finalized:
             if cursor is None or cursor in visited or cursor not in self.change_sets:
                 raise ValueError("Cannot finalize a block outside the retained finalized branch")
+            if cursor not in self._committed_blocks:
+                raise ValueError("Cannot finalize an uncommitted state overlay")
             visited.add(cursor)
             path.append(cursor)
             cursor = self.parents.get(cursor)
@@ -305,6 +324,7 @@ class StateStorage:
             for candidate, changes in self.change_sets.items()
             if candidate in retained
         }
+        self._committed_blocks.intersection_update(retained)
         retained_with_finalized = retained | {block_hash}
         self.parents = {
             candidate: parent
@@ -326,6 +346,7 @@ class StateStorage:
     def clear(self, *, keep_ancestors=False):
         """Reset overlays and state selection, optionally retaining ancestor headers."""
         self.change_sets = {}
+        self._committed_blocks.clear()
         if not keep_ancestors:
             self.ancestors = {}
         self.parents = {}
@@ -343,6 +364,7 @@ class StateStorage:
                 raise ValueError('Cannot commit temporary block hash')
 
             self.change_sets[self.block_hash] = self.transaction
+            self._committed_blocks.add(self.block_hash)
             DEBUG and logging.debug(f"StateStorage: Commit transaction for {format_hash(self.block_hash)}")
 
         # Clear transaction
@@ -352,6 +374,7 @@ class StateStorage:
     def rollback(self):
         if self.block_hash is not None:
             self.change_sets.pop(self.block_hash, None)
+            self._committed_blocks.discard(self.block_hash)
             DEBUG and logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
 
         # Clear transaction
@@ -379,6 +402,7 @@ class StateStorage:
             raise KeyError("restore state overlay is unavailable")
 
         self.change_sets.pop(block_hash, None)
+        self._committed_blocks.discard(block_hash)
         self.parents.pop(block_hash, None)
         self.ancestors.pop(block_hash, None)
         self.transaction = {}
