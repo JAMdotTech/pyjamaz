@@ -52,7 +52,6 @@ class AvailabilityRuntime:
         self._parents = {}
         # Discover ancestors backwards, then replay this queue oldest first.
         self._backfill_pending = deque()
-        self._backfill_retry = deque()
         self._repair_blocks = {}
         self._backfill_wakeup = asyncio.Event()
         self._availability_finalized_hash = None
@@ -77,13 +76,12 @@ class AvailabilityRuntime:
         if block_hash not in self._parents:
             header = self.app.retrieve_block_header(block_hash)
             if header is not None:
-                self._parents[block_hash] = None if header.parent == bytes(32) else header.parent
+                self._parents[block_hash] = header.parent
             else:
                 parent = getattr(self.app.state_storage, 'parents', {}).get(block_hash)
                 # A just-committed header may not yet have reached block storage.
                 # Do not cache an absent parent: storage can become available later.
                 if parent is not None:
-                    parent = None if parent == bytes(32) else parent
                     self._parents[block_hash] = parent
                 return parent
         return self._parents[block_hash]
@@ -98,10 +96,7 @@ class AvailabilityRuntime:
                 cursor = None
                 break
             path.append(cursor)
-            parent = self._parent(cursor)
-            if cursor not in self._parents:
-                break  # Keep this cursor until its missing header becomes available.
-            cursor = parent
+            cursor = self._parent(cursor)
         if cursor in self._canonical_hashes:
             old = self._canonical_head
             removed = 0
@@ -114,14 +109,12 @@ class AvailabilityRuntime:
                 self._canonical_hashes.clear()
                 self._canonical_cursor = cursor
                 self._backfill_pending.clear()
-                self._backfill_retry.clear()
             self._backfill_pending.extend(reversed(path))
         else:
             # A deep reorganization is discovered in bounded batches just like startup.
             self._canonical_hashes.clear()
             self._canonical_cursor = cursor
             self._backfill_pending.clear()
-            self._backfill_retry.clear()
             self._backfill_pending.extend(reversed(path))
         self._canonical_head = head
         self._canonical_hashes.update(path)
@@ -153,49 +146,28 @@ class AvailabilityRuntime:
             return self.store.source_for(**lookup, canonical=self.canonical)
 
     def _backfill_sources(self):
-        """Replay one bounded batch; return whether immediately available work remains."""
+        """Discover and replay at most one small batch of retained historical context."""
         self._refresh_canonical_head()
         for _ in range(self.BACKFILL_BATCH_SIZE):
             cursor = self._canonical_cursor
-            if cursor is None:
-                break
-            if cursor in self._canonical_hashes:
-                if cursor not in self._parents:
-                    parent = self._parent(cursor)
-                    if cursor not in self._parents:
-                        return False
-                    self._canonical_cursor = parent
-                    continue
+            if cursor is None or cursor in self._canonical_hashes:
                 self._canonical_cursor = None
                 break
             self._canonical_hashes.add(cursor)
             self._backfill_pending.appendleft(cursor)
-            parent = self._parent(cursor)
-            if cursor not in self._parents:
-                return False
-            self._canonical_cursor = parent
+            self._canonical_cursor = self._parent(cursor)
         if self._canonical_cursor is not None:
-            return True
-        # Retry each previously incomplete block at most once per call. Newly
-        # incomplete blocks wait for a later wakeup, without blocking other history.
-        retries = len(self._backfill_retry)
+            return
         for _ in range(self.BACKFILL_BATCH_SIZE):
-            if self._backfill_pending:
-                queue = self._backfill_pending
-            elif retries:
-                queue = self._backfill_retry
-                retries -= 1
-            else:
+            if not self._backfill_pending:
                 break
-            block_hash = queue.popleft()
+            block_hash = self._backfill_pending.popleft()
             if self.canonical(block_hash):
                 try:
-                    if not self._backfill_block(block_hash):
-                        self._backfill_retry.append(block_hash)
+                    self._backfill_block(block_hash)
                 except OSError:
-                    queue.appendleft(block_hash)
+                    self._backfill_pending.appendleft(block_hash)
                     raise
-        return bool(self._backfill_pending)
 
     async def _backfill_worker(self):
         while True:
@@ -203,21 +175,18 @@ class AvailabilityRuntime:
             self._backfill_wakeup.clear()
             while True:
                 try:
-                    more = self._backfill_sources()
+                    self._backfill_sources()
                 except (OSError, DataUnavailable):
                     logging.exception('Historical availability backfill will retry later')
                     break
-                if not more:
+                if self._canonical_cursor is None and not self._backfill_pending:
                     break
                 await asyncio.sleep(0)
 
     def _backfill_block(self, block_hash):
         block = self.app.retrieve_block_by_hash(block_hash)
-        if block is None:
-            # Genesis has no guarantee or assurance body to reconstruct.
-            return block_hash in self._parents and self._parents[block_hash] is None
-        if not block.extrinsic.guarantees and not block.extrinsic.assurances:
-            return True
+        if block is None or not block.extrinsic.guarantees and not block.extrinsic.assurances:
+            return
         # The accepted block identifies the records to retry if its historical
         # state is restored later. These hints do not establish source metadata.
         for guarantee in block.extrinsic.guarantees:
@@ -233,17 +202,11 @@ class AvailabilityRuntime:
             context = BlockContext()
             context.set_guarantor_assignments(entropy, timeslot, pool)
             context.set_prev_guarantor_assignments(entropy, timeslot, pool, archive)
-            complete = True
-            try:
-                reported = self._reported_from_block(block, pool)
-            except DataUnavailable:
-                reported = []
-                complete = False
-            recorded = self.record_committed(block, pool.validators, archive.validators, context, reported)
-            return complete and recorded
+            self.record_committed(block, pool.validators, archive.validators, context,
+                                  self._reported_from_block(block, pool))
         except (KeyError, ValueError, DataUnavailable, ScaleDecodeException, StateTransitionError):
             # Missing historical state must not be replaced with the current validator set.
-            return False
+            return
 
     def _reported_from_block(self, block, pool):
         if not block.extrinsic.assurances:
@@ -260,14 +223,14 @@ class AvailabilityRuntime:
                 block.extrinsic.assurances, intermediate.intermediate_state_after_disputes,
                 block.header, prior_pool, pool,
             ).reported
-        except (KeyError, ValueError, DataUnavailable, ScaleDecodeException, StateTransitionError) as exc:
-            raise DataUnavailable('historical assurance context is unavailable') from exc
+        except (KeyError, ValueError, DataUnavailable, ScaleDecodeException, StateTransitionError):
+            return []  # Missing assurance context retains audit payloads conservatively.
 
     def record_committed(self, block, validators, archived_validators, context, available_reports):
-        """Publish committed context; return whether all assurance sources were available."""
+        """Called after commit, while verified guarantee assignment identities are known."""
         if self.app.d3l_store is None:
-            return True
-        self._parents[block.header.hash] = None if block.header.parent == bytes(32) else block.header.parent
+            return
+        self._parents[block.header.hash] = block.header.parent
         self._refresh_canonical_head()
         for guarantee in block.extrinsic.guarantees:
             self._remember_source_block(guarantee.report, block.header.hash)
@@ -287,14 +250,12 @@ class AvailabilityRuntime:
                 pass  # The committed context can reconstruct a missing source record.
             self.store.register_source(source)
             self._enqueue(source)
-        complete = True
         for report in available_reports:
             self._remember_source_block(report, block.header.hash)
             try:
                 self.store.mark_assured(report, block.header.hash, block.header.timeslot, self.canonical)
             except DataUnavailable:
-                complete = False  # Replay after a missing registration has been restored.
-        return complete
+                pass
 
     def _remember_source_block(self, report, block_hash):
         spec = report.package_spec

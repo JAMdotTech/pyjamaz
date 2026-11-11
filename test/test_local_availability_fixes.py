@@ -71,7 +71,7 @@ def test_trusted_finality_lineage_is_reused_until_next_confirmation(source_data)
 
 def history_runtime(count):
     def block_hash(number):
-        return (number + 1).to_bytes(32, 'little')
+        return number.to_bytes(32, 'little')
 
     calls = {'headers': 0, 'blocks': 0}
     headers = {block_hash(i): SimpleNamespace(parent=block_hash(i - 1) if i else None, timeslot=i)
@@ -83,7 +83,7 @@ def history_runtime(count):
 
     def block(h):
         calls['blocks'] += 1
-        return SimpleNamespace(extrinsic=SimpleNamespace(guarantees=[], assurances=[]))
+        return None
 
     app = SimpleNamespace(
         d3l_store=DataAvailabilityStore(InMemoryStorageEngine()),

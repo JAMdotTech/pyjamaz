@@ -2,7 +2,7 @@
 
 Date: 2026-11-09
 
-Last updated: 2026-11-11
+Last updated: 2026-11-10
 
 Repository: `/Users/arjan/Development/pyjamaz`
 
@@ -26,10 +26,6 @@ Branch: `az-segment-recovery-import`. The first branch change below follows `750
 | `04a9af52` | Bind replayed assurances to the matching report and an existing registration at the assurance slot | Prevent historical replay from attaching an old assurance to a later registration or another report sharing an erasure root. Preserve existing canonical assurance references. |
 | `2309d233` | Fall back to the finalized head after restart; bound metadata backfill; normalize corrupt local export caches | Keep retained sources available after startup, avoid full-history rescans per miss/head, repair missing records from retained context, and keep local cache failures retryable. |
 | `c64a886f` | Require explicit trusted finality before availability pruning | Existing parent-finalization conventions must not authorize deletion. Confirmations can lag storage finality without rewinding storage; repeated/older confirmations cannot regress trusted availability finality. |
-| `7643a31e` / `b585ea6b` | Defer unimplemented batch-CLI contract tests and initialize ancestry test sessions correctly | Keep future CLI reporting requirements explicit and test the existing per-session initialization contract. No production behavior changes. |
-| `7093eb46` | Distinguish committed transitions from allocated candidate overlays | A retained header and an empty overlay do not prove execution. Require committed ancestry before finalization, including ordinary storage finalization, so candidates cannot trigger audit deletion. Legitimate empty commits remain supported. |
-| `8238e30b` | Rebuild missing provenance indexes for older local reports | Discover valid retained `local-report-v1` records in bounded batches and persist their exports-to-report indexes. Direct-root imports remain eligible after upgrading and restarting, without claiming chain-backed availability. |
-| Follow-up backfill fix | Retain missing-header cursors and incomplete body/state/assurance replay | Restoring historical data at the same or an extended head resumes recovery. Retries stay bounded, unrelated guarantees remain available, and background workers wait for another wakeup when data is missing. |
 
 For review, use `git diff 0e780285..HEAD` for the incremental local fixes and `git diff 750c1f16..HEAD` for the complete branch. `git show <commit>` isolates each change. No networking or CLI files changed after the checkpoint.
 
@@ -45,15 +41,13 @@ The runtime checks source provenance before `Psi_R`, including for a fully suppl
 
 Historical discovery and replay process bounded batches of 64 blocks and yield between background batches. Parent/canonical caches avoid repeating full ancestry walks. Missing historical state remains unavailable; restoring retained context permits targeted repair without inventing the original validator set.
 
-The follow-up review's three local findings are addressed: finalization checks explicit commit markers through retained ancestry, valid legacy local reports acquire their missing reverse indexes, and missing historical headers/bodies remain retryable. Legacy index migration reads at most 64 keys per lookup and never loads bundle/shard payloads. Large stores may require several attempts. Invalid legacy report records are isolated; repairing them and restarting permits migration again. Newly computed reports continue to publish their indexes immediately.
-
 Storage finalization retains availability data by default. A future trusted-finality integration can explicitly call:
 
 ```python
 await app.finalize(header_hash, availability_finality_confirmed=True)
 ```
 
-The confirmation requires valid retained headers on committed active ancestry. Allocating a candidate with `set_header` does not establish a committed state, even when there are no pending writes. Ordinary storage finalization also rejects uncommitted overlays, preventing them from becoming a trusted retention checkpoint indirectly. An older canonical checkpoint can confirm availability without moving storage finality backwards. Trusted availability-finality knowledge is deliberately conservative after restart: it must be confirmed again before pruning. Until that integration supplies confirmations, audit payloads are retained. The existing 672-epoch minimum, shared-data protection and active-request protection still apply when pruning is authorized.
+The confirmation requires valid retained headers on committed active ancestry. An older canonical checkpoint can confirm availability without moving storage finality backwards. Trusted availability-finality knowledge is deliberately conservative after restart: it must be confirmed again before pruning. Until that integration supplies confirmations, audit payloads are retained. The existing 672-epoch minimum, shared-data protection and active-request protection still apply when pruning is authorized.
 
 Remaining networking review work includes historical/current/builder access rules, CE133 import acquisition, missing-ancestor catch-up, response limits during reading, persistent-link key pinning and checkpoint/genesis configuration. Full guarantee coordination, assurance voting and audit/judgment production also remain outside these local fixes. Existing automatic assurance production is not newly gated by this change.
 
@@ -200,9 +194,7 @@ The PDF also describes preparing distributions for two differently sized validat
 
 ## Verification and confidence
 
-The November 11 follow-up run, excluding networking, passed **882 tests with ten skips and 14 known expected failures** across two disjoint suites, plus **four recovered-import tests with the Graypaper interpreter**. It covers all three local regression fixes, persistent file/RocksDB migration, state and ancestry/fuzzer behavior, recovery, refinement, hostcalls, reports, bundle submission and traces. Eight skips are the explicitly deferred batch-CLI tests; the other two are existing conditional cases. GP calculation files, constants, equation references and public signatures were checked against `b585ea6b` and remain unchanged.
-
-The earlier implementation regression run produced:
+The final implementation regression run produced:
 
 - **730 passed, two skipped and 14 expected failures** across recovery, refinement, hostcalls, reports, traces and submission/artifact/storage/lifecycle tests, including unchanged transport regression tests. This extends the earlier 497-pass and 693-pass baselines.
 - **Six additional passes with the Graypaper interpreter** for local and peer recovered-import integration through the real PVM.
@@ -214,7 +206,7 @@ The earlier implementation regression run produced:
 - Lifecycle tests cover successful/failed commits, historical guarantors and resized assurer sets, missing-source backfill, assurance reconstruction, fork selection, active requests, 672-epoch boundaries and real finalization.
 - Local-fix regressions cover finalized-head restart lookup, bounded/yielding history replay, restored historical state, isolated missing records, fabricated roots, retained local provenance, corrupt complete-export retries, matching assurance registrations and delayed trusted finality. The final focused storage/lifecycle check passed 75 tests after the last guard adjustment.
 
-The later fuzzer investigation identified seven failures against unimplemented batch-CLI flags and four ancestry tests missing the required per-session Initialize message. All eight batch-CLI contract tests are now explicitly deferred, including one that previously passed for the wrong reason. The ancestry setup now performs initialization over the tested stream; the production guard is unchanged. That focused fuzzer run passed 84 tests with nine skips. Existing reference expectations were not rewritten.
+An additional broader run found seven stale tests in the pre-existing untracked `test/test_fuzzer_refinement_batch.py`: they require an absent `fuzzer traces --results-file` option. That batch-CLI feature is outside this change. Existing reference expectations were not rewritten.
 
 The [erasure tests](/Users/arjan/Development/pyjamaz/test/test_erasure.py), [import-recovery tests](/Users/arjan/Development/pyjamaz/test/test_import_recovery.py), [peer/PVM tests](/Users/arjan/Development/pyjamaz/test/test_peer_availability.py), [lifecycle tests](/Users/arjan/Development/pyjamaz/test/test_availability_lifecycle.py) and [QUIC tests](/Users/arjan/Development/pyjamaz/test/test_jamnp_transport.py) support these conclusions.
 
