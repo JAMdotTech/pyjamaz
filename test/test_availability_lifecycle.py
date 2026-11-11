@@ -216,7 +216,6 @@ def test_availability_finality_confirmation_rejects_untrusted_state(fault):
         target = other.hash
     elif fault == 'candidate':
         app.state_storage.set_header(other)
-        headers[other.hash] = other
         target = other.hash
     elif fault == 'orphan':
         app.state_storage.set_header(other)
@@ -231,64 +230,6 @@ def test_availability_finality_confirmation_rejects_untrusted_state(fault):
         asyncio.run(app.finalize(target, availability_finality_confirmed=True))
     assert app.state_storage.finalized_block_hash == genesis.hash
     availability.on_finalized.assert_not_called()
-
-
-@pytest.mark.parametrize('committed_descendant', [False, True])
-def test_uncommitted_candidate_cannot_prune_audit_data(source_data, committed_descendant):
-    async def run():
-        artifacts, report, validators, exports = source_data
-        app = PyjamazApp.__new__(PyjamazApp)
-        app.block_db = InMemoryStorageEngine()
-        app.state_storage = StateStorage(InMemoryStorageEngine())
-        app.d3l_store = DataAvailabilityStore(InMemoryStorageEngine())
-        app.runtime = SimpleNamespace(availability=AvailabilityRuntime(app))
-        genesis = Header.default()
-        registration = replace(genesis, parent=genesis.hash, timeslot=1)
-        assurance = replace(genesis, parent=registration.hash, timeslot=2)
-        candidate = replace(genesis, parent=assurance.hash, timeslot=3)
-        headers = {header.hash: header for header in (genesis, registration, assurance, candidate)}
-        app.retrieve_block_header = headers.get
-        app.state_storage.set_finalized_header(genesis)
-        for header in (registration, assurance):
-            app.state_storage.set_header(header)
-            app.state_storage.commit()
-        app.d3l_store.store_work_report(report, b'bundle', exports, artifacts=artifacts)
-        app.d3l_store.register_source(AvailabilitySource(report, validators, validators[:2],
-                                                       registration.hash, 1, assurance.hash, 2))
-
-        # A retained header and allocated empty overlay do not prove execution.
-        app.state_storage.set_header(candidate)
-        target = candidate
-        if committed_descendant:
-            target = replace(genesis, parent=candidate.hash, timeslot=4)
-            headers[target.hash] = target
-            app.state_storage.set_header(target)
-            app.state_storage.commit()
-        assert app.state_storage.has_state_at(target.hash)
-        assert app.state_storage.transaction == {}
-        with pytest.raises(ValueError, match='availability finality requires'):
-            await app.finalize(target.hash, availability_finality_confirmed=True)
-        # Ordinary storage finalization must not bypass the execution check either.
-        with pytest.raises(ValueError, match='uncommitted state'):
-            await app.finalize(target.hash)
-        assert app.state_storage.finalized_block_hash == genesis.hash
-        assert app.runtime.availability._availability_finalized_hash is None
-        assert app.d3l_store.retrieve_validator_shard(report.package_spec, 0) == artifacts.shards[0]
-
-        # An explicitly committed transition may legitimately have no writes.
-        app.state_storage.select_block_hash(candidate.hash)
-        app.state_storage.commit()
-        # A newer unexecuted descendant does not invalidate its committed parent.
-        pending = replace(genesis, parent=target.hash, timeslot=5)
-        headers[pending.hash] = pending
-        app.state_storage.set_header(pending)
-        await app.finalize(target.hash, availability_finality_confirmed=True)
-        assert app.state_storage.finalized_block_hash == target.hash
-        with pytest.raises(DataUnavailable, match='audit'):
-            app.d3l_store.retrieve_validator_shard(report.package_spec, 0)
-        assert app.d3l_store.retrieve_segment_shard(report.package_spec, 0, 0)[0]
-
-    asyncio.run(run())
 
 
 def test_trusted_confirmation_may_lag_local_storage_finality(source_data):

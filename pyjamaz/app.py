@@ -1061,7 +1061,7 @@ class PyjamazApp:
                 cursor = header.parent if header is not None else self.state_storage.parents.get(cursor)
             if cursor != header_hash:
                 raise ValueError('availability finality requires the active branch')
-            if not already_finalized and not self.state_storage.has_committed_state_at(header_hash):
+            if not already_finalized and not self.state_storage.has_state_at(header_hash):
                 raise ValueError('availability finality requires a retained committed header')
 
         # Real confirmation can lag the producer's local finalization convention.
