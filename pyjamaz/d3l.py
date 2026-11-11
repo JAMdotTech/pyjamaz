@@ -1,6 +1,5 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from itertools import islice
 from typing import Optional
 
 from jamcodec.base import JamBytes
@@ -42,12 +41,9 @@ class AvailabilitySource(Serializable):
 
 class DataAvailabilityStore:
 
-    LOCAL_REPORT_BACKFILL_BATCH_SIZE = 64
-
     def __init__(self, storage_engine: StorageEngine):
         self.storage_engine = storage_engine
         self._active_roots = {}
-        self._local_report_keys = None
 
     def _retrieve(self, key: bytes, message: str) -> bytes:
         try:
@@ -263,45 +259,23 @@ class DataAvailabilityStore:
                 ProcessWorkpackageError) as exc:
             raise DataUnavailable('stored local report is invalid') from exc
 
-    def _indexed_local_report_for_exports(self, exports_root: bytes) -> Optional[WorkReport]:
-        # The same exports may have several bundle/validator specifications.
-        for erasure_root in reversed(self._index(b'local-exports-v1:' + exports_root)):
+    def local_report_for_exports(self, exports_root: bytes) -> WorkReport:
+        """Find a locally computed source without claiming chain-backed availability."""
+        if not isinstance(exports_root, bytes) or len(exports_root) != 32:
+            raise DataUnavailable('invalid exports root')
+        reports = []
+        for erasure_root in self._index(b'local-exports-v1:' + exports_root):
             try:
                 report = self._local_report(erasure_root)
             except DataUnavailable:
                 continue
             if report.package_spec.exports_root != exports_root:
                 raise DataUnavailable('stored local exports index does not match its report')
-            return report
-        return None
-
-    def _backfill_local_report_indexes(self) -> None:
-        """Index reports retained before the exports-to-report index was introduced."""
-        if self._local_report_keys is None:
-            self._local_report_keys = self.storage_engine.iter_keys()
-        prefix = b'local-report-v1:'
-        # Advance once through keys, without reading bundle or shard payloads.
-        for key in islice(self._local_report_keys, self.LOCAL_REPORT_BACKFILL_BATCH_SIZE):
-            if not key.startswith(prefix) or len(key) != len(prefix) + 32:
-                continue
-            try:
-                report = self._local_report(key[len(prefix):])
-                self._add_index(b'local-exports-v1:' + report.package_spec.exports_root,
-                                report.package_spec.erasure_root)
-            except DataUnavailable:
-                continue
-
-    def local_report_for_exports(self, exports_root: bytes) -> WorkReport:
-        """Find a locally computed source without claiming chain-backed availability."""
-        if not isinstance(exports_root, bytes) or len(exports_root) != 32:
-            raise DataUnavailable('invalid exports root')
-        report = self._indexed_local_report_for_exports(exports_root)
-        if report is None:
-            self._backfill_local_report_indexes()
-            report = self._indexed_local_report_for_exports(exports_root)
-        if report is None:
+            reports.append(report)
+        if not reports:
             raise DataUnavailable('locally computed source metadata is unavailable')
-        return report
+        # The same exports may be retained under several bundle/validator specifications.
+        return max(reports, key=lambda report: report.package_spec.erasure_root)
 
     def _source_index_complete(self, kind, value, sources) -> bool:
         """Missing source context protects only payloads whose indexes reference it."""

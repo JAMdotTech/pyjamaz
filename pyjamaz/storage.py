@@ -57,10 +57,6 @@ class StorageEngine:
     def as_dict(self) -> dict:
         raise NotImplementedError
 
-    def iter_keys(self):
-        """Iterate retained keys without loading their values."""
-        raise NotImplementedError
-
     def close(self):
         raise NotImplementedError
 
@@ -127,10 +123,6 @@ class InMemoryStorageEngine(StorageEngine):
 
     def as_dict(self) -> dict:
         return {k[len(self.prefix):]: v for k, v in self.storage.items() if k.startswith(self.prefix)}
-
-    def iter_keys(self):
-        # Snapshot keys so callers can publish indexes while iterating.
-        return (key[len(self.prefix):] for key in tuple(self.storage) if key.startswith(self.prefix))
 
     def close(self):
         pass
@@ -224,9 +216,6 @@ class RocksDBStorageEngine(StorageEngine):
     def as_dict(self):
         return dict(self.db)
 
-    def iter_keys(self):
-        return iter(self.db.keys())
-
 
 class FileStorageEngine(StorageEngine):
 
@@ -280,13 +269,3 @@ class FileStorageEngine(StorageEngine):
 
     def as_dict(self):
         raise NotImplementedError
-
-    def iter_keys(self):
-        with os.scandir(self.file_path) as entries:
-            for entry in entries:
-                if not entry.name.endswith('.bin') or not entry.is_file():
-                    continue
-                try:
-                    yield bytes.fromhex(entry.name[:-4])
-                except ValueError:
-                    continue
