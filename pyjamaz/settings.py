@@ -1,8 +1,8 @@
 import os
 
 TEST_SUITE = 'tiny' # tiny, full or fuzz
-GP_VERSION = '0.8.0'
-APP_VERSION = '0.3.10'
+GP_VERSION = '0.8.1'
+APP_VERSION = '0.4.0'
 
 
 def _apply_jam_fuzz_spec_override():
